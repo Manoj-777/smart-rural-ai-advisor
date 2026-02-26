@@ -6,77 +6,50 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: python3.11
+    Runtime: python3.13
     Environment:
       Variables:
         BEDROCK_AGENT_ID: !Ref BedrockAgentId
         BEDROCK_AGENT_ALIAS_ID: !Ref BedrockAgentAliasId
         BEDROCK_KB_ID: !Ref BedrockKBId
         OPENWEATHER_API_KEY: !Ref OpenWeatherApiKey
-        S3_KNOWLEDGE_BUCKET: !Ref KnowledgeBucket
-        DYNAMODB_PROFILES_TABLE: !Ref FarmerProfilesTable
-        DYNAMODB_SESSIONS_TABLE: !Ref ChatSessionsTable
+        S3_KNOWLEDGE_BUCKET: !Sub 'smart-rural-ai-${AWS::AccountId}'
+        DYNAMODB_PROFILES_TABLE: farmer_profiles
+        DYNAMODB_SESSIONS_TABLE: chat_sessions
+        AGENTCORE_RUNTIME_ARN: !Ref AgentCoreRuntimeArn
 
 Parameters:
   BedrockAgentId:
     Type: String
     Description: Bedrock AgentCore Agent ID
+    Default: PLACEHOLDER
   BedrockAgentAliasId:
     Type: String
     Description: Bedrock AgentCore Alias ID
+    Default: PLACEHOLDER
   BedrockKBId:
     Type: String
     Description: Bedrock Knowledge Base ID
+    Default: PLACEHOLDER
   OpenWeatherApiKey:
     Type: String
     Description: OpenWeatherMap API Key
     NoEcho: true
+  AgentCoreRuntimeArn:
+    Type: String
+    Description: Amazon Bedrock AgentCore Runtime ARN (set after agentcore deploy)
+    Default: ''
 
 Resources:
-  # S3 Bucket for knowledge base and audio
-  KnowledgeBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub 'smart-rural-ai-${AWS::AccountId}'
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-
-  # DynamoDB Tables
-  FarmerProfilesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: farmer_profiles
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: farmer_id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: farmer_id
-          KeyType: HASH
-
-  ChatSessionsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: chat_sessions
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: session_id
-          AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: S
-      KeySchema:
-        - AttributeName: session_id
-          KeyType: HASH
-        - AttributeName: timestamp
-          KeyType: RANGE
+  # S3 Bucket and DynamoDB tables created manually (already exist)
+  # S3: smart-rural-ai-948809294205
+  # DynamoDB: farmer_profiles, chat_sessions
 
   # Lambda Functions
   AgentOrchestratorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/agent_orchestrator/
+      CodeUri: ../backend/lambdas/agent_orchestrator/
       Handler: handler.lambda_handler
       Policies:
         - Version: '2012-10-17'
@@ -85,6 +58,10 @@ Resources:
               Action:
                 - bedrock:InvokeAgent
                 - bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - bedrock-agentcore:InvokeAgentRuntime
               Resource: '*'
             - Effect: Allow
               Action:
@@ -99,15 +76,15 @@ Resources:
               Action:
                 - s3:PutObject
                 - s3:GetObject
-              Resource: !Sub '${KnowledgeBucket.Arn}/*'
+              Resource: !Sub 'arn:aws:s3:::smart-rural-ai-${AWS::AccountId}/*'
             - Effect: Allow
               Action:
                 - dynamodb:PutItem
                 - dynamodb:GetItem
                 - dynamodb:Query
-              Resource: 
-                - !GetAtt ChatSessionsTable.Arn
-                - !GetAtt FarmerProfilesTable.Arn
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/chat_sessions'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/farmer_profiles'
       Events:
         ChatApi:
           Type: Api
@@ -133,7 +110,7 @@ Resources:
   CropAdvisoryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/crop_advisory/
+      CodeUri: ../backend/lambdas/crop_advisory/
       Handler: handler.lambda_handler
       Policies:
         - Version: '2012-10-17'
@@ -147,7 +124,7 @@ Resources:
   WeatherFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/weather_lookup/
+      CodeUri: ../backend/lambdas/weather_lookup/
       Handler: handler.lambda_handler
       Events:
         WeatherApi:
@@ -155,6 +132,11 @@ Resources:
           Properties:
             Path: /weather/{location}
             Method: get
+        WeatherOptions:
+          Type: Api
+          Properties:
+            Path: /weather/{location}
+            Method: options
 
   HealthCheckFunction:
     Type: AWS::Serverless::Function
@@ -177,7 +159,7 @@ Resources:
   ImageAnalysisFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/image_analysis/
+      CodeUri: ../backend/lambdas/image_analysis/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
@@ -207,7 +189,7 @@ Resources:
   GovtSchemesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/govt_schemes/
+      CodeUri: ../backend/lambdas/govt_schemes/
       Handler: handler.lambda_handler
       Policies:
         - Version: '2012-10-17'
@@ -223,11 +205,16 @@ Resources:
           Properties:
             Path: /schemes
             Method: get
+        SchemesOptions:
+          Type: Api
+          Properties:
+            Path: /schemes
+            Method: options
 
   FarmerProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/farmer_profile/
+      CodeUri: ../backend/lambdas/farmer_profile/
       Handler: handler.lambda_handler
       Policies:
         - Version: '2012-10-17'
@@ -237,7 +224,7 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
                 - dynamodb:UpdateItem
-              Resource: !GetAtt FarmerProfilesTable.Arn
+              Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/farmer_profiles'
       Events:
         ProfileGetApi:
           Type: Api
@@ -249,11 +236,16 @@ Resources:
           Properties:
             Path: /profile/{farmerId}
             Method: put
+        ProfileOptions:
+          Type: Api
+          Properties:
+            Path: /profile/{farmerId}
+            Method: options
 
   TranscribeSpeechFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: backend/lambdas/transcribe_speech/
+      CodeUri: ../backend/lambdas/transcribe_speech/
       Handler: handler.lambda_handler
       Timeout: 30
       Policies:
@@ -268,13 +260,19 @@ Resources:
               Action:
                 - s3:PutObject
                 - s3:GetObject
-              Resource: !Sub '${KnowledgeBucket.Arn}/*'
+                - s3:DeleteObject
+              Resource: !Sub 'arn:aws:s3:::smart-rural-ai-${AWS::AccountId}/*'
       Events:
         TranscribeApi:
           Type: Api
           Properties:
             Path: /transcribe
             Method: post
+        TranscribeOptions:
+          Type: Api
+          Properties:
+            Path: /transcribe
+            Method: options
 
 Outputs:
   ApiUrl:

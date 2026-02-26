@@ -47,3 +47,14 @@ desktop.ini
 *.log
 *.zip
 *.tar.gz
+
+## Temp IAM/config files (created during setup)
+agent-trust-policy.json
+agent-permissions-policy.json
+kb-trust-policy.json
+kb-permissions-policy.json
+kb-config.json
+kb-storage-config.json
+aoss-enc-policy.json
+.bedrock_agentcore.yaml
+.venv313/
