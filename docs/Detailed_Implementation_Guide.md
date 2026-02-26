@@ -47,12 +47,12 @@
 12. [Amazon Translate — Auto Language Detection](#12-amazon-translate--auto-language-detection)
 13. [OpenWeatherMap — Weather Integration](#13-openweathermap--weather-integration)
 14. [Amazon SNS — Alert Notifications](#14-amazon-sns--alert-notifications)
-15. [Streamlit Frontend — Web App](#15-streamlit-frontend--web-app)
-16. [Voice Input — Streamlit Custom Component](#16-voice-input--streamlit-custom-component-dual-path)
+15. [React Frontend — Web App](#15-react-frontend--web-app)
+16. [Voice Input — Native JavaScript](#16-voice-input--native-javascript)
 17. [Crop Image Analysis — Claude Vision](#17-crop-image-analysis--claude-vision)
 18. [AWS SAM — Infrastructure as Code](#18-aws-sam--infrastructure-as-code)
-19. [AWS App Runner — Deployment & Live URL](#19-aws-app-runner--deployment--live-url)
-- **🔀 ALTERNATIVE: React Frontend (15R–19R)** — [Jump to React path](#-alternative-frontend--react--css--js-sections-15r19r)
+19. [React Deployment — S3 + CloudFront](#19-react-deployment--s3--cloudfront)
+- **🔀 ALTERNATIVE: Streamlit Frontend (15S–19S)** — [Jump to Streamlit path](#-alternative-frontend--streamlit-sections-15s19s)
 20. [AWS IAM & KMS — Security](#20-aws-iam--kms--security)
 21. [Amazon CloudWatch — Monitoring](#21-amazon-cloudwatch--monitoring)
 22. [Testing Strategy](#22-testing-strategy)
@@ -151,7 +151,7 @@ Let's walk through a **complete real scenario** so you understand every piece of
 
 ### Step 1: Rajesh Opens the App
 
-He opens his phone browser and goes to our URL (e.g., `https://abc123.awsapprunner.com`). No app install needed.
+He opens his phone browser and goes to our URL (e.g., `https://d1234abcd.cloudfront.net`). No app install needed.
 
 He sees:
 - A clean chat interface with a **big green microphone button** (🎤)
@@ -210,7 +210,7 @@ The Tamil text goes to our backend. **Amazon Translate** does two things:
 The English message goes through:
 
 ```
-Streamlit Frontend → Amazon API Gateway → AWS Lambda (orchestrator) → Amazon Bedrock AgentCore
+React Frontend → Amazon API Gateway → AWS Lambda (orchestrator) → Amazon Bedrock AgentCore
 ```
 
 **AgentCore** is the brain. It's powered by **Claude Sonnet 4.5** and has access to 5 tools:
@@ -314,7 +314,7 @@ Total time: **3-7 seconds**. Available 24/7. No waiting in queue.
 │                                                                                   │
 │  👨‍🌾 FARMER (Phone Browser)                                                       │
 │  ┌─────────────────────────────────────────────┐                                  │
-│  │ Streamlit Web App (AWS App Runner)           │                                  │
+│  │ React + Vite Web App (S3 + CloudFront)        │                                  │
 │  │ • Chat Interface      • Weather Page         │                                  │
 │  │ • Voice Mic Button    • Govt Schemes Page     │                                  │
 │  │ • Crop Image Upload   • My Farm Profile       │                                  │
@@ -368,24 +368,24 @@ Total time: **3-7 seconds**. Available 24/7. No waiting in queue.
 
 | Component | Technology | What It Does | Why This Choice |
 |---|---|---|---|
-| **Web App** | Streamlit (Python) | 5-page app: Chat, Weather, Govt Schemes, Crop Doctor, My Farm | Python (same as backend), generates UI with minimal code, Copilot can generate pages in minutes. For a 6-day hackathon, speed is everything. |
-| **Voice Input (Primary)** | Browser Web Speech API | Farmer speaks → converts to text | **Free** (no AWS cost), supports Tamil/Telugu/Hindi/English, works in Chrome/Edge/Safari/Opera. Implemented as a **custom Streamlit component** using `declare_component()` + `Streamlit.setComponentValue()` — the only way to get JS data back to Python. |
-| **Voice Input (Fallback)** | Amazon Transcribe | Audio recorded via MediaRecorder → Lambda → Transcribe → text | 60 min/month free. Kicks in automatically for Firefox or any browser without Web Speech API. Farmer sees no difference. Same custom component auto-detects and switches path. |
+| **Web App** | React 18 + Vite (JavaScript) | 5-page app: Chat, Weather, Govt Schemes, Crop Doctor, My Farm | Custom, professional UI with full control over styling and mobile responsiveness. Sanjay handles frontend — React gives the best judge impression ("looks like a real product"). |
+| **Voice Input (Primary)** | Browser Web Speech API | Farmer speaks → converts to text | **Free** (no AWS cost), supports Tamil/Telugu/Hindi/English, works in Chrome/Edge/Safari/Opera. **Native in React** — Web Speech API is just JavaScript, no hacks needed. |
+| **Voice Input (Fallback)** | Amazon Transcribe | Audio recorded via MediaRecorder → Lambda → Transcribe → text | 60 min/month free. Kicks in automatically for Firefox or any browser without Web Speech API. Farmer sees no difference. Custom hook auto-detects and switches path. |
 | **Voice Output** | Amazon Polly audio | AI speaks back in farmer's language | Neural voices sound natural, supports Hindi + Indian English. Cheap ($4/million chars). |
-| **Crop Image Upload** | Streamlit file uploader | Upload photo of diseased crop → AI diagnosis | Simple drag-and-drop, sends image to Claude Vision for analysis. |
+| **Crop Image Upload** | React file input + drag-and-drop | Upload photo of diseased crop → AI diagnosis | Full control over UI, drag-and-drop zone, sends image as base64 to Claude Vision for analysis. |
 | **Farmer Profile** | Sidebar form | Name, state, district, crops, soil type | Personalizes every AI response. Stored in DynamoDB. |
-| **Hosting** | AWS App Runner | Gives a public URL for the app | Submission requires a "Working Live Link." App Runner takes a Dockerfile and gives instant public URL. Alternative (EC2) needs manual server management. |
+| **Hosting** | S3 + CloudFront | Gives a public URL for the app | Submission requires a "Working Live Link." Static site hosted on S3 with CloudFront CDN — fast, cheap, and globally distributed. |
 
-**Why Streamlit instead of React/Next.js?**
+**Why React instead of Streamlit?**
 
-| | Streamlit | React |
+| | React | Streamlit |
 |---|---|---|
-| Language | Python (you already know it) | JavaScript (new language to learn) |
-| Dev speed | ~30 min per page | ~2-3 hours per page |
-| AI generation | Copilot generates complete pages | More complex, more debugging |
-| Learning curve | Minimal | Steep (JSX, hooks, state management) |
-| Looks | Clean, functional | More customizable but takes time |
-| Hackathon fit | **Perfect** | Overkill for 6 days |
+| Language | JavaScript (Sanjay's strength) | Python |
+| UI Quality | **Custom, professional, impressive** | Clean but generic — "another Streamlit project" |
+| Voice Input | **Native** — Web Speech API is just JS | Tricky — needs iframe custom component hack |
+| Mobile UX | **Full control** — CSS media queries | Basic responsive |
+| Judge impression | **"This looks like a real product"** | "Standard hackathon demo" |
+| Hackathon fit | **Best choice** — Sanjay owns frontend | Works if nobody knows JS |
 
 #### Layer 2: API Layer — The Front Door
 
@@ -558,8 +558,8 @@ AWS doesn't have a weather API. OpenWeatherMap has a generous free tier (1000 ca
 ### Flow 1: Text Chat (Most Common)
 
 ```
-1. Farmer types in Tamil in the Streamlit chat box
-2. Streamlit sends POST to API Gateway /chat endpoint
+1. Farmer types in Tamil in the React chat box
+2. React sends POST to API Gateway /chat endpoint
 3. API Gateway triggers agent_orchestrator Lambda
 4. Lambda calls Amazon Translate:
    - Detects: Tamil (ta)
@@ -583,7 +583,7 @@ AWS doesn't have a weather API. OpenWeatherMap has a generous free tier (1000 ca
       "audio_url": "https://s3.../audio/xyz.mp3",
       "session_id": "sess_abc123"
     }
-11. Streamlit displays Tamil text + plays audio
+11. React displays Tamil text + plays audio
 ```
 
 ### Flow 2: Voice Chat
@@ -598,7 +598,7 @@ Same as Flow 1, except:
 
 ```
 1. Farmer uploads photo of diseased crop on Crop Doctor page
-2. Streamlit encodes image as base64
+2. React encodes image as base64
 3. Sends POST to API Gateway /image-analyze endpoint
 4. Lambda calls Claude Sonnet 4.5 Vision (Bedrock invoke_model) with the image
 5. Claude analyzes the image:
@@ -660,8 +660,8 @@ Our original idea submission (`Smart_Rural_AI_Advisor_Submission.md`) described 
 | **Analytics** | Amazon Athena + QuickSight dashboards | QuickSight (stretch goal only) | Athena queries data in S3 using SQL — we don't need SQL queries on Markdown files. QuickSight dashboards are a nice stretch goal but not core functionality. |
 | **Foundation Model** | "Claude / Titan" (unspecified) | Claude Sonnet 4.5 (specific) | We chose Sonnet 4.5 specifically: best reasoning quality for the price, supports tool calling, great at multilingual content, and handles image analysis (Crop Doctor). |
 | **Language Support** | "Hindi, Tamil, Telugu, Kannada, and other Indian languages" | Tamil, English (primary), Telugu, Hindi (secondary) | 4 languages we can thoroughly test > 10 languages we can't. Tamil is our demo language. Can easily add more post-hackathon. |
-| **Frontend** | "Mobile App / Web App" (unspecified) | Streamlit Web App (specific) | A mobile app takes 2+ weeks (React Native + app store approval). A responsive web app works on all phones via browser and deploys in hours. |
-| **Hosting** | Not specified | AWS App Runner | Gives us a public URL (submission requirement), handles Docker containers, auto-scales, and costs $5-10/week. |
+| **Frontend** | "Mobile App / Web App" (unspecified) | React + Vite Web App (specific) | A mobile app takes 2+ weeks (React Native + app store approval). A responsive web app works on all phones via browser and deploys in hours. |
+| **Hosting** | Not specified | S3 + CloudFront | Gives us a public URL (submission requirement), serves static files globally via CDN, auto-scales, and costs pennies. |
 | **Security** | AWS Security Hub | CloudWatch + IAM + KMS | Security Hub is enterprise-grade compliance management (~$30+/month). Overkill for a prototype. IAM + KMS + CloudWatch provides real security at zero cost. |
 | **IoT** | "IoT/Sensor Data" | Not in prototype | No physical sensors to connect. Future roadmap (Phase 2). |
 | **Offline Mode** | "Offline Cache & Sync Mechanism" | Not in prototype | True offline requires service workers, local storage, and sync logic — 2-3 days of work alone. Future roadmap (Phase 2). |
@@ -690,7 +690,7 @@ Our original idea submission (`Smart_Rural_AI_Advisor_Submission.md`) described 
 | **Amazon Translate** | Original didn't mention translation. We need auto-language detection + translation to/from Tamil/Telugu/Hindi. |
 | **Bedrock Knowledge Base** | The RAG layer. Original had OpenSearch, we replaced with this managed alternative. |
 | **Titan Embeddings V2** | Needed for Knowledge Base vector search. Wasn't in original. |
-| **AWS App Runner** | Needed for public URL (submission requirement). Original didn't specify hosting. |
+| **S3 + CloudFront** | Needed for public URL (submission requirement). Hosts React static frontend globally via CDN. |
 | **Web Speech API** | Browser-based voice input. Original said "voice" but didn't specify how. |
 | **Bedrock Guardrails** | Content filtering, PII detection, topic control. Important for responsible AI. |
 
@@ -724,8 +724,8 @@ We're using **Claude Opus 4.6 via GitHub Copilot** to generate ~80% of code — 
 |---|---|---|---|
 | **1** | Feb 25 | Foundation | S3 data curated, Bedrock KB synced, AgentCore agent working, DynamoDB ready |
 | **2** | Feb 26 | Backend | API Gateway live, all Lambda tools working, Polly + Translate integrated |
-| **3** | Feb 27 | Frontend | Full Streamlit OR React app with chat, voice, weather, schemes, crop doctor |
-| **4** | Feb 28 | Deploy | Live URL on App Runner (Streamlit) OR S3+CloudFront (React), SNS alerts |
+| **3** | Feb 27 | Frontend | Full React app with chat, voice, weather, schemes, crop doctor |
+| **4** | Feb 28 | Deploy | Live URL on S3 + CloudFront, SNS alerts |
 | **5** | Mar 1 | Test & Polish | 20+ scenarios tested, all bugs fixed, UI polished, mobile tested |
 | **6** | Mar 2 | Submit | Demo video recorded, README done, all 5 deliverables submitted |
 | **7** | Mar 3 | Buffer | Monitor live URL, emergency fixes |
@@ -736,7 +736,7 @@ We're using **Claude Opus 4.6 via GitHub Copilot** to generate ~80% of code — 
 
 | Role | Owner | Responsibilities | Days Most Active |
 |---|---|---|---|
-| **Team Lead + Frontend** | **Sanjay M** | Frontend (Streamlit or React — all 5 pages + voice + CSS), frontend deployment (App Runner or CloudFront), demo video narration | All days |
+| **Team Lead + Frontend** | **Sanjay M** | Frontend (React — all 5 pages + voice + CSS), frontend deployment (S3 + CloudFront), demo video narration | All days |
 | **Backend + Infra** | **Manoj RS** | All 7 Lambda functions, backend utils, SAM template, API Gateway, Bedrock AgentCore config, Polly/Translate integration, `sam deploy` | Day 1-4 |
 | **Data Curator / KB Specialist** | **Abhishek Reddy** | Write all 6 Knowledge Base documents (using templates), structured data (JSON/CSV), upload to S3, create & test Bedrock KB | Day 1-2 (critical path) |
 | **QA + Documentation Lead** | **Jeevidha R** | Problem statement, testing all endpoints (20+ scenarios), bug logging, README, Project Summary, screenshots, demo video operation, final submission | Day 1 + Day 3-6 |
@@ -777,7 +777,7 @@ Day 6:  [Abhishek: demo prep]     [Sanjay: narrate demo + final review]   [Manoj
 | Amazon S3 | ~$0.10 | Small data storage |
 | Amazon Polly | $2-4 | Voice output in 4 languages |
 | Amazon Translate | $1-3 | Tamil/Telugu/Hindi translation |
-| AWS App Runner | $5-10 | Hosts frontend for the week |
+| S3 + CloudFront | ~$0.50 | Hosts frontend (static site, very cheap) |
 | Amazon SNS | $0 | First 1M requests free |
 | CloudWatch | $0 | Basic monitoring free |
 | **Total** | **$30-55** | **$45-70 remaining as buffer** |
@@ -795,7 +795,7 @@ The **prototype submission** (due March 4, 2026 at 11:59 PM IST) requires:
 | # | Deliverable | What We'll Submit | Mandatory? |
 |---|---|---|---|
 | 1 | **GitHub Repository** | Full source code + README + architecture diagram + setup instructions | ✅ Yes |
-| 2 | **Live Working Prototype URL** | AWS App Runner URL that judges can test in their browser | ✅ Yes |
+| 2 | **Live Working Prototype URL** | S3 + CloudFront URL that judges can test in their browser | ✅ Yes |
 | 3 | **Video Demo** | 5-7 min video: problem intro → architecture → live demo (English + Tamil voice + image analysis) → impact. YouTube or Google Drive link. | ✅ Yes |
 | 4 | **Project Summary** | 500-800 word write-up: problem, solution, architecture, impact | ✅ Yes |
 | 5 | **Problem Statement** | The farming advisory gap — 150M+ farmers without personalized guidance | ✅ Yes |
@@ -826,7 +826,7 @@ Key features include: AI-powered crop planning based on soil, season, and region
 
 **Architecture**
 
-The solution uses 14 AWS services in a fully serverless architecture: Amazon Bedrock AgentCore and Claude Sonnet 4.5 for agentic AI reasoning; Bedrock Knowledge Base (RAG) with Titan Embeddings V2 for semantic search over curated farming documents stored in Amazon S3; AWS Lambda (8 functions) for serverless compute; Amazon API Gateway for REST API routing; Amazon DynamoDB for farmer profiles and chat history; Amazon Translate for auto-language detection and translation; Amazon Polly for neural text-to-speech output; Amazon SNS for weather and pest alerts; AWS App Runner for hosting the Streamlit web frontend with a public URL; and AWS IAM, KMS, and CloudWatch for security, encryption, and monitoring.
+The solution uses 14 AWS services in a fully serverless architecture: Amazon Bedrock AgentCore and Claude Sonnet 4.5 for agentic AI reasoning; Bedrock Knowledge Base (RAG) with Titan Embeddings V2 for semantic search over curated farming documents stored in Amazon S3; AWS Lambda (8 functions) for serverless compute; Amazon API Gateway for REST API routing; Amazon DynamoDB for farmer profiles and chat history; Amazon Translate for auto-language detection and translation; Amazon Polly for neural text-to-speech output; Amazon SNS for weather and pest alerts; Amazon S3 and CloudFront for hosting the React web frontend with a public URL; and AWS IAM, KMS, and CloudWatch for security, encryption, and monitoring.
 
 All services are serverless or fully managed, meaning the system auto-scales from 1 farmer to 1 million farmers with zero infrastructure management. Infrastructure is defined as code using AWS SAM.
 
@@ -871,7 +871,7 @@ With traditional servers (EC2), if your server dies, your app is dead until you 
 | **Amazon S3** | ✅ Virtually unlimited storage | ✅ 99.999999999% (11 nines) durability — data replicated across 3+ AZs | Your farming documents are stored with the highest durability on the planet. |
 | **Amazon Polly** | ✅ Managed — scales automatically | ✅ Multi-AZ managed service | No infrastructure to manage. Just send text, get audio. |
 | **Amazon Translate** | ✅ Managed — scales automatically | ✅ Multi-AZ managed service | Same. Handles millions of translation requests. |
-| **AWS App Runner** | ✅ Auto-scales instances based on traffic | ✅ Runs across multiple AZs | If traffic spikes, App Runner adds more container instances. If one AZ goes down, traffic routes to another. |
+| **S3 + CloudFront** | ✅ CloudFront auto-scales to any traffic level | ✅ Edge locations worldwide, S3 is 11-nines durable | Static files served from CDN edge locations. Handles millions of requests per second. |
 | **Amazon SNS** | ✅ Handles millions of messages | ✅ Multi-AZ, fully managed | Built for high-throughput pub/sub. |
 | **Amazon CloudWatch** | ✅ Handles any log volume | ✅ Fully managed | Never goes down — it's what monitors everything else. |
 
@@ -913,7 +913,7 @@ Farmer → API Gateway → Lambda (AWS manages)
 | **One AZ goes down** (data center failure) | Traffic routes to remaining AZs | ✅ Yes — automatic failover |
 | **DynamoDB has an issue** | Data is replicated in 3 AZs — reads continue from healthy replicas | ✅ Yes |
 | **S3 data corruption** | S3 versioning enabled — roll back to previous version | ✅ Yes (manual rollback) |
-| **App Runner container dies** | App Runner auto-restarts the container | ✅ Yes — within seconds |
+| **CloudFront/S3 issue** | CloudFront has global edge redundancy; S3 is 11-nines durable | ✅ Yes — virtually never fails |
 | **Bedrock is slow/down** | Our error handler returns a graceful fallback message | ⚠️ Partial — user gets error message, no AI response until Bedrock recovers |
 | **OpenWeatherMap API is down** | Lambda returns cached weather or "weather unavailable" message | ⚠️ Partial — graceful degradation |
 | **Entire AWS region goes down** | Everything is down (very rare — happens maybe once a year for minutes) | ❌ No — would need multi-region setup ($$$) |
@@ -960,12 +960,12 @@ The biggest cost driver at scale is **Bedrock (Claude)** — AI inference per qu
 
 | Tip | Saves | How |
 |---|---|---|
-| **Delete/pause App Runner when not demoing** | $3-5 | App Runner charges while running. Pause it overnight. Re-deploy takes ~3 minutes. |
+| **Use S3 + CloudFront for static hosting** | $5-10 vs App Runner | React builds to static files — S3 + CloudFront is ~$0.50/month vs App Runner at $5-10/week. Much cheaper. |
 | **Monitor Bedrock token usage daily** | Prevents surprise bills | AWS Console → Bedrock → Usage → Check daily. Set a CloudWatch alarm at $20. |
 | **Use shorter system prompts during dev** | $2-3 | Use the full prompt only for final testing. During dev, use a short 3-line prompt. |
 | **Test with short queries** | $1-2 | During dev, type "hi" not a 100-word question. Less input tokens = less cost. |
 | **Don't generate Polly audio during dev** | $1-2 | Add a `SKIP_POLLY=true` env var for development. Only enable for demo. |
-| **Clean up after hackathon** | Prevents ongoing charges | On March 5: delete App Runner service, delete S3 bucket, delete DynamoDB tables, remove Bedrock agent. Run `sam delete` to tear down CloudFormation stack. |
+| **Clean up after hackathon** | Prevents ongoing charges | On March 5: delete CloudFront distribution, delete S3 buckets, delete DynamoDB tables, remove Bedrock agent. Run `sam delete` to tear down CloudFormation stack. |
 | **Use `sam local invoke` for testing** | $0.50 | Tests Lambda locally instead of deploying every change to AWS. |
 
 ---
@@ -984,7 +984,7 @@ This is the "big picture" showing all AWS services and their connections:
 │                                                                                   │
 │  👨‍🌾 FARMER (Phone Browser — Tamil / English / Telugu / Hindi)                     │
 │  ┌─────────────────────────────────────────────┐                                  │
-│  │ Streamlit Web App (AWS App Runner)           │                                  │
+│  │ React + Vite Web App (S3 + CloudFront)        │                                  │
 │  │ • Chat with AI     • Weather Dashboard       │                                  │
 │  │ • 🎤 Voice Input   • Govt Schemes Browser    │                                  │
 │  │ • 📸 Crop Doctor   • 👤 My Farm Profile      │                                  │
@@ -1038,9 +1038,9 @@ This is the "big picture" showing all AWS services and their connections:
 
 ```
 ┌─────────┐    ┌───────────┐    ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-│ FARMER  │───►│ STREAMLIT │───►│ API GATEWAY │───►│ LAMBDA       │───►│ BEDROCK         │
-│ (Phone) │    │ (App      │    │ (REST API)  │    │ (Orchestrator│    │ AGENTCORE       │
-│         │    │  Runner)  │    │             │    │  Function)   │    │ (Claude 4.5)    │
+│ FARMER  │───►│ REACT     │───►│ API GATEWAY │───►│ LAMBDA       │───►│ BEDROCK         │
+│ (Phone) │    │ (S3 +     │    │ (REST API)  │    │ (Orchestrator│    │ AGENTCORE       │
+│         │    │ CloudFrnt)│    │             │    │  Function)   │    │ (Claude 4.5)    │
 └─────────┘    └───────────┘    └─────────────┘    └──────┬───────┘    └────────┬────────┘
                                                           │                     │
                                                           │              ┌──────▼────────┐
@@ -1085,7 +1085,7 @@ This is the "big picture" showing all AWS services and their connections:
                                                    └──────────────────┬─────────────────┘
                                                                       │
 ┌─────────┐    ┌───────────┐    ┌─────────────┐    ┌──────────────┐   │
-│ FARMER  │◄───│ STREAMLIT │◄───│ API GATEWAY │◄───│ LAMBDA       │◄──┘
+│ FARMER  │◄───│ REACT     │◄───│ API GATEWAY │◄───│ LAMBDA       │◄──┘
 │ hears   │    │ shows     │    │ returns     │    │ returns      │
 │ Tamil   │    │ Tamil text│    │ JSON        │    │ text + audio │
 │ audio   │    │ + audio   │    │ response    │    │ URL          │
@@ -1101,13 +1101,13 @@ This is the "big picture" showing all AWS services and their connections:
                          │  ┌──── AZ-1 ────┐             │
                          │  │ Lambda ✓      │             │
                          │  │ DynamoDB ✓    │             │
-                         │  │ App Runner ✓  │             │
+                         │  │ CloudFront ✓  │             │
                          │  └───────────────┘             │
                          │                                │
                          │  ┌──── AZ-2 ────┐             │
  1000+ Farmers ─────────►│  │ Lambda ✓      │   (auto)    │
  (simultaneous)          │  │ DynamoDB ✓    │◄──failover  │
-                         │  │ App Runner ✓  │             │
+                         │  │ CloudFront ✓  │             │
                          │  └───────────────┘             │
                          │                                │
                          │  ┌──── AZ-3 ────┐             │
@@ -1128,7 +1128,7 @@ This is the "big picture" showing all AWS services and their connections:
  │ 10 farmers  → 10 Lambda instances   (free tier)      │
  │ 100 farmers → 100 Lambda instances  (pennies)        │
  │ 1000 farmers→ 1000 Lambda instances (auto, ~$5)      │
- │ App Runner  → adds containers as traffic increases   │
+ │ CloudFront  → global CDN, handles any traffic level  │
  │ DynamoDB    → on-demand scales reads/writes          │
  │ API Gateway → handles 10,000 requests/sec default    │
  └──────────────────────────────────────────────────────┘
@@ -1446,7 +1446,7 @@ AWS hackathon judges typically score on these categories. Here's how we hit ever
 
 | What Judges Look For | How We Deliver |
 |---|---|
-| Number of AWS services used | **14 AWS services**: Bedrock AgentCore, Bedrock KB, Claude Sonnet 4.5, Lambda, API Gateway, S3, DynamoDB, Polly, Translate, SNS, App Runner, IAM, KMS, CloudWatch |
+| Number of AWS services used | **14 AWS services**: Bedrock AgentCore, Bedrock KB, Claude Sonnet 4.5, Lambda, API Gateway, S3, CloudFront, DynamoDB, Polly, Translate, SNS, IAM, KMS, CloudWatch |
 | Depth of AWS integration | AgentCore with tool calling + Knowledge Base (RAG) + Guardrails — deep Bedrock usage |
 | Architecture quality | Fully serverless, auto-scaling, multi-AZ, IaC (SAM template) |
 | Code quality | Error handling wrapper, standard response format, .env management, CORS configured |
@@ -1466,7 +1466,7 @@ AWS hackathon judges typically score on these categories. Here's how we hit ever
 
 | What Judges Look For | How We Deliver |
 |---|---|
-| Working live link | ✅ AWS App Runner URL — judges can test it |
+| Working live link | ✅ S3 + CloudFront URL — judges can test it |
 | Demo video quality | ✅ 5-7 min scripted video covering all features |
 | All deliverables submitted | ✅ 5/5: Summary, Video, Repo, Live Link, Problem Statement |
 | GitHub repo quality | ✅ README with screenshots, architecture diagram, setup instructions |
@@ -1587,7 +1587,7 @@ This lets the AI honestly say "Based on our data from February 2026..." and judg
 | **GitHub Copilot extension** | AI coding assistant (Claude Opus 4.6) | VS Code Extensions → search "GitHub Copilot" | Chat with it |
 | **AWS CLI v2** | Deploy from terminal | https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html | `aws --version` |
 | **AWS SAM CLI** | Infrastructure as Code deployment | https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html | `sam --version` |
-| **Docker Desktop** | Containerize frontend for App Runner | https://docker.com/products/docker-desktop | `docker --version` |
+| **Docker Desktop** | Optional — for local Lambda testing with SAM | https://docker.com/products/docker-desktop | `docker --version` |
 | **Git** | Version control | https://git-scm.com/downloads | `git --version` |
 | **Postman** (optional) | Test API endpoints manually | https://postman.com/downloads | Open it |
 | **Kiro** (optional) | Was used for idea phase (`requirements.md` + `design.md`). Already done. | https://kiro.dev/downloads | N/A |
@@ -1632,7 +1632,7 @@ This lets the AI honestly say "Based on our data from February 2026..." and judg
 │  Farmer's Browser                                                    │
 │       │                                                              │
 │       ▼                                                              │
-│  [Streamlit on App Runner] ← Only public-facing endpoint             │
+│  [React on S3 + CloudFront] ← Only public-facing endpoint            │
 │       │                                                              │
 │       ▼                                                              │
 │  [API Gateway] ← Routes to Lambdas                                   │
@@ -1709,7 +1709,7 @@ docker --version   # Should be 20+
 git --version
 
 # Install Python packages you'll need locally
-pip install streamlit boto3 requests python-dotenv
+pip install boto3 requests python-dotenv
 ```
 
 ### Configure AWS CLI
@@ -1751,7 +1751,7 @@ cd C:\Users\YourName\Projects
 git clone https://github.com/YOUR_USERNAME/smart-rural-ai-advisor.git
 cd smart-rural-ai-advisor
 
-# 3. Create SHARED folders (same for both Streamlit and React)
+# 3. Create SHARED folders (same regardless of frontend choice)
 mkdir architecture
 mkdir infrastructure
 mkdir backend\lambdas\agent_orchestrator
@@ -1767,20 +1767,13 @@ mkdir data\sample_images
 mkdir demo\screenshots
 mkdir docs
 
-# 4. Create FRONTEND folders — pick ONE (decide on Day 0!)
-
-# --- Option A: Streamlit (Python) ---
-mkdir frontend\pages
-mkdir frontend\components\voice_input
-mkdir frontend\styles
-
-# --- Option B: React + Vite (JavaScript) ---
-# (Run `npm create vite@latest frontend -- --template react` instead — see Section 15R)
+# 4. Create FRONTEND folders — React + Vite (our choice)
+# Run: npm create vite@latest frontend -- --template react
 # It auto-creates: frontend/src/, frontend/public/, etc.
 # Then manually add:
-# mkdir frontend\src\components
-# mkdir frontend\src\pages
-# mkdir frontend\src\hooks
+mkdir frontend\src\components
+mkdir frontend\src\pages
+mkdir frontend\src\hooks
 ```
 
 ### Complete Project Structure — Master Reference
@@ -1857,35 +1850,12 @@ smart-rural-ai-advisor/
 ├── docs/
 │   └── presentation.pdf               ← MANDATORY: PDF of your PPT deck
 │
-└── frontend/                          ← ⬇️ THIS FOLDER DEPENDS ON YOUR CHOICE ⬇️
+└── frontend/                          ← React + Vite frontend (our choice)
 ```
 
-### Frontend Folder — Option A: Streamlit (Python)
+### Frontend Folder — Option A: React + Vite (JavaScript) ✅ (Our Choice)
 
-> Use this if your team picked Streamlit. See Sections 15-19 for full code.
-
-```
-frontend/                              ← Streamlit frontend
-├── app.py                             ← Main entry (sidebar, navigation, config)
-├── pages/
-│   ├── 1_Chat_Advisor.py             ← 💬 Main chat interface + voice input
-│   ├── 2_Weather.py                  ← 🌤️ Weather dashboard
-│   ├── 3_Govt_Schemes.py            ← 📋 Browse government schemes
-│   ├── 4_Crop_Doctor.py             ← 📸 Upload image → Claude Vision diagnosis
-│   └── 5_My_Farm.py                 ← 👤 Farmer profile & chat history
-├── components/
-│   └── voice_input/                  ← Custom Streamlit component (declare_component)
-│       ├── __init__.py               ←   Python wrapper (voice_component function)
-│       └── index.html                ←   HTML/JS (Web Speech API + Transcribe fallback)
-├── styles/
-│   └── custom.css                    ← Farm-themed mobile-responsive CSS
-├── Dockerfile                        ← For App Runner deployment (see Section 19)
-└── requirements.txt                  ← streamlit, boto3, requests, Pillow (see Section 25)
-```
-
-### Frontend Folder — Option B: React + Vite (JavaScript)
-
-> Use this if your team picked React. See Sections 15R-19R for full code.
+> This is what our team is using. Sanjay owns this folder. See Sections 15-19 for full code.
 
 ```
 frontend/                              ← React frontend
@@ -1915,13 +1885,36 @@ frontend/                              ← React frontend
 └── dist/                             ← Build output (npm run build → upload to S3)
 ```
 
+### Frontend Folder — Option B: Streamlit (Python) — Alternative
+
+> Only use this if nobody on the team knows React/JavaScript. See Sections 15S-19S for code.
+
+```
+frontend/                              ← Streamlit frontend
+├── app.py                             ← Main entry (sidebar, navigation, config)
+├── pages/
+│   ├── 1_Chat_Advisor.py             ← 💬 Main chat interface + voice input
+│   ├── 2_Weather.py                  ← 🌤️ Weather dashboard
+│   ├── 3_Govt_Schemes.py            ← 📋 Browse government schemes
+│   ├── 4_Crop_Doctor.py             ← 📸 Upload image → Claude Vision diagnosis
+│   └── 5_My_Farm.py                 ← 👤 Farmer profile & chat history
+├── components/
+│   └── voice_input/                  ← Custom Streamlit component (declare_component)
+│       ├── __init__.py               ←   Python wrapper (voice_component function)
+│       └── index.html                ←   HTML/JS (Web Speech API + Transcribe fallback)
+├── styles/
+│   └── custom.css                    ← Farm-themed mobile-responsive CSS
+├── Dockerfile                        ← For App Runner deployment
+└── requirements.txt                  ← streamlit, boto3, requests, Pillow
+```
+
 ### Which Files Each Team Member Owns
 
 | Team Member | Folders They Work In | Key Files |
 |---|---|---|
 | **Team Lead** | `architecture/`, `infrastructure/`, `docs/` | `template.yaml`, `architecture.md`, `presentation.pdf` |
 | **Backend Dev** | `backend/lambdas/`, `backend/utils/` | All 7 `handler.py` files, `response_helper.py`, `error_handler.py` |
-| **Frontend Dev** | `frontend/` (Streamlit OR React) | All pages, components, styles, Dockerfile or package.json |
+| **Frontend Dev** | `frontend/` (React) | All pages, components, styles, package.json |
 | **Data Curator** | `data/knowledge_base/` | All 6 `.md` knowledge docs, `govt_schemes.json`, `crop_data.csv` |
 | **Tester / Submitter** | `demo/`, `data/sample_images/`, root docs | `demo_video_link.md`, screenshots, `README.md`, `PROJECT_SUMMARY.md` |
 
@@ -2061,20 +2054,7 @@ VITE_API_URL=https://your-api-id.execute-api.ap-south-1.amazonaws.com/prod
 
 ### Frontend Dependencies
 
-**Option A — Streamlit (frontend/requirements.txt):**
-
-See **Section 25** for the full list. Quick version:
-
-```txt
-streamlit==1.41.0
-boto3==1.35.0
-requests==2.32.0
-python-dotenv==1.0.1
-Pillow==11.0.0
-uuid6==2024.7.10
-```
-
-**Option B — React (frontend/package.json dependencies):**
+**React (frontend/package.json dependencies):**
 
 ```bash
 cd frontend
@@ -2112,7 +2092,7 @@ git push origin main
 
 When you split work across team members:
 - Backend Dev builds Lambdas and deploys via SAM
-- Frontend Dev builds UI pages (Streamlit or React)
+- Frontend Dev builds UI pages (React)
 - Data Curator writes knowledge docs
 - They all work in **parallel** on Days 1-3
 
@@ -2154,7 +2134,7 @@ This is handled by `backend/utils/response_helper.py`. **Never return a raw dict
 
 ### API Contract: `POST /chat`
 
-**Who calls it:** Chat page (Streamlit `1_Chat_Advisor.py` or React `ChatPage.jsx`)
+**Who calls it:** Chat page (`ChatPage.jsx`)
 **Lambda:** `agent_orchestrator`
 
 **Request:**
@@ -2233,7 +2213,7 @@ This is handled by `backend/utils/response_helper.py`. **Never return a raw dict
 
 ### API Contract: `GET /weather/{location}`
 
-**Who calls it:** Weather page (Streamlit `2_Weather.py` or React `WeatherPage.jsx`)
+**Who calls it:** Weather page (`WeatherPage.jsx`)
 **Lambda:** `weather_lookup`
 
 **Request:** No body. Location in URL path.
@@ -2281,7 +2261,7 @@ GET /weather/Chennai
 
 ### API Contract: `GET /schemes`
 
-**Who calls it:** Schemes page (Streamlit `3_Govt_Schemes.py` or React `SchemesPage.jsx`)
+**Who calls it:** Schemes page (`SchemesPage.jsx`)
 **Lambda:** `govt_schemes`
 
 **Request:** No body. Optional query params.
@@ -2318,7 +2298,7 @@ GET /schemes?state=Tamil+Nadu
 
 ### API Contract: `POST /image-analyze`
 
-**Who calls it:** Crop Doctor page (Streamlit `4_Crop_Doctor.py` or React `CropDoctorPage.jsx`)
+**Who calls it:** Crop Doctor page (`CropDoctorPage.jsx`)
 **Lambda:** `image_analysis`
 
 **Request:**
@@ -2361,7 +2341,7 @@ GET /schemes?state=Tamil+Nadu
 
 ### API Contract: `GET /profile/{farmerId}` and `PUT /profile/{farmerId}`
 
-**Who calls it:** Profile page (Streamlit `5_My_Farm.py` or React `ProfilePage.jsx`)
+**Who calls it:** Profile page (`ProfilePage.jsx`)
 **Lambda:** `farmer_profile`
 
 **GET Request:**
@@ -2532,7 +2512,6 @@ s3://smart-rural-ai-{ACCOUNT_ID}/
 | Git branches | `feature/{name}` | `feature/chat-page`, `feature/weather-lambda` |
 | Git commits | `type: message` | `feat: add crop advisory Lambda`, `fix: CORS on image-analyze` |
 | React components | PascalCase.jsx | `ChatPage.jsx`, `VoiceInput.jsx` |
-| Streamlit pages | `N_Name.py` | `1_Chat_Advisor.py`, `4_Crop_Doctor.py` |
 | CSS classes | kebab-case | `.chat-message`, `.voice-btn-recording` |
 
 ### Commit Message Types
@@ -2567,27 +2546,6 @@ When integrating on Day 4, verify each endpoint:
 ### Mocking the Backend (Frontend Dev on Day 2-3)
 
 Before the backend is deployed, the frontend dev can mock responses locally:
-
-**Streamlit mock:**
-```python
-# In your page, temporarily replace the API call:
-MOCK = True
-
-if MOCK:
-    response_data = {
-        "status": "success",
-        "data": {
-            "reply": "This is a mock response for testing the UI layout.",
-            "detected_language": "en",
-            "tools_used": ["get_crop_advisory"],
-            "audio_url": None,
-            "session_id": "mock-session"
-        }
-    }
-else:
-    response = requests.post(f"{API_URL}/chat", json=payload)
-    response_data = response.json()
-```
 
 **React mock:**
 ```javascript
@@ -4053,7 +4011,7 @@ def put_profile(farmer_id, body):
     }
 ```
 
-**Why this matters:** When a farmer says "What crop should I grow?", the agent can look up their profile (state = Tamil Nadu, soil = red soil, existing crops = rice) and give personalized advice instead of a generic answer. The `/profile/{farmerId}` endpoint is used by both the Streamlit My Farm page and the React ProfilePage.
+**Why this matters:** When a farmer says "What crop should I grow?", the agent can look up their profile (state = Tamil Nadu, soil = red soil, existing crops = rice) and give personalized advice instead of a generic answer. The `/profile/{farmerId}` endpoint is used by the React `ProfilePage.jsx`.
 
 ### Lambda 7: Speech-to-Text via Amazon Transcribe (Fallback for Non-Chrome Browsers)
 
@@ -4690,14 +4648,16 @@ send_alert(
 
 ---
 
-## 15. Streamlit Frontend — Web App
+## 15. ~~Streamlit Frontend — Web App~~ (ALTERNATIVE PATH — Skip to Section 15R for React)
+
+> **⚠️ OUR TEAM IS USING REACT.** Sections 15-19 below are the Streamlit path (kept for reference only). **Skip to [Section 15R](#15r-react-frontend--project-setup) for the React frontend code that we are actually using.**
 
 ### What Streamlit Does
 Streamlit is a Python framework that creates web apps with minimal code. Perfect for data/AI apps.
 
-### Why Streamlit instead of React/Next.js?
+### Streamlit vs React comparison
 
-> **⚠️ YOUR TEAM HAS TWO OPTIONS.** If someone on the team knows React, **see Alternative Sections 15R-19R** after Section 19 for the complete React build guide. Backend (Lambdas, API Gateway, Bedrock) stays identical — only the frontend changes.
+> **We chose React.** Sanjay handles frontend — React gives a professional, custom UI that impresses judges.
 
 | | Streamlit | React + CSS + JS |
 |---|---|---|
@@ -6658,11 +6618,11 @@ CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0
 
 ---
 
-# 🔀 ALTERNATIVE FRONTEND — React + CSS + JS (Sections 15R–19R)
+# ✅ PRIMARY FRONTEND — React + CSS + JS (Sections 15R–19R)
 
-> **Who should use this?** If someone on your team knows React/JavaScript well, this path gives a **much more polished UI**. Backend (Lambdas, API Gateway, Bedrock, DynamoDB) stays 100% identical. Only the frontend changes.
+> **This is what our team is using.** Sanjay owns the React frontend. Backend (Lambdas, API Gateway, Bedrock, DynamoDB) is identical — only the frontend presentation layer differs from the Streamlit path above.
 >
-> **Who should skip this?** If nobody knows React, use the Streamlit path (Sections 15-19 above). A working Streamlit app beats an incomplete React app.
+> Sections 15-19 above are the Streamlit alternative (kept for reference). **Follow 15R-19R below for our actual frontend code.**
 
 ### What Changes vs. Streamlit Path
 
@@ -8635,7 +8595,7 @@ Create `architecture/architecture.mmd`:
 ```mermaid
 flowchart TB
     Farmer["👨‍🌾 Farmer\n(Voice/Text in Tamil/English/Telugu/Hindi)"]
-    Streamlit["Streamlit Web App\n(AWS App Runner)"]
+    ReactApp["React + Vite Web App\n(S3 + CloudFront)"]
     APIGW["Amazon API Gateway"]
     Lambda["AWS Lambda\n(8 Functions)"]
     Agent["Bedrock AgentCore\n(Claude Sonnet 4.5)"]
@@ -8647,8 +8607,8 @@ flowchart TB
     Translate["Amazon Translate\n(Auto-detect Language)"]
     SNS["Amazon SNS\n(Alerts)"]
 
-    Farmer -->|"1. Voice/Text Query"| Streamlit
-    Streamlit -->|"2. HTTPS"| APIGW
+    Farmer -->|"1. Voice/Text Query"| ReactApp
+    ReactApp -->|"2. HTTPS"| APIGW
     APIGW -->|"3. Route"| Lambda
     Lambda -->|"4. Translate"| Translate
     Lambda -->|"5. Invoke Agent"| Agent
@@ -8660,8 +8620,8 @@ flowchart TB
     Lambda -->|"9. Text to Speech"| Polly
     Lambda -->|"10. Save Chat"| DDB
     Lambda -->|"11. Response"| APIGW
-    APIGW --> Streamlit
-    Streamlit -->|"12. Text + Audio"| Farmer
+    APIGW --> ReactApp
+    ReactApp -->|"12. Text + Audio"| Farmer
     Lambda -.->|"Alerts"| SNS
 
     style Farmer fill:#4a7c2e,color:#fff
@@ -9013,7 +8973,7 @@ Kiro is an AWS IDE (think VS Code, but from AWS) that has a built-in "Spec > Des
 
 **Prompt to paste into Kiro:**
 
-> Smart Rural AI Advisor is a voice-first, multilingual AI chatbot that provides personalized farming advice to Indian farmers. It supports Tamil, English, Telugu, and Hindi with auto-language detection. The system uses Amazon Bedrock AgentCore to orchestrate Claude Sonnet 4.5 for agentic AI reasoning across multiple data sources: real-time weather data (OpenWeatherMap), curated farming knowledge (Bedrock Knowledge Base with RAG), government schemes (PM-KISAN, PMFBY, KCC), pest/disease identification from crop photos (Claude Vision), and traditional Indian farming practices (Panchagavya, crop rotation, companion planting). The frontend is a Streamlit web app hosted on AWS App Runner. Voice input uses Browser Web Speech API with Amazon Transcribe as fallback. Voice output uses Amazon Polly. The backend is fully serverless: AWS Lambda functions behind Amazon API Gateway, with DynamoDB for farmer profiles and chat history. All infrastructure is defined as code using AWS SAM. The system targets 150M+ Indian small and marginal farmers who lack access to personalized, timely farming advice. Key features: AI crop planning by soil/season/region, smart irrigation scheduling, early pest alerts, government scheme step-by-step guidance, crop disease diagnosis from photos, and integration of traditional + modern farming practices.
+> Smart Rural AI Advisor is a voice-first, multilingual AI chatbot that provides personalized farming advice to Indian farmers. It supports Tamil, English, Telugu, and Hindi with auto-language detection. The system uses Amazon Bedrock AgentCore to orchestrate Claude Sonnet 4.5 for agentic AI reasoning across multiple data sources: real-time weather data (OpenWeatherMap), curated farming knowledge (Bedrock Knowledge Base with RAG), government schemes (PM-KISAN, PMFBY, KCC), pest/disease identification from crop photos (Claude Vision), and traditional Indian farming practices (Panchagavya, crop rotation, companion planting). The frontend is a React + Vite web app hosted on Amazon S3 with CloudFront CDN. Voice input uses Browser Web Speech API with Amazon Transcribe as fallback. Voice output uses Amazon Polly. The backend is fully serverless: AWS Lambda functions behind Amazon API Gateway, with DynamoDB for farmer profiles and chat history. All infrastructure is defined as code using AWS SAM. The system targets 150M+ Indian small and marginal farmers who lack access to personalized, timely farming advice. Key features: AI crop planning by soil/season/region, smart irrigation scheduling, early pest alerts, government scheme step-by-step guidance, crop disease diagnosis from photos, and integration of traditional + modern farming practices.
 
 ```
 3. Kiro will generate a structured requirements specification

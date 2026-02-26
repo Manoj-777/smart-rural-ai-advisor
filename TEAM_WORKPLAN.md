@@ -221,7 +221,7 @@ git push origin main
 1. **Day 1:** Run `npm install` + `npm run dev`. All 5 pages load with static/empty data. Explore the code.
 2. **Day 1–2:** Build with **mock data** — hardcode sample API responses to test UI without backend.
 3. **Day 3:** Manoj shares `API_URL` → update `frontend/.env` → connect all pages to real API.
-4. **Day 4:** Deploy frontend to S3 + CloudFront (or App Runner). Test on phone.
+4. **Day 4:** Deploy frontend to S3 + CloudFront. Test on phone.
 5. **Day 5–6:** Bug fixes, polish, responsive testing.
 
 **How to run locally:**
