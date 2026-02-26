@@ -469,6 +469,12 @@ class GatewaySetup:
         """Create the AgentCore Gateway with IAM auth."""
         print(f"\n▸ Creating AgentCore Gateway: {GATEWAY_NAME}")
 
+        # First check if already exists
+        existing = self._find_existing_gateway()
+        if existing[0]:
+            print(f"  ✓ Gateway already exists: {self.gateway_id}")
+            return existing
+
         try:
             response = self.client.create_gateway(
                 name=GATEWAY_NAME,
@@ -477,33 +483,44 @@ class GatewaySetup:
                 authorizerType="AWS_IAM",
                 description="Smart Rural AI Advisor — Exposes farming tools as MCP-compatible endpoints",
             )
-            self.gateway_id = response["gatewayId"]
-            self.gateway_url = response["gatewayUrl"]
-            print(f"  ✓ Gateway created: {self.gateway_id}")
-            print(f"  ✓ Gateway URL: {self.gateway_url}")
+            self.gateway_id = response.get("gatewayId", response.get("id", ""))
+            print(f"  ✓ Gateway create initiated: {self.gateway_id}")
 
-            wait_with_spinner(15, "Waiting for Gateway to become ACTIVE")
+            # Wait for ACTIVE
+            for i in range(24):
+                time.sleep(5)
+                gw = self.client.get_gateway(gatewayIdentifier=self.gateway_id)
+                status = gw.get("status", "UNKNOWN")
+                self.gateway_url = gw.get("gatewayUrl", "")
+                print(f"    [{(i+1)*5}s] Status: {status}")
+                if status == "ACTIVE":
+                    break
+                if status in ("FAILED", "DELETE_IN_PROGRESS"):
+                    print(f"  ✗ Gateway failed: {gw.get('failureReason', 'unknown')}")
+                    return None, None
+
+            print(f"  ✓ Gateway URL: {self.gateway_url}")
             return self.gateway_id, self.gateway_url
 
         except ClientError as e:
-            if "already exists" in str(e).lower() or "ConflictException" in str(e):
-                print(f"  ℹ Gateway may already exist. Listing...")
+            if "ConflictException" in str(type(e).__name__) or "already exists" in str(e).lower():
+                print(f"  ℹ Gateway already exists. Listing...")
                 return self._find_existing_gateway()
             raise
 
     def _find_existing_gateway(self):
         """Find existing gateway by name."""
         try:
-            response = self.client.list_gateways()
-            for gw in response.get("items", []):
+            response = self.client.list_gateways(maxResults=50)
+            for gw in response.get("items", response.get("gateways", [])):
                 if gw.get("name") == GATEWAY_NAME:
                     self.gateway_id = gw["gatewayId"]
-                    self.gateway_url = gw.get("gatewayUrl", "")
-                    print(f"  ✓ Found existing: {self.gateway_id}")
+                    # Get full details for URL
+                    detail = self.client.get_gateway(gatewayIdentifier=self.gateway_id)
+                    self.gateway_url = detail.get("gatewayUrl", "")
                     return self.gateway_id, self.gateway_url
         except ClientError:
             pass
-        print("  ✗ Could not find existing gateway")
         return None, None
 
     def add_lambda_target(self, function_key, function_config):
@@ -516,7 +533,7 @@ class GatewaySetup:
         lambda_arn = f"arn:aws:lambda:{REGION}:{ACCOUNT_ID}:function:{function_name}"
         tools = function_config["tools"]
 
-        target_name = f"{PROJECT_NAME}-{function_key}"
+        target_name = f"{PROJECT_NAME}-{function_key}".replace("_", "-")
         print(f"\n▸ Adding Lambda target: {target_name} ({len(tools)} tools)")
 
         target_config = {
@@ -542,8 +559,11 @@ class GatewaySetup:
                 targetConfiguration=target_config,
                 credentialProviderConfigurations=credential_config,
             )
-            target_id = response.get("targetId", "created")
+            target_id = response.get("targetId", response.get("id", "created"))
             print(f"  ✓ Target created: {target_id}")
+
+            # Wait for target to become ACTIVE
+            time.sleep(5)
             return target_id
 
         except ClientError as e:
@@ -689,7 +709,7 @@ class ConfigManager:
         }
         os.makedirs(os.path.dirname(cls.CONFIG_FILE), exist_ok=True)
         with open(cls.CONFIG_FILE, "w") as f:
-            json.dumps(config, f, indent=2)
+            json.dump(config, f, indent=2)
         print(f"\n  ✓ Config saved: {cls.CONFIG_FILE}")
         return config
 
@@ -719,12 +739,12 @@ def cleanup_all():
     # Delete Gateway
     try:
         gw_client = boto3.client("bedrock-agentcore-control", region_name=REGION)
-        response = gw_client.list_gateways()
-        for gw in response.get("items", []):
+        response = gw_client.list_gateways(maxResults=50)
+        for gw in response.get("items", response.get("gateways", [])):
             if gw.get("name") == GATEWAY_NAME:
                 # Delete targets first
                 targets = gw_client.list_gateway_targets(gatewayIdentifier=gw["gatewayId"])
-                for target in targets.get("items", []):
+                for target in targets.get("items", targets.get("targets", [])):
                     print(f"  Deleting target: {target.get('name')}")
                     gw_client.delete_gateway_target(
                         gatewayIdentifier=gw["gatewayId"],

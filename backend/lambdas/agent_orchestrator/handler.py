@@ -59,15 +59,11 @@ def _invoke_agentcore_runtime(prompt, session_id, farmer_context=None):
         qualifier="DEFAULT",
     )
 
-    # Parse streaming response
-    content_parts = []
-    for chunk in response.get("response", []):
-        if isinstance(chunk, bytes):
-            content_parts.append(chunk.decode('utf-8'))
-        else:
-            content_parts.append(str(chunk))
-
-    raw_response = ''.join(content_parts)
+    # Response is a single blob, not a stream
+    raw_bytes = response.get("response", b'')
+    if hasattr(raw_bytes, 'read'):
+        raw_bytes = raw_bytes.read()
+    raw_response = raw_bytes.decode('utf-8') if isinstance(raw_bytes, bytes) else str(raw_bytes)
 
     # Try to parse as JSON (our agent returns {result, tools_used})
     try:
@@ -120,6 +116,10 @@ def lambda_handler(event, context):
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
         language = body.get('language', None)  # Auto-detect if not provided
+
+        # AgentCore runtimeSessionId requires min 33 chars
+        if len(session_id) < 33:
+            session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, session_id))
 
         if not user_message:
             return error_response('Message is required', 400)
