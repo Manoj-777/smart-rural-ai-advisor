@@ -1262,6 +1262,16 @@ Judges score **impact** heavily. They want to know: "If this goes beyond the hac
 | **Predictive analytics** | Predict pest outbreaks 2 weeks ahead using weather + historical data | Preventive, not reactive | ~2 weeks |
 | **Regional dashboards (QuickSight)** | Government officials see: "What are farmers in Thanjavur struggling with?" | Data-driven policy making | ~1 week |
 
+#### Phase 4: Advanced Resilience & Reliability (Month 6+)
+| Feature | What | Why | Effort |
+|---|---|---|---|
+| **Multi-region failover** | Deploy to ap-south-2 (Hyderabad) as DR region with Route 53 health checks | Zero downtime even if entire Mumbai region fails — critical for 24/7 farmer advisory | ~2 weeks |
+| **Circuit breaker pattern** | Implement circuit breakers (e.g., AWS Lambda Powertools) for external API calls (OpenWeatherMap, Bedrock) | Prevents cascading failures — if one service is down, others continue working | ~3 days |
+| **Redis caching layer (ElastiCache)** | Cache frequent queries ("best fertilizer for rice in Tamil Nadu") and weather data | Reduces Bedrock costs by 40-60%, sub-100ms response for cached queries | ~1 week |
+| **Request queuing (SQS)** | Queue incoming requests during traffic spikes instead of dropping them | Handles burst traffic (e.g., monsoon season when all farmers query at once) | ~3 days |
+| **Auto-scaling with provisioned concurrency** | Pre-warm Lambda functions + DynamoDB auto-scaling | Eliminates cold starts — farmer gets instant response even after idle periods | ~2 days |
+| **Health check dashboard (CloudWatch)** | Real-time monitoring dashboard with alarms for latency, error rates, and API health | Proactive issue detection before farmers notice problems | ~3 days |
+
 ### Business Model — Who Pays the Cloud Bill?
 
 **The honest answer judges want to hear:**

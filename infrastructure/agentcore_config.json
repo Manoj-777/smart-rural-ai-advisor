@@ -1,0 +1,31 @@
+{
+  "project": "smart-rural-ai",
+  "region": "ap-south-1",
+  "account_id": "948809294205",
+  "gateway": {
+    "gateway_id": "smartruralai-gateway-xuba3s0e4i",
+    "gateway_url": "https://smartruralai-gateway-xuba3s0e4i.gateway.bedrock-agentcore.ap-south-1.amazonaws.com/mcp"
+  },
+  "runtime": {
+    "agent_runtime_id": "SmartRuralAdvisor-lcQ47nFSPm",
+    "agent_runtime_arn": "arn:aws:bedrock-agentcore:ap-south-1:948809294205:runtime/SmartRuralAdvisor-lcQ47nFSPm",
+    "endpoint_name": "DEFAULT",
+    "endpoint_arn": "arn:aws:bedrock-agentcore:ap-south-1:948809294205:runtime/SmartRuralAdvisor-lcQ47nFSPm/runtime-endpoint/DEFAULT",
+    "runtime_role": "arn:aws:iam::948809294205:role/smart-rural-ai-AgentCoreRuntimeRole"
+  },
+  "knowledge_base": {
+    "kb_id": "9X1YUTXNOQ"
+  },
+  "gateway_targets": {
+    "crop_advisory": "VJEPSCBALB",
+    "weather": "O29ORX0HIB",
+    "govt_schemes": "JAJLAPZCCM",
+    "farmer_profile": "UUCUUICYWP"
+  },
+  "lambda_functions": {
+    "crop_advisory": "smart-rural-ai-CropAdvisoryFunction-Z8jAKbsH7mkY",
+    "weather": "smart-rural-ai-WeatherFunction-dilSoHSLlXGN",
+    "govt_schemes": "smart-rural-ai-GovtSchemesFunction-BgTy36y4fgGv",
+    "farmer_profile": "smart-rural-ai-FarmerProfileFunction-mEzTIZOAvxKt"
+  }
+}
