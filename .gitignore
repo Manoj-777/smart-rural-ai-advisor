@@ -1,0 +1,49 @@
+# Smart Rural AI Advisor
+
+## Dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+## Node / React
+node_modules/
+frontend/dist/
+frontend/.env
+*.tsbuildinfo
+
+## Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+## AWS
+.aws/
+samconfig.toml
+.aws-sam/
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Misc
+*.log
+*.zip
+*.tar.gz

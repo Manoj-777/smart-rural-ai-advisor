@@ -1,0 +1,49 @@
+{
+    "_comment": "Bedrock AgentCore configuration placeholder — fill after console setup",
+    "agent": {
+        "agent_name": "SmartRuralAdvisor",
+        "foundation_model": "anthropic.claude-sonnet-4-5-20250514",
+        "instruction": "You are an experienced Indian agricultural advisor who helps small-scale farmers with crop guidance, pest management, weather interpretation, government scheme navigation, and market advice. Always respond in the farmer's language. Be practical, specific to their region and crops, and include actionable steps.",
+        "idle_session_ttl_in_seconds": 1800,
+        "agent_id": "FILL_AFTER_CREATION",
+        "agent_alias_id": "FILL_AFTER_CREATION"
+    },
+    "knowledge_base": {
+        "kb_name": "SmartRuralKB",
+        "kb_id": "FILL_AFTER_CREATION",
+        "data_source": {
+            "type": "S3",
+            "bucket": "smart-rural-ai-ACCOUNT_ID",
+            "prefix": "knowledge_base/"
+        },
+        "embedding_model": "amazon.titan-embed-text-v2:0",
+        "vector_store": "built-in"
+    },
+    "action_groups": [
+        {
+            "name": "CropAdvisoryTools",
+            "lambda": "CropAdvisoryFunction",
+            "operations": ["get_crop_advisory", "get_pest_alert", "get_irrigation_advice"]
+        },
+        {
+            "name": "WeatherTools",
+            "lambda": "WeatherFunction",
+            "operations": ["get_weather"]
+        },
+        {
+            "name": "SchemeTools",
+            "lambda": "GovtSchemesFunction",
+            "operations": ["search_schemes"]
+        },
+        {
+            "name": "ProfileTools",
+            "lambda": "FarmerProfileFunction",
+            "operations": ["get_profile", "update_profile"]
+        }
+    ],
+    "guardrails": {
+        "content_filter": "farm_topics_only",
+        "blocked_topics": ["politics", "religion", "violence"],
+        "max_response_length": 2048
+    }
+}

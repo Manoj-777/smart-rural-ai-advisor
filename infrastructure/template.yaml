@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Smart Rural AI Advisor - Serverless Backend
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.11
+    Environment:
+      Variables:
+        BEDROCK_AGENT_ID: !Ref BedrockAgentId
+        BEDROCK_AGENT_ALIAS_ID: !Ref BedrockAgentAliasId
+        BEDROCK_KB_ID: !Ref BedrockKBId
+        OPENWEATHER_API_KEY: !Ref OpenWeatherApiKey
+        S3_KNOWLEDGE_BUCKET: !Ref KnowledgeBucket
+        DYNAMODB_PROFILES_TABLE: !Ref FarmerProfilesTable
+        DYNAMODB_SESSIONS_TABLE: !Ref ChatSessionsTable
+
+Parameters:
+  BedrockAgentId:
+    Type: String
+    Description: Bedrock AgentCore Agent ID
+  BedrockAgentAliasId:
+    Type: String
+    Description: Bedrock AgentCore Alias ID
+  BedrockKBId:
+    Type: String
+    Description: Bedrock Knowledge Base ID
+  OpenWeatherApiKey:
+    Type: String
+    Description: OpenWeatherMap API Key
+    NoEcho: true
+
+Resources:
+  # S3 Bucket for knowledge base and audio
+  KnowledgeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smart-rural-ai-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # DynamoDB Tables
+  FarmerProfilesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: farmer_profiles
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: farmer_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: farmer_id
+          KeyType: HASH
+
+  ChatSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: chat_sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  # Lambda Functions
+  AgentOrchestratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/agent_orchestrator/
+      Handler: handler.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeAgent
+                - bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - translate:TranslateText
+                - translate:DetectDominantLanguage
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub '${KnowledgeBucket.Arn}/*'
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource: 
+                - !GetAtt ChatSessionsTable.Arn
+                - !GetAtt FarmerProfilesTable.Arn
+      Events:
+        ChatApi:
+          Type: Api
+          Properties:
+            Path: /chat
+            Method: post
+        ChatOptions:
+          Type: Api
+          Properties:
+            Path: /chat
+            Method: options
+        VoiceApi:
+          Type: Api
+          Properties:
+            Path: /voice
+            Method: post
+        VoiceOptions:
+          Type: Api
+          Properties:
+            Path: /voice
+            Method: options
+
+  CropAdvisoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/crop_advisory/
+      Handler: handler.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:RetrieveAndGenerate
+                - bedrock:Retrieve
+              Resource: '*'
+
+  WeatherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/weather_lookup/
+      Handler: handler.lambda_handler
+      Events:
+        WeatherApi:
+          Type: Api
+          Properties:
+            Path: /weather/{location}
+            Method: get
+
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      InlineCode: |
+        def lambda_handler(event, context):
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': '{"status": "healthy", "service": "Smart Rural AI Advisor"}'
+            }
+      Handler: index.lambda_handler
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+
+  ImageAnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/image_analysis/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - translate:TranslateText
+              Resource: '*'
+      Events:
+        ImageApi:
+          Type: Api
+          Properties:
+            Path: /image-analyze
+            Method: post
+        ImageOptions:
+          Type: Api
+          Properties:
+            Path: /image-analyze
+            Method: options
+
+  GovtSchemesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/govt_schemes/
+      Handler: handler.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:RetrieveAndGenerate
+                - bedrock:Retrieve
+              Resource: '*'
+      Events:
+        SchemesApi:
+          Type: Api
+          Properties:
+            Path: /schemes
+            Method: get
+
+  FarmerProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/farmer_profile/
+      Handler: handler.lambda_handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt FarmerProfilesTable.Arn
+      Events:
+        ProfileGetApi:
+          Type: Api
+          Properties:
+            Path: /profile/{farmerId}
+            Method: get
+        ProfilePutApi:
+          Type: Api
+          Properties:
+            Path: /profile/{farmerId}
+            Method: put
+
+  TranscribeSpeechFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambdas/transcribe_speech/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub '${KnowledgeBucket.Arn}/*'
+      Events:
+        TranscribeApi:
+          Type: Api
+          Properties:
+            Path: /transcribe
+            Method: post
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'

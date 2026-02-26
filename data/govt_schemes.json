@@ -1,0 +1,217 @@
+{
+    "_instructions": "ABHISHEK: Fill in all schemes below following the PM-KISAN example. DELETE this _instructions field before uploading. Source: farmer.gov.in, official scheme websites.",
+    "schemes": [
+        {
+            "id": "pm-kisan",
+            "name": "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)",
+            "category": "income_support",
+            "ministry": "Ministry of Agriculture & Farmers' Welfare",
+            "description": "Direct income support of ₹6,000/year to all landholding farmer families, paid in 3 installments of ₹2,000 each.",
+            "amount": "₹6,000/year",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": "Must not be income tax payer",
+                "aadhaar_required": true,
+                "other": "Not for govt employees (except Class IV), MPs, MLAs, pensioners with pension > ₹10,000/month"
+            },
+            "documents": [
+                "Aadhaar card (linked to bank account)",
+                "Bank account details",
+                "Land ownership records (Khasra/Khatauni/Patta)",
+                "Mobile number"
+            ],
+            "how_to_apply": "Online at pmkisan.gov.in → New Farmer Registration, OR visit nearest Common Service Centre (CSC)",
+            "website": "https://pmkisan.gov.in",
+            "helpline": "155261",
+            "states": "all",
+            "tags": ["income", "cash", "direct_benefit", "all_farmers"]
+        },
+        {
+            "id": "pmfby",
+            "name": "PMFBY (Pradhan Mantri Fasal Bima Yojana)",
+            "category": "insurance",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": true,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["insurance", "crop_protection"]
+        },
+        {
+            "id": "kcc",
+            "name": "KCC (Kisan Credit Card)",
+            "category": "credit",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": 18,
+                "max_age": 75,
+                "income_limit": null,
+                "aadhaar_required": true,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["credit", "loan", "bank"]
+        },
+        {
+            "id": "soil-health-card",
+            "name": "Soil Health Card Scheme",
+            "category": "soil_health",
+            "ministry": "",
+            "description": "",
+            "amount": "Free",
+            "eligibility": {
+                "land_required": false,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": false,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["soil", "testing", "free"]
+        },
+        {
+            "id": "enam",
+            "name": "eNAM (National Agriculture Market)",
+            "category": "market",
+            "ministry": "",
+            "description": "",
+            "amount": "N/A",
+            "eligibility": {
+                "land_required": false,
+                "max_land_hectares": null,
+                "min_age": 18,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": true,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "",
+            "tags": ["market", "selling", "mandi", "price"]
+        },
+        {
+            "id": "pm-kisan-maandhan",
+            "name": "PM Kisan MaanDhan Yojana (Farmer Pension)",
+            "category": "pension",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": true,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["pension", "retirement", "old_age"]
+        },
+        {
+            "id": "pkvy",
+            "name": "PKVY (Paramparagat Krishi Vikas Yojana)",
+            "category": "organic_farming",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": false,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["organic", "natural_farming"]
+        },
+        {
+            "id": "smam",
+            "name": "SMAM (Sub-Mission on Agricultural Mechanization)",
+            "category": "mechanization",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": false,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": true,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["machinery", "tractor", "equipment", "subsidy"]
+        },
+        {
+            "id": "pmksy",
+            "name": "PMKSY (Pradhan Mantri Krishi Sinchai Yojana)",
+            "category": "irrigation",
+            "ministry": "",
+            "description": "",
+            "amount": "",
+            "eligibility": {
+                "land_required": true,
+                "max_land_hectares": null,
+                "min_age": null,
+                "max_age": null,
+                "income_limit": null,
+                "aadhaar_required": false,
+                "other": ""
+            },
+            "documents": [],
+            "how_to_apply": "",
+            "website": "",
+            "helpline": "",
+            "states": "all",
+            "tags": ["irrigation", "drip", "sprinkler", "water", "subsidy"]
+        }
+    ]
+}

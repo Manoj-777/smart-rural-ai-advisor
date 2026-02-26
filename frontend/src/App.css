@@ -1,0 +1,223 @@
+/* src/App.css */
+
+/* ── Reset & Base ──────────────────────────────────────── */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #2d7a3a;        /* Agricultural green */
+    --primary-dark: #1e5c2a;
+    --primary-light: #e8f5e9;
+    --accent: #ff9800;         /* Warm orange — action buttons */
+    --bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text: #1a1a2e;
+    --text-light: #6b7280;
+    --border: #e5e7eb;
+    --error: #e53e3e;
+    --success: #38a169;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* ── Layout ────────────────────────────────────────────── */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    padding: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.sidebar {
+    width: 260px;
+    background: var(--primary-dark);
+    color: white;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar h1 {
+    font-size: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.sidebar a {
+    color: rgba(255,255,255,0.85);
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    transition: background 0.2s;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+
+/* ── Chat Bubbles ──────────────────────────────────────── */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 100px;  /* Room for input bar */
+}
+
+.message {
+    max-width: 80%;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    line-height: 1.5;
+    animation: fadeIn 0.3s ease;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: var(--primary);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.assistant {
+    align-self: flex-start;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow);
+}
+
+/* ── Input Bar ─────────────────────────────────────────── */
+.input-bar {
+    position: fixed;
+    bottom: 0;
+    left: 260px;
+    right: 0;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.input-bar input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 24px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input-bar input:focus {
+    border-color: var(--primary);
+}
+
+.input-bar button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.send-btn {
+    background: var(--primary);
+    color: white;
+}
+
+.send-btn:hover {
+    background: var(--primary-dark);
+}
+
+/* ── Cards (Weather, Schemes) ──────────────────────────── */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+}
+
+.card h3 {
+    margin-bottom: 12px;
+    color: var(--primary-dark);
+}
+
+/* ── Mic Button ────────────────────────────────────────── */
+.mic-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.mic-btn:hover { background: var(--primary-dark); }
+
+.mic-btn.recording {
+    background: var(--error);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(229,62,62,0.4); }
+    70% { box-shadow: 0 0 0 12px rgba(229,62,62,0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;  /* Use hamburger menu on mobile */
+    }
+    .input-bar {
+        left: 0;
+    }
+    .main-content {
+        padding: 16px;
+    }
+    .message {
+        max-width: 90%;
+    }
+}
