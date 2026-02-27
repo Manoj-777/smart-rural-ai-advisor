@@ -64,7 +64,9 @@ def lambda_handler(event, context):
         image_base64 = body.get('image_base64', '')
         crop_name = body.get('crop_name', 'unknown crop')
         farmer_state = body.get('state', 'India')
-        target_language = body.get('language', 'en')
+        # Normalize BCP-47 codes (e.g. 'ta-IN' → 'ta') for AWS Translate
+        raw_lang = body.get('language', 'en')
+        target_language = raw_lang.split('-')[0] if raw_lang else 'en'
 
         # Validation
         if not image_base64:
