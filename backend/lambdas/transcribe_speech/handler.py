@@ -21,14 +21,25 @@ s3 = boto3.client('s3')
 
 BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-data')
 
-# Map frontend language codes to Transcribe language codes
+# Map frontend language codes to Amazon Transcribe language codes
+# See: https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html
 LANGUAGE_MAP = {
-    'ta-IN': 'ta-IN',   # Tamil
-    'te-IN': 'te-IN',   # Telugu
-    'hi-IN': 'hi-IN',   # Hindi
     'en-IN': 'en-IN',   # English (Indian)
     'en-US': 'en-US',   # English (US)
+    'hi-IN': 'hi-IN',   # Hindi
+    'ta-IN': 'ta-IN',   # Tamil
+    'te-IN': 'te-IN',   # Telugu
+    'kn-IN': 'kn-IN',   # Kannada
+    'ml-IN': 'ml-IN',   # Malayalam
+    'bn-IN': 'bn-IN',   # Bengali
+    'mr-IN': 'mr-IN',   # Marathi
+    'gu-IN': 'gu-IN',   # Gujarati
+    'pa-IN': 'pa-IN',   # Punjabi (Gurmukhi)
+    'ab-IN': 'ab-IN',   # Fallback
 }
+
+# Languages not supported by Amazon Transcribe — fall back to Hindi
+UNSUPPORTED_LANGUAGES = {'or-IN', 'as-IN', 'ur-IN'}
 
 
 def lambda_handler(event, context):
@@ -44,36 +55,60 @@ def lambda_handler(event, context):
         body = json.loads(event.get('body', '{}'))
         audio_base64 = body.get('audio')
         language = body.get('language', 'ta-IN')
+        audio_format = body.get('format', 'audio/webm')  # mime type from frontend
 
         if not audio_base64:
             return error_response('No audio provided', 400)
 
+        # Detect file extension and Transcribe MediaFormat from mime type
+        FORMAT_MAP = {
+            'audio/webm': ('webm', 'webm'),
+            'audio/webm;codecs=opus': ('webm', 'webm'),
+            'audio/ogg': ('ogg', 'ogg'),
+            'audio/ogg;codecs=opus': ('ogg', 'ogg'),
+            'audio/mp3': ('mp3', 'mp3'),
+            'audio/mpeg': ('mp3', 'mp3'),
+            'audio/wav': ('wav', 'wav'),
+            'audio/flac': ('flac', 'flac'),
+            'audio/mp4': ('mp4', 'mp4'),
+        }
+        file_ext, media_format = FORMAT_MAP.get(audio_format, ('webm', 'webm'))
+
+        # Handle unsupported languages by falling back to Hindi
+        if language in UNSUPPORTED_LANGUAGES:
+            logger.info(f"Language {language} not supported by Transcribe, falling back to hi-IN")
+            language = 'hi-IN'
+
         # Decode audio and upload to S3 (Transcribe reads from S3)
         audio_bytes = base64.b64decode(audio_base64)
         job_id = f"voice-{uuid.uuid4().hex[:8]}"
-        s3_key = f"audio-uploads/{job_id}.webm"
+        s3_key = f"audio-uploads/{job_id}.{file_ext}"
 
         s3.put_object(
             Bucket=BUCKET,
             Key=s3_key,
             Body=audio_bytes,
-            ContentType='audio/webm'
+            ContentType=audio_format.split(';')[0]  # strip codecs param
         )
 
         # Start transcription job
         transcribe_language = LANGUAGE_MAP.get(language, 'ta-IN')
 
-        transcribe.start_transcription_job(
-            TranscriptionJobName=job_id,
-            Media={'MediaFileUri': f's3://{BUCKET}/{s3_key}'},
-            MediaFormat='webm',
-            LanguageCode=transcribe_language,
-            OutputBucketName=BUCKET,
-            OutputKey=f'transcriptions/{job_id}.json'
-        )
+        transcribe_params = {
+            'TranscriptionJobName': job_id,
+            'Media': {'MediaFileUri': f's3://{BUCKET}/{s3_key}'},
+            'LanguageCode': transcribe_language,
+            'OutputBucketName': BUCKET,
+            'OutputKey': f'transcriptions/{job_id}.json'
+        }
+        # Only set MediaFormat if we have a known mapping; otherwise let Transcribe auto-detect
+        if media_format:
+            transcribe_params['MediaFormat'] = media_format
 
-        # Poll for completion (max 30 seconds)
-        for _ in range(30):
+        transcribe.start_transcription_job(**transcribe_params)
+
+        # Poll for completion (max 45 seconds)
+        for _ in range(45):
             status = transcribe.get_transcription_job(
                 TranscriptionJobName=job_id
             )
@@ -89,19 +124,32 @@ def lambda_handler(event, context):
                 transcript = transcript_data['results']['transcripts'][0]['transcript']
 
                 # Cleanup: delete audio and transcription files
-                s3.delete_object(Bucket=BUCKET, Key=s3_key)
-                s3.delete_object(Bucket=BUCKET, Key=f'transcriptions/{job_id}.json')
+                _cleanup(s3_key, job_id)
 
                 return success_response({'transcript': transcript})
 
             elif job_status == 'FAILED':
                 logger.error(f"Transcription failed: {status}")
+                _cleanup(s3_key, job_id)
                 return error_response('Transcription failed. Please try again.', 500)
 
             time.sleep(1)  # Wait 1 second before polling again
 
+        _cleanup(s3_key, job_id)
         return error_response('Transcription timed out. Please try again.', 504)
 
     except Exception as e:
         logger.error(f"Transcribe error: {str(e)}")
         return error_response(str(e), 500)
+
+
+def _cleanup(s3_key, job_id):
+    """Best-effort cleanup of S3 audio and transcription artifacts."""
+    try:
+        s3.delete_object(Bucket=BUCKET, Key=s3_key)
+    except Exception:
+        pass
+    try:
+        s3.delete_object(Bucket=BUCKET, Key=f'transcriptions/{job_id}.json')
+    except Exception:
+        pass

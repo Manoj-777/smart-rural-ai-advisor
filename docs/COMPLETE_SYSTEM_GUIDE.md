@@ -17,6 +17,7 @@
    - 5.1 [Agent Orchestrator (The Brain)](#51-agent-orchestrator-the-brain)
    - 5.2 [Weather Lookup](#52-weather-lookup)
    - 5.3 [Crop Advisory](#53-crop-advisory)
+   
    - 5.4 [Government Schemes](#54-government-schemes)
    - 5.5 [Farmer Profile](#55-farmer-profile)
    - 5.6 [Image Analysis](#56-image-analysis)
@@ -81,7 +82,7 @@ flowchart LR
   Orch[Agent Orchestrator Lambda]
 
   AgentCore[Bedrock AgentCore Runtime]
-  Bedrock[Amazon Bedrock Model<br/>apac.amazon.nova-pro-v1:0]
+  Bedrock[Amazon Bedrock Model<br/>anthropic.claude-sonnet-4-5-20250929-v1:0]
 
   Weather[Weather Lambda]
   Crop[Crop Advisory Lambda]
@@ -143,7 +144,7 @@ flowchart TB
   AUDIO[Orchestration TTS Pipeline]
 
   ACR[AI AgentCore Runtime]
-  FM[AI Foundation Model Nova Pro]
+  FM[AI Foundation Model Claude Sonnet 4.5]
   TOOL_LOOP[AI Tool Calling Loop]
 
   WL[Tool Weather Lambda]
@@ -380,7 +381,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  S[Start with user prompt] --> M1[Call Nova Pro model]
+  S[Start with user prompt] --> M1[Call Claude Sonnet 4.5 model]
   M1 --> R{stop_reason}
 
   R -- end_turn/max_tokens --> F[Return final answer]
@@ -517,7 +518,7 @@ If `farmer_id` is not "anonymous", the system fetches the farmer's saved profile
 This context is **prepended** to the message so the AI knows the farmer's background.
 
 ### Step 6: AI Agent (AgentCore) Processing
-The enriched English message is sent to the **AgentCore Runtime**. The AI model (Amazon Nova Pro) reads the message, decides which tools to call, and runs the **agent loop**:
+The enriched English message is sent to the **AgentCore Runtime**. The AI model (Claude Sonnet 4.5) reads the message, decides which tools to call, and runs the **agent loop**:
 
 1. AI says: "I need weather data for this farmer's location" → calls `get_weather` tool
 2. AI says: "I also need crop advisory for wheat" → calls `get_crop_advisory` tool
@@ -566,7 +567,7 @@ Both the user message and AI response are saved to the `chat_sessions` DynamoDB 
 |---|---|
 | **API Gateway** | Creates REST API URLs (`/chat`, `/weather/{location}`, `/schemes`, etc.) and routes HTTP requests to Lambda |
 | **Lambda** | Runs our Python code without a server. Each function handles one concern. |
-| **Amazon Bedrock** | Hosts the AI model (Amazon Nova Pro). We call it to generate intelligent responses. |
+| **Amazon Bedrock** | Hosts the AI model (Claude Sonnet 4.5). We call it to generate intelligent responses. |
 | **Bedrock AgentCore** | Manages the AI agent runtime — gives the model tools, handles the tool-calling loop, manages sessions. |
 | **Amazon Translate** | Auto-detects language (Tamil, Telugu, Hindi, etc.) and translates text to/from English. |
 | **Amazon Polly** | Converts text to natural-sounding speech (MP3 audio). Uses the neural Kajal voice. |
@@ -721,13 +722,13 @@ Think of it as a smart search engine for documents. You upload PDFs/documents ab
 
 **File:** `backend/lambdas/image_analysis/handler.py`  
 **Endpoint:** `POST /image-analyze`  
-**Uses:** Amazon Nova Pro Vision model via Bedrock Converse API
+**Uses:** Claude Sonnet 4.5 Vision model via Bedrock Converse API
 
 **What it does:**
 1. Receives a **base64-encoded image** of a crop
 2. Validates the image (format, size < 4MB)
 3. Detects image format (JPEG, PNG, GIF, WebP) from base64 magic bytes
-4. Sends the image to **Amazon Nova Pro Vision** with a detailed system prompt
+4. Sends the image to **Claude Sonnet 4.5 Vision** with a detailed system prompt
 5. The AI analyzes the image and returns a structured diagnosis:
    - Confidence level (High/Medium/Low)
    - Disease/pest name
@@ -981,7 +982,7 @@ flowchart TB
 **AgentCore** is Amazon's managed service for running AI agents. Think of it as:
 
 - A **hosting platform** for your AI agent code
-- It manages the **model connection** (to Amazon Nova Pro)
+- It manages the **model connection** (to Claude Sonnet 4.5)
 - It provides a **Gateway** that exposes your Lambda functions as tools the AI can call
 - It handles **sessions** (remembers conversation context)
 
@@ -1140,15 +1141,15 @@ Orchestrator detects intents: [weather, crop, schemes]
 
 ## 8. The Bedrock Foundation Model
 
-**Model:** `apac.amazon.nova-pro-v1:0` (Amazon Nova Pro)
+**Model:** `anthropic.claude-sonnet-4-5-20250929-v1:0` (Claude Sonnet 4.5)
 
-**What is it?** Amazon Nova Pro is Amazon's own large language model. It's similar to ChatGPT or Claude but runs natively on AWS Bedrock. The `apac` prefix means it's using the Asia Pacific inference profile (lower latency for `ap-south-1` region).
+**What is it?** Claude Sonnet 4.5 is Anthropic's advanced large language model, hosted on AWS Bedrock. It excels at tool use, multi-turn reasoning, and vision tasks — ideal for our agricultural advisory use case.
 
 **Why this model?**
 - Available in `ap-south-1` (Mumbai) — low latency for Indian users
-- Supports tool use (can call our Lambda tools)
+- Best-in-class tool-use support (can call our Lambda tools reliably)
 - Supports vision (can analyze crop images)
-- Good balance of speed and quality
+- Excellent balance of speed, quality, and multilingual capability
 - No cross-region inference needed
 
 **Model parameters we use:**
@@ -1157,7 +1158,7 @@ max_tokens = 4096      # Maximum response length
 temperature = 0.3      # Low = more focused/deterministic, High = more creative
 ```
 
-**For image analysis**, we use the same model (`apac.amazon.nova-pro-v1:0`) but via the Converse API with image content blocks.
+**For image analysis**, we use the same model (`anthropic.claude-sonnet-4-5-20250929-v1:0`) but via the Converse API with image content blocks.
 
 ---
 
@@ -1477,7 +1478,7 @@ python setup_agentcore.py --cleanup        # Delete everything
 |---|---|
 | **Lambda** | AWS service that runs your code without a server. You pay only when it runs. |
 | **API Gateway** | AWS service that creates HTTP endpoints (URLs) and routes requests to Lambda. |
-| **Bedrock** | AWS's managed AI service. Hosts foundation models like Nova Pro. |
+| **Bedrock** | AWS's managed AI service. Hosts foundation models like Claude Sonnet 4.5. |
 | **AgentCore** | AWS service for running AI agents with tool-calling capabilities. |
 | **Knowledge Base (KB)** | A search index over your documents. Uses vector embeddings for semantic search. |
 | **RAG** | Retrieval Augmented Generation — feed relevant documents to the AI so it answers based on facts, not just its training data. |
@@ -1497,7 +1498,7 @@ python setup_agentcore.py --cleanup        # Delete everything
 | **Hallucination** | When an AI makes up information that sounds real but isn't. Our policy checks prevent this. |
 | **Tool Use** | The AI's ability to call external functions (our Lambdas) to get real data instead of guessing. |
 | **Converse API** | AWS's unified API for calling AI models. Works with Claude, Nova, Titan, etc. |
-| **Inference Profile** | Region-specific model deployment. `apac.amazon.nova-pro-v1:0` is optimized for Asia Pacific. |
+| **Inference Profile** | Region-specific model deployment. E.g., `anthropic.claude-sonnet-4-5-20250929-v1:0` for ap-south-1. |
 
 ---
 
@@ -1648,11 +1649,11 @@ Two auth paths exist:
 
 ### 17.8 Section 8 — Foundation model choices
 
-- `apac.amazon.nova-pro-v1:0` is selected for:
-  - regional latency fit (`ap-south-1` usage profile),
-  - tool-use support,
+- `anthropic.claude-sonnet-4-5-20250929-v1:0` is selected for:
+  - regional latency fit (`ap-south-1` availability),
+  - best-in-class tool-use support,
   - vision support,
-  - balanced speed/quality.
+  - balanced speed/quality with excellent multilingual ability.
 - Low temperature (`0.3`) biases toward deterministic advisory over creativity.
 
 ### 17.9 Section 9 — Policy and hallucination prevention (defense in depth)

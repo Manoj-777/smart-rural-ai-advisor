@@ -17,6 +17,13 @@ Globals:
         DYNAMODB_PROFILES_TABLE: farmer_profiles
         DYNAMODB_SESSIONS_TABLE: chat_sessions
         AGENTCORE_RUNTIME_ARN: !Ref AgentCoreRuntimeArn
+        AGENTCORE_WEATHER_RUNTIME_ARN: !Ref AgentCoreWeatherRuntimeArn
+        AGENTCORE_CROP_RUNTIME_ARN: !Ref AgentCoreCropRuntimeArn
+        AGENTCORE_SCHEMES_RUNTIME_ARN: !Ref AgentCoreSchemesRuntimeArn
+        AGENTCORE_PROFILE_RUNTIME_ARN: !Ref AgentCoreProfileRuntimeArn
+        AGENTCORE_PEST_RUNTIME_ARN: !Ref AgentCorePestRuntimeArn
+        ENABLE_SPECIALIST_FANOUT: !Ref EnableSpecialistFanout
+        ENFORCE_CODE_POLICY: !Ref EnforceCodePolicy
 
 Parameters:
   BedrockAgentId:
@@ -39,6 +46,36 @@ Parameters:
     Type: String
     Description: Amazon Bedrock AgentCore Runtime ARN (set after agentcore deploy)
     Default: ''
+  AgentCoreWeatherRuntimeArn:
+    Type: String
+    Description: Weather specialist AgentCore Runtime ARN
+    Default: ''
+  AgentCoreCropRuntimeArn:
+    Type: String
+    Description: Crop specialist AgentCore Runtime ARN
+    Default: ''
+  AgentCoreSchemesRuntimeArn:
+    Type: String
+    Description: Schemes specialist AgentCore Runtime ARN
+    Default: ''
+  AgentCoreProfileRuntimeArn:
+    Type: String
+    Description: Profile specialist AgentCore Runtime ARN
+    Default: ''
+  AgentCorePestRuntimeArn:
+    Type: String
+    Description: Pest specialist AgentCore Runtime ARN
+    Default: ''
+  EnableSpecialistFanout:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Description: Enable parallel specialist fanout and synthesis
+    Default: 'true'
+  EnforceCodePolicy:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Description: Enforce application-level policy checks (topic gating, grounding, sources)
+    Default: 'true'
 
 Resources:
   # S3 Bucket and DynamoDB tables created manually (already exist)
@@ -59,15 +96,19 @@ Resources:
               Action:
                 - bedrock:InvokeAgent
                 - bedrock:InvokeModel
+                - bedrock:Converse
+                - bedrock:ConverseStream
               Resource: '*'
             - Effect: Allow
               Action:
                 - bedrock-agentcore:InvokeAgentRuntime
+                - bedrock-agentcore-control:InvokeAgentRuntime
+                - bedrock-agentcore-control:GetAgentRuntime
               Resource: '*'
             - Effect: Allow
               Action:
                 - translate:TranslateText
-                - translate:DetectDominantLanguage
+                - comprehend:DetectDominantLanguage
               Resource: '*'
             - Effect: Allow
               Action:
@@ -248,7 +289,7 @@ Resources:
     Properties:
       CodeUri: ../backend/lambdas/transcribe_speech/
       Handler: handler.lambda_handler
-      Timeout: 30
+      Timeout: 60
       Policies:
         - Version: '2012-10-17'
           Statement:

@@ -5953,7 +5953,7 @@ def lambda_handler(event, context):
 
         # ── Call Claude Sonnet 4.5 Vision ───────────────────────
         response = bedrock.invoke_model(
-            modelId='anthropic.claude-sonnet-4-5-20250514',
+            modelId='anthropic.claude-sonnet-4-5-20250929-v1:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({

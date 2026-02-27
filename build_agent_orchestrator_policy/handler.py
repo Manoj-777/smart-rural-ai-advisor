@@ -20,7 +20,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 from utils.response_helper import success_response, error_response
-from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
+from utils.translate_helper import detect_and_translate, translate_response
 from utils.polly_helper import text_to_speech
 from utils.dynamodb_helper import save_chat_message, get_farmer_profile
 
@@ -61,29 +61,11 @@ AGRI_POLICY_KEYWORDS = {
 SAFE_CHITCHAT = {'hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay'}
 
 
-def _sanitize_user_message(text):
-    cleaned = (text or '').strip()
-    if not cleaned:
-        return cleaned
-    cleaned = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', cleaned)
-    cleaned = re.sub(r'([,.;:!?()\-])\1{2,}', r'\1', cleaned)
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-    return cleaned.strip()
-
-
-def _contains_indic_chars(text):
-    if not text:
-        return False
-    return bool(re.search(r'[\u0900-\u0D7F]', text))
-
-
 def _is_on_topic_query(text):
     normalized = (text or '').lower().strip()
     if not normalized:
         return True
     if normalized in SAFE_CHITCHAT:
-        return True
-    if _contains_indic_chars(normalized):
         return True
     return any(keyword in normalized for keyword in AGRI_POLICY_KEYWORDS)
 
@@ -100,39 +82,14 @@ def _requires_grounded_tools(intents):
     return bool(set(intents or []) & required)
 
 
-def _grounding_prompt_for_intents(intents):
-    intent_set = set(intents or [])
-    if 'weather' in intent_set:
-        return "Please share your location (village/town/city) so I can fetch a weather update."
-    if 'pest' in intent_set:
-        return "Please share your crop, location, and visible symptoms so I can give a reliable pest advisory."
-    if 'crop' in intent_set:
-        return "Please share your location, season, and crop preference so I can give a reliable crop advisory."
-    if 'schemes' in intent_set:
-        return "Please share your state and farmer category so I can find relevant government schemes."
-    if 'profile' in intent_set:
-        return "Please share your farmer ID or profile details so I can give profile-based advice."
-    return (
-        "Please share your crop, location, season, and symptoms so I can provide a reliable advisory."
-    )
+def _append_sources(reply_en, tools_used):
+    text = (reply_en or '').strip()
+    if not text or not tools_used:
+        return text
 
+    if 'sources:' in text.lower():
+        return text
 
-def _strip_sources_line(text):
-    """Remove any 'Sources: ...' line from the text (agent.py may have added it).
-    Returns (cleaned_text, extracted_sources_str_or_None)."""
-    if not text:
-        return text, None
-    import re as _re
-    match = _re.search(r'\n\s*Sources:\s*(.+)$', text)
-    if match:
-        return text[:match.start()].rstrip(), match.group(1).strip()
-    return text, None
-
-
-def _build_sources_line(tools_used):
-    """Build a sources attribution string from tool names (never translated)."""
-    if not tools_used:
-        return None
     tool_labels = {
         'get_weather': 'WeatherFunction(OpenWeather)',
         'get_crop_advisory': 'CropAdvisoryFunction(KB)',
@@ -143,25 +100,10 @@ def _build_sources_line(tools_used):
     }
     unique_tools = list(dict.fromkeys(tools_used))
     source_list = [tool_labels.get(tool, tool) for tool in unique_tools]
-    return ', '.join(source_list)
+    return f"{text}\n\nSources: {', '.join(source_list)}"
 
 
-def _append_sources(reply_en, tools_used):
-    """Append sources line to English text. Only used for reply_en field."""
-    text = (reply_en or '').strip()
-    if not text or not tools_used:
-        return text
-
-    # Strip any existing sources line first (avoid duplicates from agent.py)
-    text, _ = _strip_sources_line(text)
-
-    sources = _build_sources_line(tools_used)
-    if sources:
-        return f"{text}\n\nSources: {sources}"
-    return text
-
-
-def _apply_code_policy(user_query_en, intents, result_text, tools_used, original_query=None):
+def _apply_code_policy(user_query_en, intents, result_text, tools_used):
     policy_meta = {
         'code_policy_enforced': ENFORCE_CODE_POLICY,
         'off_topic_blocked': False,
@@ -172,7 +114,7 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
     if not ENFORCE_CODE_POLICY:
         return result_text, tools_used, policy_meta
 
-    if not (_is_on_topic_query(user_query_en) or _is_on_topic_query(original_query)):
+    if not _is_on_topic_query(user_query_en):
         policy_meta['off_topic_blocked'] = True
         return _off_topic_response(), [], policy_meta
 
@@ -184,7 +126,10 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
 
     if policy_meta['grounding_required'] and not cleaned_tools:
         policy_meta['grounding_satisfied'] = False
-        text = _grounding_prompt_for_intents(intents)
+        text = (
+            "I couldn't verify this with trusted tools right now. "
+            "Please share your crop, location, season, and symptoms so I can provide a reliable advisory."
+        )
 
     text = _append_sources(text, cleaned_tools)
 
@@ -284,43 +229,25 @@ def _invoke_agentcore_runtime_with_arn(runtime_arn, prompt, session_id, farmer_c
         return "", []
 
 
-def _classify_intents(message_en, original_message=None):
-    """Classify intents from English translation AND original Indic text."""
+def _classify_intents(message_en):
     text = (message_en or '').lower()
-    orig = (original_message or '').lower()
-    combined = text + ' ' + orig
     intents = set()
 
-    weather_kw = ['weather', 'rain', 'rainfall', 'temperature', 'humidity', 'forecast', 'monsoon', 'mausam',
-                  # Tamil/Hindi/Telugu weather words
-                  'வானிலை', 'மழை', 'வெப்பநிலை', 'मौसम', 'बारिश', 'तापमान',
-                  'వాతావరణం', 'వర్షం', 'ఉష్ణోగ్రత']
-    crop_kw = ['crop', 'seed', 'soil', 'fertilizer', 'irrigation', 'yield', 'harvest', 'variety',
-               'kharif', 'rabi', 'grow', 'plant', 'sow', 'cultivat',
-               # Tamil crop words
-               'பயிர்', 'விதை', 'மண்', 'உரம்', 'நெல்', 'நிலம்', 'வளர்', 'விவசாய',
-               # Hindi crop words
-               'फसल', 'बीज', 'मिट्टी', 'खाद', 'उगा', 'खेती',
-               # Telugu crop words
-               'పంట', 'విత్తనం', 'నేల', 'ఎరువు', 'వ్యవసాయ']
-    pest_kw = ['pest', 'disease', 'fungus', 'insect', 'blight', 'spot', 'rot', 'spray', 'infestation',
-               # Tamil/Hindi/Telugu pest words
-               'பூச்சி', 'நோய்', 'கीடம்', 'कीट', 'रोग', 'పురుగు', 'వ్యాధి']
-    schemes_kw = ['scheme', 'subsidy', 'loan', 'insurance', 'pm-kisan', 'government', 'yojana', 'benefit',
-                  # Tamil/Hindi/Telugu scheme words
-                  'திட்டம்', 'மானியம்', 'கடன்', 'योजना', 'सब्सिडी', 'ऋण',
-                  'పథకం', 'రాయితీ', 'రుణం']
+    weather_kw = ['weather', 'rain', 'rainfall', 'temperature', 'humidity', 'forecast', 'monsoon', 'mausam']
+    crop_kw = ['crop', 'seed', 'soil', 'fertilizer', 'irrigation', 'yield', 'harvest', 'variety', 'kharif', 'rabi']
+    pest_kw = ['pest', 'disease', 'fungus', 'insect', 'blight', 'spot', 'rot', 'spray', 'infestation']
+    schemes_kw = ['scheme', 'subsidy', 'loan', 'insurance', 'pm-kisan', 'government', 'yojana', 'benefit']
     profile_kw = ['profile', 'my farm', 'my details', 'my crop', 'my soil', 'my state', 'my district']
 
-    if any(k in combined for k in weather_kw):
+    if any(k in text for k in weather_kw):
         intents.add('weather')
-    if any(k in combined for k in crop_kw):
+    if any(k in text for k in crop_kw):
         intents.add('crop')
-    if any(k in combined for k in pest_kw):
+    if any(k in text for k in pest_kw):
         intents.add('pest')
-    if any(k in combined for k in schemes_kw):
+    if any(k in text for k in schemes_kw):
         intents.add('schemes')
-    if any(k in combined for k in profile_kw):
+    if any(k in text for k in profile_kw):
         intents.add('profile')
 
     return list(intents)
@@ -335,55 +262,6 @@ def _get_specialist_runtime_for_intent(intent):
         'profile': AGENTCORE_PROFILE_RUNTIME_ARN or AGENTCORE_RUNTIME_ARN,
     }
     return mapping.get(intent, '')
-
-
-def _build_tool_first_prompt(message_en, intents, farmer_context=None):
-    """Force tool-first behavior for known intents to reduce empty/non-grounded replies."""
-    text = (message_en or '').strip()
-    if not text:
-        return text
-
-    intent_order = ['pest', 'weather', 'crop', 'schemes', 'profile']
-    selected = [i for i in intent_order if i in (intents or [])]
-    if not selected:
-        return text
-
-    tool_map = {
-        'pest': 'get_pest_alert',
-        'weather': 'get_weather',
-        'crop': 'get_crop_advisory',
-        'schemes': 'search_schemes',
-        'profile': 'get_farmer_profile',
-    }
-    required_tools = [tool_map[i] for i in selected if i in tool_map]
-    first_tool = required_tools[0]
-
-    context_hint = ""
-    if farmer_context:
-        known = []
-        if farmer_context.get('state'):
-            known.append(f"state={farmer_context['state']}")
-        if farmer_context.get('district'):
-            known.append(f"district={farmer_context['district']}")
-        if farmer_context.get('soil_type'):
-            known.append(f"soil_type={farmer_context['soil_type']}")
-        if farmer_context.get('crops'):
-            known.append(f"crops={', '.join(farmer_context['crops'])}")
-        if known:
-            context_hint = f"Known farmer context: {'; '.join(known)}."
-
-    routing = (
-        "[ROUTING POLICY - STRICT]\n"
-        f"Detected intents: {', '.join(selected)}.\n"
-        f"You MUST call this tool first: {first_tool}.\n"
-        f"Then use these tools as needed: {', '.join(required_tools)}.\n"
-        "Do not answer with generic text before at least one tool call.\n"
-        "If required parameters are missing, make a best-effort call with available context first, "
-        "then ask only the minimum missing fields.\n"
-        f"{context_hint}\n"
-        "[/ROUTING POLICY]\n\n"
-    )
-    return routing + text
 
 
 def _combine_specialist_outputs(english_message, specialist_outputs):
@@ -469,26 +347,15 @@ def lambda_handler(event, context):
         if not user_message:
             return error_response('Message is required', 400)
 
-        user_message = _sanitize_user_message(user_message)
         logger.info(f"Query from farmer {farmer_id}: {user_message}")
 
         # --- Step 1: Detect language & translate to English ---
         detection = detect_and_translate(user_message, target_language='en')
-        detected_lang = normalize_language_code(
-            language or detection.get('detected_language', 'en'),
-            default='en'
-        )
+        detected_lang = language or detection.get('detected_language', 'en')
         english_message = detection.get('translated_text', user_message)
-        intents = _classify_intents(english_message, original_message=user_message)
+        intents = _classify_intents(english_message)
 
-        # If user speaks in an Indic language but no specific intents detected,
-        # default to 'crop' (most common farmer query) so it gets routed to a tool
-        if not intents and _contains_indic_chars(user_message):
-            logger.info("Indic-language query with no detected intents — defaulting to 'crop' intent")
-            intents = ['crop']
-
-        on_topic = _is_on_topic_query(english_message) or _is_on_topic_query(user_message)
-        if ENFORCE_CODE_POLICY and not on_topic:
+        if ENFORCE_CODE_POLICY and not _is_on_topic_query(english_message):
             policy_reply_en = _off_topic_response()
             translated_policy_reply = (
                 translate_response(policy_reply_en, 'en', detected_lang)
@@ -563,15 +430,10 @@ def lambda_handler(event, context):
                         runtime_arn = _get_specialist_runtime_for_intent(intent)
                         if runtime_arn:
                             specialist_session = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{session_id}:{intent}"))
-                            specialist_prompt = _build_tool_first_prompt(
-                                english_message,
-                                [intent],
-                                farmer_context,
-                            )
                             jobs.append((intent, executor.submit(
                                 _invoke_agentcore_runtime_with_arn,
                                 runtime_arn,
-                                specialist_prompt,
+                                english_message,
                                 specialist_session,
                                 farmer_context,
                             )))
@@ -586,23 +448,13 @@ def lambda_handler(event, context):
                     result_text, tools_used = combined_text, combined_tools
                 else:
                     logger.warning("Specialist fanout returned empty content, falling back to master runtime")
-                    routed_prompt = _build_tool_first_prompt(
-                        english_message,
-                        intents,
-                        farmer_context,
-                    )
                     result_text, tools_used = _invoke_agentcore_runtime(
-                        routed_prompt, session_id, farmer_context
+                        english_message, session_id, farmer_context
                     )
             else:
                 logger.info("Invoking master AgentCore Runtime...")
-                routed_prompt = _build_tool_first_prompt(
-                    english_message,
-                    intents,
-                    farmer_context,
-                )
                 result_text, tools_used = _invoke_agentcore_runtime(
-                    routed_prompt, session_id, farmer_context
+                    english_message, session_id, farmer_context
                 )
         else:
             logger.info("Invoking Bedrock Agent (fallback)...")
@@ -613,42 +465,20 @@ def lambda_handler(event, context):
         # Clean up model thinking tags (Claude emits <thinking>...</thinking>)
         result_text = re.sub(r'<thinking>.*?</thinking>\s*', '', result_text, flags=re.DOTALL)
         result_text = result_text.strip()
-
-        # Guard: if agent returned garbled/empty content, provide a fallback
-        # Remove punctuation/spaces and check if any real text remains
-        _stripped = re.sub(r'[\s\(\)\,\.\?\!\;\:\-\[\]\{\}\"\']+', '', result_text)
-        if len(_stripped) < 10:
-            logger.warning(f"Agent returned near-empty/garbled response: {repr(result_text[:100])}")
-            result_text = (
-                "I couldn't get a complete answer right now. "
-                "Please share more details like your crop, location, and season so I can help better."
-            )
-            tools_used = []
-
         result_text, tools_used, policy_meta = _apply_code_policy(
             english_message,
             intents,
             result_text,
             tools_used,
-            original_query=user_message,
         )
 
         logger.info(f"Agent response: {result_text[:200]}... tools={tools_used}")
 
         # --- Step 4: Translate response to farmer's language ---
-        # Strip sources line BEFORE translation so function names don't get garbled
-        text_for_translation, _ = _strip_sources_line(result_text)
-        sources_line = _build_sources_line(tools_used)
-
         if detected_lang and detected_lang != 'en':
-            translated_reply = translate_response(text_for_translation, 'en', detected_lang)
+            translated_reply = translate_response(result_text, 'en', detected_lang)
         else:
-            translated_reply = text_for_translation
-
-        # Re-append sources in English AFTER translation (function names stay readable)
-        if sources_line:
-            translated_reply = f"{translated_reply}\n\nSources: {sources_line}"
-            result_text = f"{text_for_translation}\n\nSources: {sources_line}"
+            translated_reply = result_text
 
         # --- Step 5: Generate Polly audio ---
         audio_url = None
