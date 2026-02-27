@@ -1,21 +1,23 @@
 // src/hooks/useSpeechRecognition.js
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
 
-const HAS_WEB_SPEECH = ('webkitSpeechRecognition' in window) || 
-                       ('SpeechRecognition' in window);
+const HAS_WEB_SPEECH = typeof window !== 'undefined' && 
+    (('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window));
 
-export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
+export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult) {
     const [isListening, setIsListening] = useState(false);
-    const [transcript, setTranscript] = useState('');
     const [error, setError] = useState('');
     const recognitionRef = useRef(null);
     const mediaRecorderRef = useRef(null);
+    const onResultRef = useRef(onResult);
+
+    // Always keep the callback ref synced with the latest value
+    useEffect(() => { onResultRef.current = onResult; }, [onResult]);
 
     const startListening = useCallback(async () => {
         setError('');
-        setTranscript('');
         setIsListening(true);
 
         if (HAS_WEB_SPEECH) {
@@ -28,16 +30,22 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
             recognition.lang = language;
             recognition.continuous = false;
             recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
 
             recognition.onresult = (event) => {
                 const text = event.results[0][0].transcript;
-                setTranscript(text);
+                if (text && onResultRef.current) {
+                    onResultRef.current(text);
+                }
                 setIsListening(false);
             };
 
             recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
                 setError(event.error === 'no-speech' 
                     ? 'No speech detected. Try again.' 
+                    : event.error === 'not-allowed'
+                    ? 'Microphone permission denied. Please allow access in browser settings.'
                     : `Error: ${event.error}`);
                 setIsListening(false);
             };
@@ -47,6 +55,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
             try {
                 recognition.start();
             } catch (err) {
+                console.error('Speech start error:', err);
                 setError('Could not start microphone.');
                 setIsListening(false);
             }
@@ -72,7 +81,6 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
                     stream.getTracks().forEach(t => t.stop());
                     const blob = new Blob(chunks, { type: mimeType });
                     
-                    // Convert to base64 and send to Lambda
                     const reader = new FileReader();
                     reader.onloadend = async () => {
                         const base64 = reader.result.split(',')[1];
@@ -83,8 +91,8 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
                                 body: JSON.stringify({ audio: base64, language, format: mimeType })
                             });
                             const data = await res.json();
-                            if (data.transcript?.trim()) {
-                                setTranscript(data.transcript);
+                            if (data.transcript?.trim() && onResultRef.current) {
+                                onResultRef.current(data.transcript);
                             } else {
                                 setError('Could not understand. Try again.');
                             }
@@ -118,5 +126,5 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE) {
         setIsListening(false);
     }, []);
 
-    return { isListening, transcript, error, startListening, stopListening };
+    return { isListening, error, startListening, stopListening };
 }

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import config from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
 
 function ProfilePage() {
+    const { t } = useLanguage();
     const [profile, setProfile] = useState({
         name: '', state: 'Tamil Nadu', district: '', crops: [],
         soil_type: 'Alluvial', land_size_acres: 0, language: 'ta-IN'
@@ -17,18 +20,6 @@ function ProfilePage() {
     });
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
-
-    const CROP_OPTIONS = [
-        'Rice', 'Wheat', 'Cotton', 'Sugarcane', 'Maize',
-        'Groundnut', 'Banana', 'Coconut', 'Tomato', 'Onion',
-        'Millets', 'Pulses', 'Soybean', 'Potato', 'Mango'
-    ];
-    const SOIL_OPTIONS = ['Alluvial', 'Black (Regur)', 'Red', 'Laterite', 'Sandy', 'Clayey', 'Loamy'];
-    const STATE_OPTIONS = [
-        'Tamil Nadu', 'Andhra Pradesh', 'Telangana', 'Karnataka', 'Kerala',
-        'Maharashtra', 'Punjab', 'Haryana', 'Uttar Pradesh', 'West Bengal',
-        'Madhya Pradesh', 'Rajasthan', 'Gujarat', 'Odisha', 'Bihar'
-    ];
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -59,59 +50,62 @@ function ProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile)
             });
-            setMessage({ type: 'success', text: '✅ Profile saved! AI will now give personalized advice.' });
+            setMessage({ type: 'success', text: '✅ ' + t('profileSaved') });
         } catch {
-            setMessage({ type: 'error', text: '❌ Save failed. Check connection.' });
+            setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
         }
         setSaving(false);
     };
 
+    // Find localized crop name for display
+    const localizedCrop = (enValue) => {
+        const idx = CROP_VALUES_EN.indexOf(enValue);
+        return idx >= 0 ? t(CROP_KEYS[idx]) : enValue;
+    };
+
     return (
         <div>
-            <h2>👤 My Farm Profile</h2>
-            <p style={{ color: 'var(--text-light)', marginBottom: '8px' }}>
-                Save your details so the AI gives <strong>personalized</strong> advice.
-            </p>
-            <p style={{ fontSize: '12px', color: 'var(--text-light)' }}>Farmer ID: {farmerId}</p>
+            <div className="page-header">
+                <h2>👤 {t('profileTitle')}</h2>
+                <p>{t('profileSubtitle')}</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: 4 }}>
+                    {t('profileFarmerId')}: {farmerId}
+                </p>
+            </div>
 
             {message && (
-                <div style={{
-                    padding: '12px', borderRadius: '8px', marginBottom: '16px',
-                    background: message.type === 'success' ? '#f0f7e8' : '#fdecea',
-                    color: message.type === 'success' ? '#2d5016' : '#c62828'
-                }}>{message.text}</div>
+                <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}>
+                    {message.text}
+                </div>
             )}
 
+            {/* Personal Details */}
             <div className="card">
-                <h3>📋 Personal Details</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                        <label>Full Name</label>
-                        <input type="text" value={profile.name}
+                <h3>📋 {t('profilePersonalDetails')}</h3>
+                <div className="form-grid">
+                    <div className="form-group">
+                        <label>{t('profileName')}</label>
+                        <input className="form-input" type="text" value={profile.name}
                             onChange={e => setProfile(p => ({ ...p, name: e.target.value }))}
-                            placeholder="Enter your name"
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }} />
+                            placeholder={t('profileNamePlaceholder')} />
                     </div>
-                    <div>
-                        <label>District</label>
-                        <input type="text" value={profile.district}
+                    <div className="form-group">
+                        <label>{t('profileDistrict')}</label>
+                        <input className="form-input" type="text" value={profile.district}
                             onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}
-                            placeholder="e.g., Thanjavur"
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }} />
+                            placeholder={t('profileDistrictPlaceholder')} />
                     </div>
-                    <div>
-                        <label>State</label>
-                        <select value={profile.state}
-                            onChange={e => setProfile(p => ({ ...p, state: e.target.value }))}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }}>
+                    <div className="form-group">
+                        <label>{t('profileState')}</label>
+                        <select className="form-input" value={profile.state}
+                            onChange={e => setProfile(p => ({ ...p, state: e.target.value }))}>
                             {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label>Preferred Language</label>
-                        <select value={profile.language}
-                            onChange={e => setProfile(p => ({ ...p, language: e.target.value }))}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }}>
+                    <div className="form-group">
+                        <label>{t('profileLanguage')}</label>
+                        <select className="form-input" value={profile.language}
+                            onChange={e => setProfile(p => ({ ...p, language: e.target.value }))}>
                             {Object.entries(config.LANGUAGES).map(([code, lang]) =>
                                 <option key={code} value={code}>{lang.name}</option>
                             )}
@@ -120,59 +114,86 @@ function ProfilePage() {
                 </div>
             </div>
 
-            <div className="card" style={{ marginTop: '16px' }}>
-                <h3>🌾 Farm Details</h3>
-                <div style={{ marginBottom: '12px' }}>
-                    <label>My Crops (click to select)</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-                        {CROP_OPTIONS.map(crop => (
-                            <button key={crop} onClick={() => handleCropToggle(crop)}
-                                style={{
-                                    padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
-                                    border: profile.crops.includes(crop) ? '2px solid var(--primary)' : '2px solid var(--border)',
-                                    background: profile.crops.includes(crop) ? 'var(--primary)' : 'white',
-                                    color: profile.crops.includes(crop) ? 'white' : 'var(--text)'
-                                }}>{crop}</button>
+            {/* Farm Details */}
+            <div className="card">
+                <h3>🌾 {t('profileFarmDetails')}</h3>
+                <div className="form-group">
+                    <label>{t('profileCrops')}</label>
+                    <div className="crop-chips">
+                        {CROP_KEYS.map((key, i) => (
+                            <button
+                                key={key}
+                                className={`crop-chip ${profile.crops.includes(CROP_VALUES_EN[i]) ? 'selected' : ''}`}
+                                onClick={() => handleCropToggle(CROP_VALUES_EN[i])}
+                            >
+                                {t(key)}
+                            </button>
                         ))}
                     </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                        <label>Soil Type</label>
-                        <select value={profile.soil_type}
-                            onChange={e => setProfile(p => ({ ...p, soil_type: e.target.value }))}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }}>
-                            {SOIL_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                <div className="form-grid" style={{ marginTop: '16px' }}>
+                    <div className="form-group">
+                        <label>{t('profileSoilType')}</label>
+                        <select className="form-input" value={profile.soil_type}
+                            onChange={e => setProfile(p => ({ ...p, soil_type: e.target.value }))}>
+                            {SOIL_KEYS.map((key, i) =>
+                                <option key={key} value={SOIL_VALUES_EN[i]}>{t(key)}</option>
+                            )}
                         </select>
                     </div>
-                    <div>
-                        <label>Land Size (acres)</label>
-                        <input type="number" value={profile.land_size_acres} min="0" step="0.5"
-                            onChange={e => setProfile(p => ({ ...p, land_size_acres: parseFloat(e.target.value) || 0 }))}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid var(--border)' }} />
+                    <div className="form-group">
+                        <label>{t('profileLandSize')}</label>
+                        <input className="form-input" type="number" value={profile.land_size_acres} min="0" step="0.5"
+                            onChange={e => setProfile(p => ({ ...p, land_size_acres: parseFloat(e.target.value) || 0 }))} />
                     </div>
                 </div>
             </div>
 
+            {/* Save */}
             <button onClick={handleSave} disabled={saving} className="send-btn"
-                style={{ marginTop: '16px', width: '100%', padding: '14px' }}>
-                {saving ? '⏳ Saving...' : '💾 Save Profile'}
+                style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px' }}>
+                {saving ? `⏳ ${t('saving')}` : `💾 ${t('profileSaveBtn')}`}
             </button>
 
+            {/* Profile Summary */}
             {profile.name && (
-                <div className="card" style={{ marginTop: '16px' }}>
-                    <h3>📊 Profile Summary</h3>
-                    <p><strong>Name:</strong> {profile.name}</p>
-                    <p><strong>Location:</strong> {profile.district}, {profile.state}</p>
-                    <p><strong>Crops:</strong> {profile.crops.join(', ') || 'None selected'}</p>
-                    <p><strong>Soil:</strong> {profile.soil_type}</p>
-                    <p><strong>Land:</strong> {profile.land_size_acres} acres</p>
+                <div className="card" style={{ marginTop: '18px' }}>
+                    <h3>📊 {t('profileSummary')}</h3>
+                    <div className="profile-summary">
+                        <div className="summary-item">
+                            <span className="summary-label">{t('profileSumName')}</span>
+                            <span className="summary-value">{profile.name}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">{t('profileSumLocation')}</span>
+                            <span className="summary-value">{profile.district}, {profile.state}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">{t('profileSumCrops')}</span>
+                            <span className="summary-value">
+                                {profile.crops.length > 0
+                                    ? profile.crops.map(c => localizedCrop(c)).join(', ')
+                                    : t('profileNoneSelected')}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">{t('profileSumSoil')}</span>
+                            <span className="summary-value">
+                                {t(SOIL_KEYS[SOIL_VALUES_EN.indexOf(profile.soil_type)] || 'soilAlluvial')}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">{t('profileSumLand')}</span>
+                            <span className="summary-value">{profile.land_size_acres} {t('profileAcres')}</span>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            <p style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-light)' }}>
-                💡 <strong>Tip:</strong> When you ask the AI a crop question, it automatically uses your profile data to give better answers!
-            </p>
+            <div className="tip-box" style={{ marginTop: '18px' }}>
+                <span className="tip-icon">💡</span>
+                <span>{t('profileTip')}</span>
+            </div>
         </div>
     );
 }
