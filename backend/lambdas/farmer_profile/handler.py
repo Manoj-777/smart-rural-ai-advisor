@@ -9,9 +9,18 @@ import boto3
 import os
 import logging
 from datetime import datetime
+from decimal import Decimal
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Handle DynamoDB Decimal types in JSON serialization."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj == int(obj) else float(obj)
+        return super().default(obj)
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ.get('DYNAMODB_PROFILES_TABLE', 'farmer_profiles'))
@@ -74,7 +83,7 @@ def get_profile(farmer_id):
                 'status': 'success',
                 'data': result['Item'],
                 'message': 'Profile found'
-            })
+            }, cls=DecimalEncoder)
         }
     else:
         blank = {
@@ -129,5 +138,5 @@ def put_profile(farmer_id, body):
             'status': 'success',
             'message': 'Profile saved',
             'data': item
-        })
+        }, cls=DecimalEncoder)
     }

@@ -2,7 +2,7 @@
 
 const config = {
     // Replace with your API Gateway URL after deploying
-    API_URL: import.meta.env.VITE_API_URL || 'https://YOUR_API_GATEWAY_URL/prod',
+    API_URL: import.meta.env.VITE_API_URL || 'https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod',
     
     // Supported languages
     LANGUAGES: {

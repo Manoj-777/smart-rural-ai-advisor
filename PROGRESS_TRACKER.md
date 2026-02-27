@@ -1,6 +1,6 @@
 # PROGRESS TRACKER — Smart Rural AI Advisor (Manoj RS - Backend + Infrastructure)
 
-> **Last Updated:** February 26, 2026  
+> **Last Updated:** February 27, 2026  
 > **Purpose:** Track all completed work and remaining tasks so any new session can continue seamlessly.  
 > **Hackathon Deadline:** March 4, 2026 at 11:59 PM IST
 
@@ -23,8 +23,17 @@
 | S3 Bucket | `smart-rural-ai-948809294205` (versioning + encryption enabled) |
 | SAM Stack Name | `smart-rural-ai` |
 | API Gateway URL | `https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/` |
-| Bedrock Model (Chat) | Claude Sonnet 4.5 (`anthropic.claude-sonnet-4-5-20250929-v1:0`) |
+| Bedrock Model (Chat) | Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`) in `us-east-1` |
 | Bedrock Model (Embeddings) | Titan Embeddings V2 (`amazon.titan-embed-text-v2:0`) |
+| Knowledge Base ID | `9X1YUTXNOQ` |
+| KB Data Source ID | `XAES6NZN0V` |
+| AgentCore Runtime | `SmartRuralAdvisor-lcQ47nFSPm` (READY) |
+| AgentCore Runtime ARN | `arn:aws:bedrock-agentcore:ap-south-1:948809294205:runtime/SmartRuralAdvisor-lcQ47nFSPm` |
+| AgentCore Gateway | `smartruralai-gateway-xuba3s0e4i` |
+| Billing Status | ⚠️ INVALID_PAYMENT_INSTRUMENT — blocks ALL Bedrock model calls |
+| Frontend S3 Bucket | `smart-rural-ai-frontend-948809294205` |
+| Frontend URL | `http://smart-rural-ai-frontend-948809294205.s3-website.ap-south-1.amazonaws.com` |
+| Node.js | v22.14.0 (LTS) |
 
 ### SAM CLI Commands (ALWAYS use this format)
 ```powershell
@@ -74,8 +83,10 @@
 
 ### 3. AWS Infrastructure — MOSTLY DONE ✅
 - [x] **S3 Bucket** — `smart-rural-ai-948809294205` created with versioning + encryption
-- [x] **Knowledge Base Docs Uploaded** — 6 markdown files in `s3://smart-rural-ai-948809294205/knowledge_base/`
-  - `crop_guide_india.md`, `govt_schemes.md`, `irrigation_guide.md`, `pest_patterns.md`, `region_advisories.md`, `traditional_farming.md`
+- [x] **Knowledge Base Docs Uploaded** — 9 files in `s3://smart-rural-ai-948809294205/knowledge_base/`
+  - `crop_guide_india.md`, `govt_schemes.md`, `irrigation_guide.md`, `pest_patterns.md`, `region_advisories.md`, `traditional_farming.md`, `RESOURCES.md`
+  - `crop_data.csv` (35 crops), `govt_schemes.json` (15 central + 12 state schemes)
+  - All indexed in KB `9X1YUTXNOQ` — 0 failures
 - [x] **DynamoDB Tables** — Both created manually
   - `farmer_profiles` (PK: `farmer_id`, type: String)
   - `chat_sessions` (PK: `session_id`, SK: `timestamp`, both String)
@@ -106,7 +117,7 @@ Base URL: `https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/`
 | `/schemes` | GET | ✅ 200 | Returns all 9 schemes |
 | `/schemes?search=kisan` | GET | ✅ 200 | Keyword search works |
 | `/profile/{farmerId}` | GET/PUT | ✅ 200 | DynamoDB read/write works |
-| `/chat` | POST | ⚠️ 500 | Returns error because BedrockAgentId is PLACEHOLDER — **expected until Bedrock setup** |
+| `/chat` | POST | ⚠️ 200 | Full pipeline works (AgentCore mode, session, audio); Bedrock blocked by billing |
 | `/image-analyze` | POST | ✅ 400 | Correct validation (no body = bad request) |
 | `/transcribe` | POST | ✅ 400 | Correct validation (no body = bad request) |
 
@@ -149,120 +160,92 @@ Base URL: `https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/`
 - [x] **`govt_schemes/handler.py`** — Dual format (Bedrock + API Gateway)
 - [x] Updated `response_helper.py` copied to all 7 Lambda utils/ directories
 
+### 8. Knowledge Base — DONE ✅
+- [x] **KB ID**: `9X1YUTXNOQ`, Data Source ID: `XAES6NZN0V`
+- [x] Created via Bedrock Console with Titan Embeddings V2
+- [x] OpenSearch Serverless auto-provisioned
+- [x] 9 documents indexed (7 .md + crop_data.csv + govt_schemes.json), 0 failures
+- [x] KB synced and verified multiple times (latest ingestion jobs: ESZQKF4X5V, YOX7XIF7NA)
+
+### 9. AgentCore Runtime — DONE ✅
+- [x] Runtime `SmartRuralAdvisor-lcQ47nFSPm` created and in READY state
+- [x] Hybrid auth in `agentcore/agent.py` (API key + IAM fallback)
+- [x] Gateway `smartruralai-gateway-xuba3s0e4i` with Lambda targets configured
+- [x] Direct code deploy approach (no Docker needed)
+
+### 10. Data Quality Audit — DONE ✅
+- [x] Fixed 50+ null values in `govt_schemes.json` with contextual replacements
+- [x] Cross-verified all 15 central schemes against `govt_schemes.md` KB doc
+- [x] Fixed SMAM `land_required` from `false` to `true` (matched MD eligibility table)
+- [x] MSP data verified — Kharif matches official 2024-25 CCEA, Rabi reasonable projections
+- [x] All 12 state scheme sections verified
+- [x] Helpline numbers verified
+- [x] Re-uploaded to S3 and re-ingested KB after each fix (all COMPLETE)
+
+### 11. Frontend Deployment — DONE ✅
+- [x] Installed Node.js v22.14.0 LTS
+- [x] Updated `frontend/src/config.js` with real API Gateway URL
+- [x] Built with Vite: `npm run build` (185KB JS + 2.88KB CSS)
+- [x] Created S3 bucket `smart-rural-ai-frontend-948809294205` with static website hosting
+- [x] Public read bucket policy applied
+- [x] Deployed to: `http://smart-rural-ai-frontend-948809294205.s3-website.ap-south-1.amazonaws.com`
+
+### 12. Bug Fix: farmer_profile Decimal Serialization — DONE ✅
+- [x] DynamoDB returns `Decimal` types, causing `json.dumps()` to fail
+- [x] Added `DecimalEncoder(json.JSONEncoder)` class to `farmer_profile/handler.py`
+- [x] Profile GET/PUT now works correctly
+
 ---
 
 ## REMAINING TASKS ❌ (in priority order)
 
-### CRITICAL — Must Do for /chat to Work
+### CRITICAL BLOCKER — Fix Billing
 
-#### Task A: Install AgentCore SDK
+#### Task A: Fix AWS Billing (INVALID_PAYMENT_INSTRUMENT)
+- Go to: https://console.aws.amazon.com/billing/ → Payment Methods
+- Update/verify payment card
+- After fix, wait 2 minutes then test:
 ```powershell
-pip install bedrock-agentcore strands-agents bedrock-agentcore-starter-toolkit boto3
-agentcore --help  # Verify installation
+$body = @{anthropic_version="bedrock-2023-05-01"; max_tokens=10; messages=@(@{role="user"; content="hi"})} | ConvertTo-Json -Compress
+[IO.File]::WriteAllText("test.json", $body)
+aws bedrock-runtime invoke-model --model-id "us.anthropic.claude-sonnet-4-20250514-v1:0" --region us-east-1 --body "fileb://test.json" --content-type "application/json" --accept "application/json" out.json
 ```
 
-#### Task B: Create Bedrock Knowledge Base (via Console)
-**Why Console?**: OpenSearch Serverless cannot be created via CLI (SubscriptionRequiredException). The Console auto-provisions it.
+### AFTER BILLING IS FIXED
 
-**Steps:**
-1. Go to: https://ap-south-1.console.aws.amazon.com/bedrock/home?region=ap-south-1#/knowledge-bases
-2. Click "Create knowledge base"
-3. Name: `smart-rural-farming-kb`
-4. Description: `Knowledge base for Indian farming advice including crop guides, pest patterns, irrigation, government schemes, and regional advisories`
-5. IAM Role: Select existing → `BedrockKBRole`
-6. Data source: S3 → `s3://smart-rural-ai-948809294205/knowledge_base/`
-7. Embedding model: Titan Text Embeddings V2
-8. Chunking: Fixed-size, 300 tokens, 20% overlap
-9. Vector store: Quick create (auto-creates OpenSearch Serverless)
-10. Create & Sync the data source
-11. **Copy the KB ID** (e.g., `ABCDE12345`)
-
-#### Task C: Run AgentCore Setup Script
-```powershell
-# Full setup (creates Gateway + Lambda targets + deploys agent)
-python setup_agentcore.py
-
-# Or step by step:
-python setup_agentcore.py --gateway-only    # Step 1: Gateway + targets
-python setup_agentcore.py --deploy-only     # Step 2: Deploy agent to Runtime
-python setup_agentcore.py --status          # Check status
-python setup_agentcore.py --test            # Test deployed agent
-```
-
-This will automatically:
-- Create 3 IAM roles (Gateway, Invoke, Runtime)
-- Create AgentCore Gateway with IAM auth
-- Register 4 Lambda functions as MCP tool targets (6 tools total)
-- Configure and deploy the Strands Agent to AgentCore Runtime
-- Output the agent ARN for the next step
-
-#### Task D: Redeploy SAM with AgentCore ARN
-After `setup_agentcore.py` outputs the agent ARN:
-```powershell
-.\.venv313\Scripts\sam.exe build --template-file infrastructure/template.yaml
-.\.\.venv313\Scripts\sam.exe deploy --stack-name smart-rural-ai --region ap-south-1 --s3-bucket smart-rural-ai-948809294205 --s3-prefix sam-artifacts --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides "OpenWeatherApiKey=$env:OPENWEATHER_API_KEY BedrockAgentId=PLACEHOLDER BedrockAgentAliasId=PLACEHOLDER BedrockKBId=<KB_ID> AgentCoreRuntimeArn=<AGENT_ARN>"
-```
-
-#### Task E: Test /chat Endpoint
-```powershell
-$body = '{"message": "What crops should I plant in Tamil Nadu during kharif season?", "farmer_id": "farmer_001"}'
-Invoke-RestMethod -Uri "https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/chat" -Method POST -Body $body -ContentType "application/json"
-```
-- Link sub-agents as collaborators with conversation history relay
-- Add Lambda permissions for each sub-agent
-- Rebuild and redeploy SAM stack with supervisor agent IDs
-
-If you need to re-run (error or changes):
-```powershell
-python setup_bedrock_agent.py --cleanup
-python setup_bedrock_agent.py <KB_ID>
-```
-
-#### Task C: Test /chat Endpoint
+#### Task B: Test /chat End-to-End
 ```powershell
 $body = '{"message": "What crops should I plant in Tamil Nadu during kharif season?", "farmer_id": "farmer_001"}'
 Invoke-RestMethod -Uri "https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/chat" -Method POST -Body $body -ContentType "application/json"
 ```
 
-### IMPORTANT — Should Do Before Submission
-
-#### Task F: Enable Amazon Translate (if not already enabled)
-- Currently throws `SubscriptionRequiredException`
-- Go to: https://ap-south-1.console.aws.amazon.com/translate/home?region=ap-south-1
-- Accept terms of service / enable the service
-- Test: `aws translate translate-text --text "Hello" --source-language-code en --target-language-code hi --region ap-south-1`
-
-#### Task G: Test Multi-Language Flow
-- After Translate is enabled, test /chat with Hindi input:
+#### Task C: Test Multi-Language Flow
 ```json
 {"message": "तमिलनाडु में खरीफ सीजन में कौन सी फसल लगाएं?", "farmer_id": "farmer_001"}
 ```
 
-#### Task H: Test Image Analysis (Crop Doctor)
-```powershell
-# Encode a test image and send to /image-analyze
-$bytes = [System.IO.File]::ReadAllBytes("path\to\crop_image.jpg")
-$base64 = [Convert]::ToBase64String($bytes)
-$body = @{ image = $base64; farmer_id = "farmer_001" } | ConvertTo-Json
-Invoke-RestMethod -Uri "https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/image-analyze" -Method POST -Body $body -ContentType "application/json"
-```
+#### Task D: Test Image Analysis (Crop Doctor)
+- Requires real crop image, posts base64 to `/image-analyze`
 
-#### Task I: Test Speech Transcription
-- Requires a base64-encoded audio file (WAV/MP3)
-- POST to `/transcribe` with `{"audio": "<base64>", "farmer_id": "farmer_001"}`
+#### Task E: Test Speech Transcription
+- Requires base64-encoded audio, posts to `/transcribe`
+
+### COMPLETED (formerly remaining)
+- ~~Install AgentCore SDK~~ ✅ Done (Session 4)
+- ~~Create Bedrock Knowledge Base~~ ✅ Done (KB `9X1YUTXNOQ`)
+- ~~Run AgentCore Setup Script~~ ✅ Done (Runtime `SmartRuralAdvisor-lcQ47nFSPm`)
+- ~~Redeploy SAM with AgentCore ARN~~ ✅ Done (SAM UPDATE_COMPLETE)
+- ~~Enable Amazon Translate~~ ✅ Verified working (en→hi)
+- ~~Frontend Integration~~ ✅ Done (config.js updated, built, deployed to S3)
 
 ### NICE TO HAVE — If Time Permits
 
-#### Task H: Frontend Integration
-- Update `frontend/src/config.js` with the API Gateway URL
-- Sanjay (Frontend lead) handles this, but Manoj needs to provide the URL and test CORS
-
-#### Task I: Demo & Documentation
-- Verify demo video link in `demo/demo_video_link.md`
+#### Task F: Demo & Documentation
+- Record demo video, add link to `demo/demo_video_link.md`
 - Add screenshots to `demo/screenshots/`
 - Final polish on `docs/PROJECT_SUMMARY.md` and `docs/Smart_Rural_AI_Advisor_Submission.md`
 
-#### Task J: Cost Monitoring
+#### Task G: Cost Monitoring
 - Check AWS Cost Explorer to stay within $100 budget
 - Key cost drivers: Bedrock model invocations, OpenSearch Serverless, Lambda executions
 
@@ -311,14 +294,13 @@ smart-rural-ai-FarmerProfileFunction-mEzTIZOAvxKt
 | `.env` | Environment variables (created, has PLACEHOLDERs for Bedrock IDs) |
 | `PROGRESS_TRACKER.md` | THIS FILE — session continuity tracker |
 
-## TEMP FILES (can be cleaned up)
+## TEMP FILES (cleaned up in Session 6)
 
-These were created during IAM role setup and are no longer needed:
-- `kb-trust-policy.json`, `kb-permissions-policy.json`
-- `kb-config.json`, `kb-storage-config.json`
-- `agent-trust-policy.json`, `agent-permissions-policy.json`
-- `aoss-enc-policy.json`
-- `validate_template.py`
+All temp files have been removed:
+- 8 policy/config JSON files (kb-trust-policy.json, agent-permissions-policy.json, etc.)
+- 23 one-off `_*.py` utility scripts
+- 7 log files (_cb_error.log, _codebuild.log, etc.)
+- All `__pycache__/` directories
 
 ---
 
@@ -400,3 +382,42 @@ These were created during IAM role setup and are no longer needed:
   - `smart-rural-ai-AgentCoreRuntimeRole` — Runtime execution (Bedrock + Lambda + S3 + DynamoDB)
 
 **Session ended with:** AgentCore integration code complete. Next steps: install SDK → run setup → deploy.
+
+### Session 4 — Knowledge Base & AgentCore Deployment
+- Created Knowledge Base `9X1YUTXNOQ` via Bedrock Console
+- Data Source `XAES6NZN0V` pointing to `s3://smart-rural-ai-948809294205/knowledge_base/`
+- Uploaded all 9 documents (7 .md + crop_data.csv + govt_schemes.json)
+- KB sync completed with 0 failures
+- AgentCore Runtime `SmartRuralAdvisor-lcQ47nFSPm` deployed and READY
+- Gateway `smartruralai-gateway-xuba3s0e4i` created with Lambda targets
+- Hybrid auth implemented in `agentcore/agent.py` (API key Bearer + boto3 IAM fallback)
+- **Blocker discovered:** `INVALID_PAYMENT_INSTRUMENT` billing error prevents ALL Bedrock model calls
+
+### Session 5 — Data Quality & Verification (February 27, 2026)
+- Fixed 50+ null values in `govt_schemes.json` with contextual replacements (commit `11729ea`)
+- Full data audit: cross-verified all 15 central schemes, 12 state schemes, MSP data, helplines against `govt_schemes.md`
+- Found and fixed SMAM `land_required` from `false` to `true` (commit `9524d28`)
+- Attempted MSP year-labeling research (15+ URLs) — data internally consistent, kept as-is
+- Re-uploaded to S3 and re-ingested KB twice (jobs ESZQKF4X5V, YOX7XIF7NA — both COMPLETE)
+
+### Session 6 — Final Integration & Deployment (February 27, 2026)
+- Updated PROGRESS_TRACKER.md with all Sessions 4-5 work
+- Confirmed Bedrock billing still blocked (INVALID_PAYMENT_INSTRUMENT)
+- Tested ALL API endpoints:
+  - `/health` — 200 ✅
+  - `/weather/Chennai` — 200 ✅ (29.15°C, live data from OpenWeatherMap)
+  - `/schemes` — 200 ✅ (9 schemes returned)
+  - `/schemes?search=kisan` — 200 ✅
+  - `/profile/{farmerId}` GET/PUT — 200 ✅ (fixed Decimal serialization bug)
+  - `/chat` — 200 ✅ (full pipeline works: AgentCore mode, session ID, Polly audio URL — only Bedrock model fails due to billing)
+  - `/transcribe` — 400 ✅ (correct validation)
+  - `/image-analyze` — 400 ✅ (correct validation)
+- Fixed `farmer_profile/handler.py`: Added `DecimalEncoder` for DynamoDB Decimal types
+- Verified Amazon Translate working (en→hi: "Hello farmer" → "हेलो किसान")
+- Installed Node.js v22.14.0 LTS
+- Updated `frontend/src/config.js` with real API Gateway URL
+- Built frontend with Vite (185KB JS + 2.88KB CSS)
+- Created S3 bucket `smart-rural-ai-frontend-948809294205` with static website hosting + public read policy
+- Deployed frontend to S3: `http://smart-rural-ai-frontend-948809294205.s3-website.ap-south-1.amazonaws.com`
+- Cleaned up 31 temp files (8 policy JSONs, 23 _*.py scripts, 7 log files)
+- Rebuilt and redeployed SAM stack (UPDATE_COMPLETE)
