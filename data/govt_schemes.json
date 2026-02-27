@@ -9,9 +9,9 @@
             "amount": "₹6,000/year (3 installments of ₹2,000)",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
                 "income_limit": "Must not be income tax payer",
                 "aadhaar_required": true,
                 "other": "Not for institutional landholders, current/former MPs/MLAs/Mayors/Ministers, Central/State govt employees (except Class IV/Multi-Tasking Staff), retired pensioners with pension >₹10,000/month, professionals (doctors, engineers, lawyers, CAs) with practice income"
@@ -28,7 +28,13 @@
             "helpline": "155261 / 011-24300606",
             "mobile_app": "PM-KISAN Mobile App (Google Play)",
             "states": "all",
-            "tags": ["income", "cash", "direct_benefit", "all_farmers", "DBT"]
+            "tags": [
+                "income",
+                "cash",
+                "direct_benefit",
+                "all_farmers",
+                "DBT"
+            ]
         },
         {
             "id": "pmfby",
@@ -39,10 +45,10 @@
             "amount": "Farmer premium: Kharif 2%, Rabi 1.5%, Commercial/Horticulture 5% of sum insured. Claims based on yield shortfall formula.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "All farmers — landowners, tenant farmers, sharecroppers growing notified crops in notified areas. Voluntary for all farmers since Kharif 2020 (including loanee/KCC farmers). Must enroll before cut-off date for each crop/season."
             },
@@ -60,7 +66,12 @@
             "helpline": "14447 (toll-free, all languages)",
             "mobile_app": "Crop Insurance App (Google Play)",
             "states": "all",
-            "tags": ["insurance", "crop_protection", "natural_calamity", "premium_subsidy"]
+            "tags": [
+                "insurance",
+                "crop_protection",
+                "natural_calamity",
+                "premium_subsidy"
+            ]
         },
         {
             "id": "kcc",
@@ -71,10 +82,10 @@
             "amount": "Loan limit based on Scale of Finance × Area + post-harvest needs. Max ₹1.60 lakh without collateral. Effective interest rate: 4% p.a. (with subvention), can be as low as 2% with additional prompt repayment incentive.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
                 "max_age": 75,
-                "income_limit": null,
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "All farmers — owner cultivators, tenant farmers, oral lessees, sharecroppers. SHGs and JLGs eligible. Fishermen and animal husbandry farmers included since 2019. Co-borrower required above 60 years."
             },
@@ -88,9 +99,15 @@
             "how_to_apply": "Visit nearest branch of any commercial bank, cooperative bank, or Regional Rural Bank (RRB). Submit documents, bank verifies land records, approval within 14 days. Some banks offer online KCC application (SBI, PNB, etc.). Special drive to issue KCC to all PM-KISAN registered farmers.",
             "website": "https://nabard.org",
             "helpline": "Contact nearest bank branch or NABARD office",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["credit", "loan", "bank", "low_interest", "revolving_credit"]
+            "tags": [
+                "credit",
+                "loan",
+                "bank",
+                "low_interest",
+                "revolving_credit"
+            ]
         },
         {
             "id": "soil-health-card",
@@ -101,10 +118,10 @@
             "amount": "Free — fully funded by government",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": false,
                 "other": "Any farmer can get a Soil Health Card — no restrictions. Available through Krishi Vigyan Kendras, Agriculture Department offices, or trained soil sampling agents."
             },
@@ -117,7 +134,13 @@
             "helpline": "Contact state agriculture department or nearest KVK",
             "mobile_app": "Soil Health Card App",
             "states": "all",
-            "tags": ["soil", "testing", "free", "fertilizer_recommendation", "nutrient"]
+            "tags": [
+                "soil",
+                "testing",
+                "free",
+                "fertilizer_recommendation",
+                "nutrient"
+            ]
         },
         {
             "id": "enam",
@@ -128,10 +151,10 @@
             "amount": "N/A — platform for better price discovery. Farmers typically get 5-15% higher prices through transparent auction.",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
-                "max_age": null,
-                "income_limit": null,
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "All farmers, tenant farmers, FPO members can register. Registration is FREE. Available in Hindi, English, and regional languages."
             },
@@ -147,7 +170,14 @@
             "helpline": "1800-270-0224 (toll-free)",
             "mobile_app": "eNAM App (Google Play & iOS)",
             "states": "23 states + 4 UTs with 1,389+ mandis. Major: UP (118), Rajasthan (144), Maharashtra (122), MP (80), Gujarat (79), TN (63), Karnataka (62)",
-            "tags": ["market", "selling", "mandi", "price", "transparent_auction", "FPO"]
+            "tags": [
+                "market",
+                "selling",
+                "mandi",
+                "price",
+                "transparent_auction",
+                "FPO"
+            ]
         },
         {
             "id": "pm-kisan-maandhan",
@@ -182,9 +212,15 @@
             "how_to_apply": "Visit nearest CSC (Common Service Centre) with Aadhaar and bank passbook. Online: maandhan.in → Select 'PM Kisan MaanDhan Yojana' → Self-enrollment using Aadhaar + mobile OTP. Can also link during PM-KISAN registration/update. Enrollment is FREE.",
             "website": "https://maandhan.in",
             "helpline": "14434 / 1800-267-6888 (toll-free)",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["pension", "retirement", "old_age", "small_farmer", "social_security"]
+            "tags": [
+                "pension",
+                "retirement",
+                "old_age",
+                "small_farmer",
+                "social_security"
+            ]
         },
         {
             "id": "pkvy",
@@ -195,10 +231,10 @@
             "amount": "₹50,000/hectare over 3 years (bio-fertilizers, bio-pesticides, vermicompost, certification, marketing support)",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Cluster requirement: Minimum 20 farmers forming a group with at least 20 hectares (50 acres) of contiguous/nearby land. Priority for tribal areas, rainfed areas, hilly/northeastern regions. Each cluster needs a Lead Resource Person (LRP)."
             },
@@ -211,9 +247,15 @@
             "how_to_apply": "Form a cluster of 20+ farmers with 20+ hectares → Contact District Agriculture Officer or State Agriculture Department. Online: pgsindia-ncof.gov.in → Register cluster and individual farmers. Through KVK or registered NGOs/FPOs. PGS certification is FREE under PKVY.",
             "website": "https://pgsindia-ncof.gov.in",
             "helpline": "Contact District Agriculture Officer or nearest KVK",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["organic", "natural_farming", "cluster", "certification", "PGS"]
+            "tags": [
+                "organic",
+                "natural_farming",
+                "cluster",
+                "certification",
+                "PGS"
+            ]
         },
         {
             "id": "smam",
@@ -224,10 +266,10 @@
             "amount": "Small/Marginal & SC/ST/Women/NE farmers: 50% subsidy. General farmers: 40%. Custom Hiring Centres: 40%. Farm Machinery Banks (FPO/SHG): 80%.",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
-                "max_age": null,
-                "income_limit": null,
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "All farmers eligible. Higher subsidy (50%) for Small/Marginal, SC/ST, Women, and NE region farmers. FPOs and SHGs eligible for Farm Machinery Banks at 80% subsidy."
             },
@@ -241,9 +283,16 @@
             "how_to_apply": "Online: agrimachinery.nic.in → Register as farmer → Select equipment → Upload documents → Apply. Selection on first-come-first-served basis (some states use lottery). DBT: Subsidy credited to bank after purchase verification by agriculture department officer. Timeline: 30-90 days from application to disbursement.",
             "website": "https://agrimachinery.nic.in",
             "helpline": "State agriculture department helplines",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["machinery", "tractor", "equipment", "subsidy", "drone", "custom_hiring"]
+            "tags": [
+                "machinery",
+                "tractor",
+                "equipment",
+                "subsidy",
+                "drone",
+                "custom_hiring"
+            ]
         },
         {
             "id": "pmksy",
@@ -254,10 +303,10 @@
             "amount": "55% Centre subsidy + state share for drip/sprinkler systems. Farmer pays only 15-25% of total cost. Additional subsidies for SC/ST/small farmers in some states.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "All farmers with irrigable land. Priority for water-stressed areas and small/marginal farmers. Some states provide 100% subsidy for micro-irrigation to small farmers (e.g., Tamil Nadu up to 5 acres)."
             },
@@ -271,9 +320,16 @@
             "how_to_apply": "Through state agriculture/horticulture departments. Apply via state agriculture portal or district agriculture/horticulture office. Some states have dedicated micro-irrigation portals.",
             "website": "https://pmksy.gov.in",
             "helpline": "Contact state agriculture/horticulture department",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["irrigation", "drip", "sprinkler", "water", "subsidy", "micro_irrigation"]
+            "tags": [
+                "irrigation",
+                "drip",
+                "sprinkler",
+                "water",
+                "subsidy",
+                "micro_irrigation"
+            ]
         },
         {
             "id": "pm-kusum",
@@ -284,10 +340,10 @@
             "amount": "Component B: 60% subsidy on standalone solar pumps (farmer pays 40%). Component A: Income from selling solar power. Component C: Savings from solar + revenue from surplus power.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Component A: Farmers with barren/fallow land. Component B: Any farmer needing irrigation pump. Component C: Farmers with existing grid-connected pumps."
             },
@@ -301,9 +357,16 @@
             "how_to_apply": "Through state renewable energy development agencies. Portal: mnre.gov.in/kusum. Contact state DISCOM for Component C (solarization of existing pumps).",
             "website": "https://mnre.gov.in/kusum",
             "helpline": "Contact state renewable energy agencies or DISCOM",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["solar", "pump", "energy", "subsidy", "renewable", "irrigation"]
+            "tags": [
+                "solar",
+                "pump",
+                "energy",
+                "subsidy",
+                "renewable",
+                "irrigation"
+            ]
         },
         {
             "id": "rkvy",
@@ -314,10 +377,10 @@
             "amount": "Up to ₹25 lakh for agri-startups. Infrastructure projects as per approved DPR.",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
-                "max_age": null,
-                "income_limit": null,
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Agri-startup component open to aspiring agri-entrepreneurs. Infrastructure benefits through state agriculture departments."
             },
@@ -331,9 +394,15 @@
             "how_to_apply": "For startups: Apply through state agriculture department or RKVY-RAFTAAR incubation centres. For infrastructure: State agriculture departments prepare District/State plans for approval.",
             "website": "https://rkvy.nic.in",
             "helpline": "Contact state agriculture department",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["startup", "agri_business", "infrastructure", "innovation", "cold_storage"]
+            "tags": [
+                "startup",
+                "agri_business",
+                "infrastructure",
+                "innovation",
+                "cold_storage"
+            ]
         },
         {
             "id": "nbhm",
@@ -344,10 +413,10 @@
             "amount": "Subsidy on beehive boxes, equipment, and processing units. Additional farm income ₹15,000–₹50,000/year with 10-50 colonies.",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
-                "max_age": null,
-                "income_limit": null,
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Any farmer, especially those with horticultural crops (mango, coconut, sunflower, mustard) for cross-pollination benefits."
             },
@@ -359,9 +428,14 @@
             "how_to_apply": "Through state agriculture/horticulture departments or National Bee Board (NBB). Training provided through KVKs and beekeeping centres.",
             "website": "https://nbb.gov.in",
             "helpline": "National Bee Board / State horticulture department",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["beekeeping", "honey", "additional_income", "pollination"]
+            "tags": [
+                "beekeeping",
+                "honey",
+                "additional_income",
+                "pollination"
+            ]
         },
         {
             "id": "nfsm",
@@ -372,10 +446,10 @@
             "amount": "50-100% subsidy on certified seeds, demonstration plot support, technology adoption assistance.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Farmers in major food crop growing districts. Focus on rice, wheat, pulses, coarse/nutri-cereals, oilseeds."
             },
@@ -387,9 +461,16 @@
             "how_to_apply": "Through district agriculture offices. Demonstration plots organized through KVKs. Seed distribution through agriculture extension network.",
             "website": "https://nfsm.gov.in",
             "helpline": "Contact district agriculture officer",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["seeds", "food_security", "production", "pulses", "cereals", "oilseeds"]
+            "tags": [
+                "seeds",
+                "food_security",
+                "production",
+                "pulses",
+                "cereals",
+                "oilseeds"
+            ]
         },
         {
             "id": "nmeo-op",
@@ -400,10 +481,10 @@
             "amount": "₹51,000/ha planting subsidy + ₹29,000/ha FFB price assurance + input support for 4 years.",
             "eligibility": {
                 "land_required": true,
-                "max_land_hectares": null,
-                "min_age": null,
-                "max_age": null,
-                "income_limit": null,
+                "max_land_hectares": "No limit",
+                "min_age": "No minimum",
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Farmers in identified oil palm suitable areas, especially NE India and Andaman & Nicobar Islands."
             },
@@ -415,9 +496,14 @@
             "how_to_apply": "Through state agriculture/horticulture departments and identified oil palm processing companies in the area.",
             "website": "https://nmeo.dac.gov.in",
             "helpline": "Contact state agriculture/horticulture department",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "Focus: NE states, Andaman & Nicobar, Andhra Pradesh, Telangana, Karnataka, Tamil Nadu, Goa, Kerala",
-            "tags": ["oilseed", "oil_palm", "planting_subsidy", "price_assurance"]
+            "tags": [
+                "oilseed",
+                "oil_palm",
+                "planting_subsidy",
+                "price_assurance"
+            ]
         },
         {
             "id": "pm-fme",
@@ -428,10 +514,10 @@
             "amount": "35% credit-linked subsidy up to ₹10 lakh for individual micro food processing units.",
             "eligibility": {
                 "land_required": false,
-                "max_land_hectares": null,
+                "max_land_hectares": "No limit",
                 "min_age": 18,
-                "max_age": null,
-                "income_limit": null,
+                "max_age": "No maximum",
+                "income_limit": "No income limit",
                 "aadhaar_required": true,
                 "other": "Existing micro food processing enterprises or new units. One District One Product (ODOP) approach — priority for locally relevant products."
             },
@@ -445,115 +531,256 @@
             "how_to_apply": "Apply through state nodal agencies for PM-FME scheme. Online portal for applications. District Resource Persons (DRPs) assist in application preparation.",
             "website": "https://pmfme.mofpi.gov.in",
             "helpline": "Contact state food processing department or district industries centre",
-            "mobile_app": null,
+            "mobile_app": "Not available",
             "states": "all",
-            "tags": ["food_processing", "micro_enterprise", "subsidy", "ODOP", "value_addition"]
+            "tags": [
+                "food_processing",
+                "micro_enterprise",
+                "subsidy",
+                "ODOP",
+                "value_addition"
+            ]
         }
     ],
     "state_schemes": [
         {
             "state": "Tamil Nadu",
             "schemes": [
-                {"name": "Tamil Nadu State Crop Insurance", "description": "Additional state-funded crop insurance beyond PMFBY for special crops (banana, coconut, etc.)"},
-                {"name": "Free Electricity for Agriculture", "description": "Free electricity for farmers for pump sets up to 10 HP motor"},
-                {"name": "Uzhavar Sandhai (Farmers' Market)", "description": "Direct-to-consumer farmers' markets eliminating middlemen — 180+ markets across the state"},
-                {"name": "Special Subsidy for Micro-Irrigation", "description": "100% subsidy for drip irrigation for small/marginal farmers (up to 5 acres)"},
-                {"name": "TN IAMP (Irrigated Agriculture Modernization Project)", "description": "World Bank-assisted modernization of irrigation systems"}
+                {
+                    "name": "Tamil Nadu State Crop Insurance",
+                    "description": "Additional state-funded crop insurance beyond PMFBY for special crops (banana, coconut, etc.)"
+                },
+                {
+                    "name": "Free Electricity for Agriculture",
+                    "description": "Free electricity for farmers for pump sets up to 10 HP motor"
+                },
+                {
+                    "name": "Uzhavar Sandhai (Farmers' Market)",
+                    "description": "Direct-to-consumer farmers' markets eliminating middlemen — 180+ markets across the state"
+                },
+                {
+                    "name": "Special Subsidy for Micro-Irrigation",
+                    "description": "100% subsidy for drip irrigation for small/marginal farmers (up to 5 acres)"
+                },
+                {
+                    "name": "TN IAMP (Irrigated Agriculture Modernization Project)",
+                    "description": "World Bank-assisted modernization of irrigation systems"
+                }
             ]
         },
         {
             "state": "Andhra Pradesh",
             "schemes": [
-                {"name": "YSR Rythu Bharosa", "description": "₹13,500/year per farmer family (₹7,500 state + ₹6,000 PM-KISAN combined)"},
-                {"name": "YSR Free Crop Insurance", "description": "State pays farmer premium share of PMFBY — effectively free crop insurance"},
-                {"name": "E-Crop Registration", "description": "Mandatory digital crop booking for accessing all scheme benefits"}
+                {
+                    "name": "YSR Rythu Bharosa",
+                    "description": "₹13,500/year per farmer family (₹7,500 state + ₹6,000 PM-KISAN combined)"
+                },
+                {
+                    "name": "YSR Free Crop Insurance",
+                    "description": "State pays farmer premium share of PMFBY — effectively free crop insurance"
+                },
+                {
+                    "name": "E-Crop Registration",
+                    "description": "Mandatory digital crop booking for accessing all scheme benefits"
+                }
             ]
         },
         {
             "state": "Telangana",
             "schemes": [
-                {"name": "Rythu Bandhu", "description": "₹10,000/acre/year (₹5,000 each for Kharif + Rabi) — direct investment support for all land-owning farmers; no income/land size limit"},
-                {"name": "Rythu Bima", "description": "Free life insurance of ₹5 lakh for all farmer families (age 18-59); premium paid by state government"},
-                {"name": "E-Crop Registration", "description": "Mandatory digital crop booking for accessing all scheme benefits"}
+                {
+                    "name": "Rythu Bandhu",
+                    "description": "₹10,000/acre/year (₹5,000 each for Kharif + Rabi) — direct investment support for all land-owning farmers; no income/land size limit"
+                },
+                {
+                    "name": "Rythu Bima",
+                    "description": "Free life insurance of ₹5 lakh for all farmer families (age 18-59); premium paid by state government"
+                },
+                {
+                    "name": "E-Crop Registration",
+                    "description": "Mandatory digital crop booking for accessing all scheme benefits"
+                }
             ]
         },
         {
             "state": "Karnataka",
             "schemes": [
-                {"name": "Raitha Siri", "description": "Input subsidy for farmer groups practicing integrated farming"},
-                {"name": "Krishi Bhagya Scheme", "description": "Farm ponds and polyethylene lining — 80% subsidy for rainwater harvesting (up to ₹1 lakh)"},
-                {"name": "Bhoochetana", "description": "Soil health improvement program in partnership with ICRISAT — micronutrient supply"},
-                {"name": "Karnataka Raitha Suraksha", "description": "₹2 lakh insurance + ₹1 lakh accidental cover for registered farmers"},
-                {"name": "Free Electricity for Agriculture", "description": "Up to 10 HP pump set — free power for farmers"}
+                {
+                    "name": "Raitha Siri",
+                    "description": "Input subsidy for farmer groups practicing integrated farming"
+                },
+                {
+                    "name": "Krishi Bhagya Scheme",
+                    "description": "Farm ponds and polyethylene lining — 80% subsidy for rainwater harvesting (up to ₹1 lakh)"
+                },
+                {
+                    "name": "Bhoochetana",
+                    "description": "Soil health improvement program in partnership with ICRISAT — micronutrient supply"
+                },
+                {
+                    "name": "Karnataka Raitha Suraksha",
+                    "description": "₹2 lakh insurance + ₹1 lakh accidental cover for registered farmers"
+                },
+                {
+                    "name": "Free Electricity for Agriculture",
+                    "description": "Up to 10 HP pump set — free power for farmers"
+                }
             ]
         },
         {
             "state": "Maharashtra",
             "schemes": [
-                {"name": "Mahatma Jyotirao Phule Shetkari Karj Mukti Yojana", "description": "Farm loan waiver up to ₹2 lakh per farmer (cooperative bank crop loans)"},
-                {"name": "Gopinath Munde Shetkari Apghat Vima Yojana", "description": "₹2 lakh accidental death insurance + ₹1 lakh partial disability (age 10-75)"},
-                {"name": "Nanaji Deshmukh Krishi Sanjivani Yojana", "description": "World Bank-assisted climate-resilient agriculture — ₹4,000 crore project covering 5,142 villages"},
-                {"name": "Magel Tyala Shettale (Farm Pond)", "description": "50-75% subsidy for farm ponds; priority for drought-prone areas"},
-                {"name": "Bhausaheb Fundkar Falbag Lagan Yojana", "description": "Subsidy for fruit orchard plantation — ₹40,000–₹60,000/ha"}
+                {
+                    "name": "Mahatma Jyotirao Phule Shetkari Karj Mukti Yojana",
+                    "description": "Farm loan waiver up to ₹2 lakh per farmer (cooperative bank crop loans)"
+                },
+                {
+                    "name": "Gopinath Munde Shetkari Apghat Vima Yojana",
+                    "description": "₹2 lakh accidental death insurance + ₹1 lakh partial disability (age 10-75)"
+                },
+                {
+                    "name": "Nanaji Deshmukh Krishi Sanjivani Yojana",
+                    "description": "World Bank-assisted climate-resilient agriculture — ₹4,000 crore project covering 5,142 villages"
+                },
+                {
+                    "name": "Magel Tyala Shettale (Farm Pond)",
+                    "description": "50-75% subsidy for farm ponds; priority for drought-prone areas"
+                },
+                {
+                    "name": "Bhausaheb Fundkar Falbag Lagan Yojana",
+                    "description": "Subsidy for fruit orchard plantation — ₹40,000–₹60,000/ha"
+                }
             ]
         },
         {
             "state": "Punjab",
             "schemes": [
-                {"name": "Diversification of Paddy", "description": "Incentive of ₹17,500/acre for shifting from paddy to maize/cotton/other crops (to save groundwater)"},
-                {"name": "Free Power for Tube Wells", "description": "Highly subsidized/free electricity for agricultural tube wells"},
-                {"name": "Custom Hiring Centres", "description": "State-subsidized tractor and harvester rental centres in every block"},
-                {"name": "Direct MSP Procurement", "description": "Over 95% of wheat and rice procured at MSP through government agencies"}
+                {
+                    "name": "Diversification of Paddy",
+                    "description": "Incentive of ₹17,500/acre for shifting from paddy to maize/cotton/other crops (to save groundwater)"
+                },
+                {
+                    "name": "Free Power for Tube Wells",
+                    "description": "Highly subsidized/free electricity for agricultural tube wells"
+                },
+                {
+                    "name": "Custom Hiring Centres",
+                    "description": "State-subsidized tractor and harvester rental centres in every block"
+                },
+                {
+                    "name": "Direct MSP Procurement",
+                    "description": "Over 95% of wheat and rice procured at MSP through government agencies"
+                }
             ]
         },
         {
             "state": "Haryana",
             "schemes": [
-                {"name": "Mera Pani Meri Virasat", "description": "₹7,000/acre incentive for switching from paddy to alternative crops; ₹2 lakh subsidy for micro-irrigation"},
-                {"name": "Free Power for Tube Wells", "description": "Highly subsidized electricity for agricultural use"},
-                {"name": "Direct MSP Procurement", "description": "Over 95% of wheat and rice procured at MSP"}
+                {
+                    "name": "Mera Pani Meri Virasat",
+                    "description": "₹7,000/acre incentive for switching from paddy to alternative crops; ₹2 lakh subsidy for micro-irrigation"
+                },
+                {
+                    "name": "Free Power for Tube Wells",
+                    "description": "Highly subsidized electricity for agricultural use"
+                },
+                {
+                    "name": "Direct MSP Procurement",
+                    "description": "Over 95% of wheat and rice procured at MSP"
+                }
             ]
         },
         {
             "state": "Uttar Pradesh",
             "schemes": [
-                {"name": "Kisan Rath App", "description": "Government app connecting farmers with transport vehicles during harvest season — reduces post-harvest losses"},
-                {"name": "Mukhyamantri Krishak Vriksh Dhan Yojana", "description": "₹30,000–₹50,000 per farmer for planting fruit trees on farmland (agroforestry incentive)"},
-                {"name": "UP Solar Pump Scheme", "description": "70% subsidy on solar water pumps (2 HP to 5 HP) for irrigation"},
-                {"name": "Pardarshi Kisan Seva Yojana", "description": "Subsidized seeds, fertilizer distribution, and mini-kit program through single-window portal"},
-                {"name": "Free Boring Scheme", "description": "Free boring of tube wells for SC/ST/small/marginal farmers (up to 70m depth)"}
+                {
+                    "name": "Kisan Rath App",
+                    "description": "Government app connecting farmers with transport vehicles during harvest season — reduces post-harvest losses"
+                },
+                {
+                    "name": "Mukhyamantri Krishak Vriksh Dhan Yojana",
+                    "description": "₹30,000–₹50,000 per farmer for planting fruit trees on farmland (agroforestry incentive)"
+                },
+                {
+                    "name": "UP Solar Pump Scheme",
+                    "description": "70% subsidy on solar water pumps (2 HP to 5 HP) for irrigation"
+                },
+                {
+                    "name": "Pardarshi Kisan Seva Yojana",
+                    "description": "Subsidized seeds, fertilizer distribution, and mini-kit program through single-window portal"
+                },
+                {
+                    "name": "Free Boring Scheme",
+                    "description": "Free boring of tube wells for SC/ST/small/marginal farmers (up to 70m depth)"
+                }
             ]
         },
         {
             "state": "Odisha",
             "schemes": [
-                {"name": "KALIA (Krushak Assistance for Livelihood and Income Augmentation)", "description": "₹10,000/year for small/marginal farmers (₹5,000 each Kharif + Rabi); ₹12,500/year for landless households"},
-                {"name": "Balaram Yojana", "description": "Credit linkage for landless cultivators/sharecroppers — up to ₹1 lakh crop loan without collateral"},
-                {"name": "Free Crop Insurance", "description": "Odisha pays PMFBY farmer premium from state funds — effectively free insurance"}
+                {
+                    "name": "KALIA (Krushak Assistance for Livelihood and Income Augmentation)",
+                    "description": "₹10,000/year for small/marginal farmers (₹5,000 each Kharif + Rabi); ₹12,500/year for landless households"
+                },
+                {
+                    "name": "Balaram Yojana",
+                    "description": "Credit linkage for landless cultivators/sharecroppers — up to ₹1 lakh crop loan without collateral"
+                },
+                {
+                    "name": "Free Crop Insurance",
+                    "description": "Odisha pays PMFBY farmer premium from state funds — effectively free insurance"
+                }
             ]
         },
         {
             "state": "Rajasthan",
             "schemes": [
-                {"name": "Mukhyamantri Krishak Sathi Yojana", "description": "₹2 lakh assistance for farmer death/disability during farming operations"},
-                {"name": "Tarbandi Yojana", "description": "Fencing subsidy — 50% or up to ₹48,000 for barbed wire fencing (400 running meters) to protect crops from stray animals"},
-                {"name": "Micro-Irrigation Subsidy", "description": "70% subsidy on drip/sprinkler systems for small farmers"}
+                {
+                    "name": "Mukhyamantri Krishak Sathi Yojana",
+                    "description": "₹2 lakh assistance for farmer death/disability during farming operations"
+                },
+                {
+                    "name": "Tarbandi Yojana",
+                    "description": "Fencing subsidy — 50% or up to ₹48,000 for barbed wire fencing (400 running meters) to protect crops from stray animals"
+                },
+                {
+                    "name": "Micro-Irrigation Subsidy",
+                    "description": "70% subsidy on drip/sprinkler systems for small farmers"
+                }
             ]
         },
         {
             "state": "Kerala",
             "schemes": [
-                {"name": "Haritashree", "description": "State scheme for tree planting and agroforestry on farmlands — ₹50/seedling"},
-                {"name": "Subhiksha Keralam", "description": "Food security scheme promoting rice, vegetable, tuber cultivation with input subsidies"},
-                {"name": "Jeevani", "description": "Free crop insurance for paddy, banana, and pepper farmers"}
+                {
+                    "name": "Haritashree",
+                    "description": "State scheme for tree planting and agroforestry on farmlands — ₹50/seedling"
+                },
+                {
+                    "name": "Subhiksha Keralam",
+                    "description": "Food security scheme promoting rice, vegetable, tuber cultivation with input subsidies"
+                },
+                {
+                    "name": "Jeevani",
+                    "description": "Free crop insurance for paddy, banana, and pepper farmers"
+                }
             ]
         },
         {
             "state": "Madhya Pradesh",
             "schemes": [
-                {"name": "Bhavantar Bhugtan Yojana", "description": "Price deficiency payment — if market price falls below MSP, government pays the difference directly to farmer"},
-                {"name": "Mukhyamantri Kisan Kalyan Yojana", "description": "₹4,000/year on top of PM-KISAN (making total ₹10,000/year)"},
-                {"name": "Chief Minister Solar Pump Scheme", "description": "90% subsidy on solar pumps for farmers"}
+                {
+                    "name": "Bhavantar Bhugtan Yojana",
+                    "description": "Price deficiency payment — if market price falls below MSP, government pays the difference directly to farmer"
+                },
+                {
+                    "name": "Mukhyamantri Kisan Kalyan Yojana",
+                    "description": "₹4,000/year on top of PM-KISAN (making total ₹10,000/year)"
+                },
+                {
+                    "name": "Chief Minister Solar Pump Scheme",
+                    "description": "90% subsidy on solar pumps for farmers"
+                }
             ]
         }
     ],
