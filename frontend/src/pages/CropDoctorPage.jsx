@@ -104,13 +104,15 @@ function CropDoctorPage() {
     };
 
     return (
-        <div>
+        <div className="cropdoctor-page">
             <div className="page-header">
                 <h2>
                     📸 {t('cropDocTitle')}
                 </h2>
                 <p>{t('cropDocSubtitle')}</p>
             </div>
+
+            <div className="cropdoctor-page-scroll">
 
             <div style={{ maxWidth: '650px' }}>
                 {/* Image Upload */}
@@ -193,6 +195,7 @@ function CropDoctorPage() {
                     </div>
                 </div>
             )}
+            </div>{/* end cropdoctor-page-scroll */}
         </div>
     );
 }

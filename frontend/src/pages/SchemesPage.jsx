@@ -57,6 +57,8 @@ function SchemesPage() {
                 <p>{t('schemesSubtitle')}</p>
             </div>
 
+            <div className="schemes-page-scroll">
+
             <div className="search-bar">
                 <span className="search-icon">🔍</span>
                 <input
@@ -139,6 +141,7 @@ function SchemesPage() {
                     )}
                 </div>
             )}
+            </div>{/* end schemes-page-scroll */}
         </div>
     );
 }

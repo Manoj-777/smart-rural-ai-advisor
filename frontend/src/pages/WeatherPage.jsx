@@ -157,6 +157,8 @@ function WeatherPage() {
                 <p>{t('weatherSubtitle')}</p>
             </div>
 
+            <div className="weather-page-scroll">
+
             {/* Map + Search Section */}
             <div className="weather-map-section">
                 {/* Interactive Map */}
@@ -195,7 +197,7 @@ function WeatherPage() {
                                 placeholder={t('weatherSearch')}
                             />
                         </div>
-                        <button type="button" onClick={handleSearch} className="send-btn" style={{ borderRadius: '12px', padding: '12px 20px' }}>
+                        <button type="button" onClick={handleSearch} className="send-btn" style={{ borderRadius: '12px', padding: '0 20px', height: 'auto', alignSelf: 'stretch' }}>
                             {t('search')}
                         </button>
                     </div>
@@ -299,6 +301,7 @@ function WeatherPage() {
                     </div>
                 </div>
             )}
+            </div>{/* end weather-page-scroll */}
         </div>
     );
 }

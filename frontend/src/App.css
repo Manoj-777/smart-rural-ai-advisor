@@ -111,7 +111,24 @@ body {
 
 /* ── Page Header ──────────────────────────────────────── */
 .page-header {
-    margin-bottom: 28px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #166534 0%, #14532d 60%, #052e16 100%);
+    border-radius: var(--radius);
+    padding: 16px 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(74,222,128,0.12) 0%, transparent 70%);
+    border-radius: 50%;
 }
 .page-header-top {
     display: flex;
@@ -121,18 +138,18 @@ body {
     flex-wrap: wrap;
 }
 .page-header h2 {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
-    color: var(--text);
+    color: white;
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 .page-header p {
-    color: var(--text-secondary);
-    font-size: 15px;
-    line-height: 1.5;
+    color: rgba(255,255,255,0.8);
+    font-size: 14px;
+    line-height: 1.4;
 }
 
 /* Language indicator badge */
@@ -312,8 +329,10 @@ body {
 .chat-page {
     display: flex;
     flex-direction: row;
+    gap: 12px;
     height: calc(100vh - 130px);
     position: relative;
+    overflow: hidden;
 }
 .chat-main {
     flex: 1;
@@ -321,6 +340,7 @@ body {
     flex-direction: column;
     min-width: 0;
     height: 100%;
+    overflow: hidden;
 }
 
 /* ── Chat History Side Panel ───────────────────────────── */
@@ -440,10 +460,14 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    padding-bottom: 110px;
-    min-height: 40vh;
+    padding: 20px;
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
+    background: var(--card-bg);
+    border-radius: 16px;
+    margin: 4px 8px 8px;
+    border: 1px solid var(--border);
 }
 
 .chat-empty {
@@ -660,20 +684,16 @@ body {
 
 /* ── Input Bar ─────────────────────────────────────────── */
 .input-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
     background: rgba(255,255,255,0.95);
     backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
+    border: 1px solid var(--border);
     padding: 16px 28px;
     display: flex;
     gap: 12px;
     align-items: center;
-    max-width: 960px;
-    margin: 0 auto;
-    z-index: 50;
+    flex-shrink: 0;
+    border-radius: 16px;
+    margin: 0 12px 12px;
 }
 
 .input-bar input {
@@ -1238,7 +1258,6 @@ body {
 
 @media (max-width: 768px) {
     .input-bar {
-        left: 0;
         padding: 12px 16px;
     }
     .main-content {
@@ -1286,7 +1305,68 @@ body {
 /* ── Weather Map ────────────────────────────────────────── */
 .weather-page {
     animation: pageIn 0.4s ease;
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
+.weather-page .page-header {
+    flex-shrink: 0;
+}
+.weather-page-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* ── Schemes Page Fixed Layout ─────────────────────────── */
+.schemes-page {
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.schemes-page .page-header {
+    flex-shrink: 0;
+}
+.schemes-page-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* ── Crop Doctor Page Fixed Layout ─────────────────────── */
+.cropdoctor-page {
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.cropdoctor-page .page-header {
+    flex-shrink: 0;
+}
+.cropdoctor-page-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* ── Profile Page Fixed Layout ─────────────────────────── */
+.profile-page {
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.profile-page .page-header {
+    flex-shrink: 0;
+}
+.profile-page-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
 .weather-map-section {
     display: flex;
     gap: 20px;
@@ -1325,6 +1405,10 @@ body {
 .weather-search-box {
     display: flex;
     gap: 8px;
+    align-items: stretch;
+}
+.weather-search-box .search-bar {
+    margin-bottom: 0;
 }
 .weather-cities-title {
     font-size: 14px;
@@ -1388,6 +1472,18 @@ body {
 /* ── Price Page ─────────────────────────────────────────── */
 .price-page {
     animation: pageIn 0.4s ease;
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.price-page .page-header {
+    flex-shrink: 0;
+}
+.price-page-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
 }
 .price-tabs {
     display: flex;
@@ -1451,8 +1547,9 @@ body {
     background: var(--card-bg);
     border-radius: var(--radius);
     border: 1.5px solid var(--border);
-    overflow: hidden;
+    overflow: auto;
     box-shadow: var(--shadow-sm);
+    max-height: 100%;
 }
 .price-table {
     width: 100%;
@@ -1462,6 +1559,9 @@ body {
 .price-table thead {
     background: linear-gradient(135deg, #166534 0%, #14532d 100%);
     color: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 .price-table th {
     padding: 14px 16px;
@@ -1470,6 +1570,21 @@ body {
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.price-table th:hover {
+    background: rgba(255,255,255,0.1);
+}
+.price-table th .sort-arrow {
+    margin-left: 4px;
+    font-size: 11px;
+    opacity: 0.6;
+}
+.price-table th .sort-arrow.active {
+    opacity: 1;
 }
 .price-table td {
     padding: 12px 16px;
@@ -1677,6 +1792,10 @@ body {
 /* ── Dashboard ─────────────────────────────────────────── */
 .dashboard {
     animation: pageIn 0.4s ease;
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Floating Mic FAB on Dashboard */
@@ -1714,15 +1833,16 @@ body {
 .dash-hero {
     background: linear-gradient(135deg, #166534 0%, #14532d 60%, #052e16 100%);
     border-radius: var(--radius);
-    padding: 36px 32px;
+    padding: 20px 24px;
     color: white;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     position: relative;
     overflow: hidden;
     box-shadow: var(--shadow-md);
+    flex-shrink: 0;
 }
 .dash-hero::before {
     content: '';
@@ -1735,14 +1855,14 @@ body {
     border-radius: 50%;
 }
 .dash-hero-text h1 {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 .dash-subtitle {
-    font-size: 15px;
+    font-size: 14px;
     opacity: 0.8;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 .dash-meta {
     display: flex;
@@ -1759,38 +1879,41 @@ body {
     gap: 6px;
 }
 .dash-hero-art {
-    font-size: 72px;
+    font-size: 56px;
     opacity: 0.7;
     flex-shrink: 0;
 }
 
 .dash-section-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--text);
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .dash-actions {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 28px;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex: 1;
+    min-height: 0;
 }
 .dash-action-card {
     background: var(--card-bg);
     border: 2px solid var(--border-light);
     border-radius: var(--radius);
-    padding: 24px 20px;
+    padding: 16px 16px;
     cursor: pointer;
     transition: all var(--transition);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
     text-align: left;
     box-shadow: var(--shadow-sm);
     position: relative;
@@ -1817,8 +1940,8 @@ body {
     opacity: 1;
 }
 .dash-action-icon {
-    font-size: 32px;
-    margin-bottom: 4px;
+    font-size: 28px;
+    margin-bottom: 2px;
 }
 .dash-action-title {
     font-size: 16px;
@@ -1833,16 +1956,16 @@ body {
 
 .dash-tip-card {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: flex-start;
     background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
     border: 1px solid #fde68a;
     border-radius: var(--radius);
-    padding: 20px 24px;
-    margin-bottom: 28px;
+    padding: 14px 20px;
+    flex-shrink: 0;
 }
 .dash-tip-icon {
-    font-size: 32px;
+    font-size: 26px;
     flex-shrink: 0;
 }
 .dash-tip-card h4 {
@@ -1927,9 +2050,9 @@ body {
 
 /* ── Clear History Button ─────────────────────────────── */
 .clear-history-btn {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
     font-size: 12px;
     font-weight: 500;
     padding: 5px 12px;
@@ -1939,9 +2062,9 @@ body {
     margin-top: 8px;
 }
 .clear-history-btn:hover {
-    background: var(--error-light);
-    border-color: var(--error);
-    color: var(--error);
+    background: rgba(220,38,38,0.8);
+    border-color: rgba(220,38,38,0.9);
+    color: white;
 }
 
 /* ── Responsive Dashboard ─────────────────────────────── */

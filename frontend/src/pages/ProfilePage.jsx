@@ -64,14 +64,16 @@ function ProfilePage() {
     };
 
     return (
-        <div>
+        <div className="profile-page">
             <div className="page-header">
                 <h2>👤 {t('profileTitle')}</h2>
                 <p>{t('profileSubtitle')}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: 4 }}>
+                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                     {t('profileFarmerId')}: {farmerId}
                 </p>
             </div>
+
+            <div className="profile-page-scroll">
 
             {message && (
                 <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}>
@@ -194,6 +196,7 @@ function ProfilePage() {
                 <span className="tip-icon">💡</span>
                 <span>{t('profileTip')}</span>
             </div>
+            </div>{/* end profile-page-scroll */}
         </div>
     );
 }

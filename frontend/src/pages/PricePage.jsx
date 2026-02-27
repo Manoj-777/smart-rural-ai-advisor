@@ -6,6 +6,16 @@ import { getPriceT } from '../i18n/priceTranslations';
 import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import config from '../config';
 
+/* ── Sort helper ─────── */
+function SortArrow({ column, sortCol, sortDir }) {
+    const active = sortCol === column;
+    return (
+        <span className={`sort-arrow ${active ? 'active' : ''}`}>
+            {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+        </span>
+    );
+}
+
 /* ── Crop market price data (MSP + simulated market prices) ─────── */
 const CROP_PRICES = [
     { name: 'Rice', season: 'Kharif', msp: 2300, marketMin: 2100, marketMax: 2800, unit: '₹/quintal', trend: 'up' },
@@ -88,6 +98,19 @@ function PricePage() {
     const [seasonFilter, setSeasonFilter] = useState('All');
     const [pestCatFilter, setPestCatFilter] = useState('All');
 
+    // Sort state
+    const [sortCol, setSortCol] = useState(null);
+    const [sortDir, setSortDir] = useState('asc');
+
+    const handleSort = (col) => {
+        if (sortCol === col) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortCol(col);
+            setSortDir('asc');
+        }
+    };
+
     // AI Advisory state
     const [aiAdvisory, setAiAdvisory] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -108,24 +131,57 @@ function PricePage() {
     const pestName = (en) => pt.pestNames?.[en] || en;
 
     const filteredCrops = useMemo(() => {
-        return CROP_PRICES.filter(c => {
+        let result = CROP_PRICES.filter(c => {
             const translated = cropName(c.name);
             const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
                                 translated.toLowerCase().includes(search.toLowerCase());
             const matchSeason = seasonFilter === 'All' || c.season === seasonFilter;
             return matchSearch && matchSeason;
         });
-    }, [search, seasonFilter, language]);
+        if (sortCol) {
+            result = [...result].sort((a, b) => {
+                let va, vb;
+                switch (sortCol) {
+                    case 'name': va = cropName(a.name).toLowerCase(); vb = cropName(b.name).toLowerCase(); break;
+                    case 'season': va = a.season; vb = b.season; break;
+                    case 'msp': va = a.msp || 0; vb = b.msp || 0; break;
+                    case 'market': va = a.marketMin; vb = b.marketMin; break;
+                    case 'trend': { const order = { up: 1, stable: 2, down: 3 }; va = order[a.trend] || 2; vb = order[b.trend] || 2; break; }
+                    default: return 0;
+                }
+                if (va < vb) return sortDir === 'asc' ? -1 : 1;
+                if (va > vb) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return result;
+    }, [search, seasonFilter, language, sortCol, sortDir]);
 
     const filteredPests = useMemo(() => {
-        return PEST_RATES.filter(p => {
+        let result = PEST_RATES.filter(p => {
             const translated = pestName(p.name);
             const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                                 translated.toLowerCase().includes(search.toLowerCase());
             const matchCat = pestCatFilter === 'All' || p.category === pestCatFilter;
             return matchSearch && matchCat;
         });
-    }, [search, pestCatFilter, language]);
+        if (sortCol) {
+            result = [...result].sort((a, b) => {
+                let va, vb;
+                switch (sortCol) {
+                    case 'pname': va = pestName(a.name).toLowerCase(); vb = pestName(b.name).toLowerCase(); break;
+                    case 'category': va = a.category; vb = b.category; break;
+                    case 'price': va = a.price; vb = b.price; break;
+                    case 'usage': va = a.usage; vb = b.usage; break;
+                    default: return 0;
+                }
+                if (va < vb) return sortDir === 'asc' ? -1 : 1;
+                if (va > vb) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return result;
+    }, [search, pestCatFilter, language, sortCol, sortDir]);
 
     /* ── Ask AI for price advisory ─────── */
     const askAI = useCallback(async (crop) => {
@@ -220,12 +276,14 @@ function PricePage() {
                 <p>{pt.pageSubtitle}</p>
             </div>
 
+            <div className="price-page-scroll">
+
             {/* Tabs */}
             <div className="price-tabs">
-                <button className={`price-tab ${tab === 'crops' ? 'active' : ''}`} onClick={() => { setTab('crops'); setSearch(''); setAiAdvisory(null); setAiCrop(null); }}>
+                <button className={`price-tab ${tab === 'crops' ? 'active' : ''}`} onClick={() => { setTab('crops'); setSearch(''); setAiAdvisory(null); setAiCrop(null); setSortCol(null); setSortDir('asc'); }}>
                     🌾 {pt.tabCrops}
                 </button>
-                <button className={`price-tab ${tab === 'pests' ? 'active' : ''}`} onClick={() => { setTab('pests'); setSearch(''); setAiAdvisory(null); setAiCrop(null); }}>
+                <button className={`price-tab ${tab === 'pests' ? 'active' : ''}`} onClick={() => { setTab('pests'); setSearch(''); setAiAdvisory(null); setAiCrop(null); setSortCol(null); setSortDir('asc'); }}>
                     🧪 {pt.tabPests}
                 </button>
             </div>
@@ -280,11 +338,11 @@ function PricePage() {
                     <table className="price-table">
                         <thead>
                             <tr>
-                                <th>{pt.thCrop}</th>
-                                <th>{pt.thSeason}</th>
-                                <th>{pt.thMSP}</th>
-                                <th>{pt.thMarketRange}</th>
-                                <th>{pt.thTrend}</th>
+                                <th onClick={() => handleSort('name')}>{pt.thCrop} <SortArrow column="name" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('season')}>{pt.thSeason} <SortArrow column="season" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('msp')}>{pt.thMSP} <SortArrow column="msp" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('market')}>{pt.thMarketRange} <SortArrow column="market" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('trend')}>{pt.thTrend} <SortArrow column="trend" sortCol={sortCol} sortDir={sortDir} /></th>
                                 <th>AI</th>
                             </tr>
                         </thead>
@@ -328,10 +386,10 @@ function PricePage() {
                     <table className="price-table">
                         <thead>
                             <tr>
-                                <th>{pt.thProduct}</th>
-                                <th>{pt.thCategory}</th>
-                                <th>{pt.thPrice}</th>
-                                <th>{pt.thUsage}</th>
+                                <th onClick={() => handleSort('pname')}>{pt.thProduct} <SortArrow column="pname" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('category')}>{pt.thCategory} <SortArrow column="category" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('price')}>{pt.thPrice} <SortArrow column="price" sortCol={sortCol} sortDir={sortDir} /></th>
+                                <th onClick={() => handleSort('usage')}>{pt.thUsage} <SortArrow column="usage" sortCol={sortCol} sortDir={sortDir} /></th>
                                 <th>AI</th>
                             </tr>
                         </thead>
@@ -364,6 +422,7 @@ function PricePage() {
                     </p>
                 </div>
             )}
+            </div>{/* end price-page-scroll */}
         </div>
     );
 }
