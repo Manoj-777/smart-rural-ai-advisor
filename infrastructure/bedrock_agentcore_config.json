@@ -1,5 +1,7 @@
 {
-    "_comment": "Bedrock AgentCore configuration placeholder — fill after console setup",
+    "_comment": "Bedrock AgentCore configuration — Cognitive Multi-Agent Architecture",
+    "architecture": "cognitive_pipeline",
+    "pipeline_flow": "Memory → Understanding → Reasoning → Fact-Checking → Communication",
     "agent": {
         "agent_name": "SmartRuralAdvisor",
         "foundation_model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -7,6 +9,44 @@
         "idle_session_ttl_in_seconds": 1800,
         "agent_id": "FILL_AFTER_CREATION",
         "agent_alias_id": "FILL_AFTER_CREATION"
+    },
+    "cognitive_runtimes": {
+        "understanding": {
+            "name": "SmartRuralUnderstanding",
+            "role": "Query parsing, language detection, intent extraction, entity recognition",
+            "tools": [],
+            "env": {"AGENT_ROLE": "understanding"}
+        },
+        "reasoning": {
+            "name": "SmartRuralReasoning",
+            "role": "Tool-calling agent, data retrieval, agricultural analysis and synthesis",
+            "tools": ["get_crop_advisory", "get_pest_alert", "get_irrigation_advice", "get_weather", "search_schemes", "get_farmer_profile"],
+            "env": {"AGENT_ROLE": "reasoning"}
+        },
+        "fact_checking": {
+            "name": "SmartRuralFactChecking",
+            "role": "Response validation, hallucination detection, grounding check",
+            "tools": [],
+            "env": {"AGENT_ROLE": "fact_checking"}
+        },
+        "communication": {
+            "name": "SmartRuralCommunication",
+            "role": "Language adaptation, cultural localization, farmer-friendly formatting",
+            "tools": [],
+            "env": {"AGENT_ROLE": "communication"}
+        },
+        "memory": {
+            "name": "SmartRuralMemory",
+            "role": "Context management, farmer history, seasonal awareness",
+            "tools": ["get_farmer_profile"],
+            "env": {"AGENT_ROLE": "memory"}
+        },
+        "master": {
+            "name": "SmartRuralAdvisor",
+            "role": "Legacy full-pipeline single agent (backward compatible)",
+            "tools": ["get_crop_advisory", "get_pest_alert", "get_irrigation_advice", "get_weather", "search_schemes", "get_farmer_profile"],
+            "env": {"AGENT_ROLE": "master"}
+        }
     },
     "knowledge_base": {
         "kb_name": "SmartRuralKB",

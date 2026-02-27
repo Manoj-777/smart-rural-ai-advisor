@@ -34,28 +34,49 @@ Tamil • Hindi • Telugu • Kannada • Malayalam • Bengali • Marathi •
 
 ---
 
-## Architecture
+## Architecture — Cognitive Multi-Agent Pipeline
+
+Unlike typical domain-specialist agents (one per topic), we use **5 cognitive-role agents** that mirror how an expert thinks:
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌──────────────────────────────────┐
-│   React UI  │───▶│ API Gateway  │───▶│  Lambda Orchestrator             │
-│  (Vite SPA) │    │  9 routes    │    │  ├─ Intent classification        │
-│  13 langs   │    │  CORS-enabled│    │  ├─ Policy & hallucination guard │
-└─────────────┘    └──────────────┘    │  ├─ AgentCore (Claude 4.5)       │
-                                       │  ├─ Translate (13 languages)     │
-                                       │  └─ TTS (Polly + gTTS)          │
-                                       └────────────┬─────────────────────┘
-                                                    │ Tools
-                              ┌──────────┬──────────┼──────────┬──────────┐
-                              ▼          ▼          ▼          ▼          ▼
-                         get_weather  get_crop  get_pest  search_   get_farmer
-                         (OpenWeather) advisory   alert   schemes   profile
-                              │          │          │          │          │
-                              ▼          ▼          ▼          ▼          ▼
-                         OpenWeather  crop_data  disease   govt_     DynamoDB
-                           API        .csv       DB       schemes
-                                                          .json
+┌─────────────┐    ┌──────────────┐    ┌──────────────────────────────────────────┐
+│   React UI  │───▶│ API Gateway  │───▶│  Lambda Orchestrator                     │
+│  (Vite SPA) │    │  9 routes    │    │                                          │
+│  13 langs   │    │  CORS-enabled│    │  COGNITIVE PIPELINE:                     │
+└─────────────┘    └──────────────┘    │                                          │
+                                       │  ① Memory Agent (farmer profile + season)│
+                                       │         ▼                                │
+                                       │  ② Understanding Agent (NLU + intent)    │
+                                       │         ▼                                │
+                                       │  ③ Reasoning Agent (tool-calling + data) │
+                                       │     ├─ get_weather (OpenWeather)         │
+                                       │     ├─ get_crop_advisory                 │
+                                       │     ├─ get_pest_alert                    │
+                                       │     ├─ search_schemes                    │
+                                       │     ├─ get_irrigation_advice             │
+                                       │     └─ get_farmer_profile                │
+                                       │         ▼                                │
+                                       │  ④ Fact-Checking Agent (hallucination    │
+                                       │     detection + grounding validation)    │
+                                       │         ▼                                │
+                                       │  ⑤ Communication Agent (language +       │
+                                       │     cultural adaptation)                 │
+                                       │                                          │
+                                       │  + Amazon Translate (13 languages)       │
+                                       │  + Amazon Polly + gTTS (TTS)             │
+                                       │  + DynamoDB (chat history)               │
+                                       └──────────────────────────────────────────┘
 ```
+
+### Agent Roles
+
+| Agent | Runtime | What It Does | Has Tools? |
+|---|---|---|---|
+| **Memory** | SmartRuralMemory | Recalls farmer context, seasonal awareness | `get_farmer_profile` only |
+| **Understanding** | SmartRuralUnderstanding | Language detection, intent extraction, entity recognition | No (LLM only) |
+| **Reasoning** | SmartRuralReasoning | Calls Lambda tools, retrieves data, synthesizes advisory | All 6 tools |
+| **Fact-Checking** | SmartRuralFactChecking | Validates response against tool data, detects hallucinations | No (LLM only) |
+| **Communication** | SmartRuralCommunication | Adapts response to farmer's language and culture | No (LLM only) |
 
 | Layer | Service |
 |---|---|
@@ -63,7 +84,7 @@ Tamil • Hindi • Telugu • Kannada • Malayalam • Bengali • Marathi •
 | **API** | Amazon API Gateway (9 endpoints, CORS) |
 | **Compute** | 7 AWS Lambda functions + 1 inline health check |
 | **AI Model** | Claude Sonnet 4.5 (`anthropic.claude-sonnet-4-5-20250929-v1:0`) |
-| **AI Runtime** | Amazon Bedrock AgentCore (6 specialist runtimes) |
+| **AI Runtime** | Amazon Bedrock AgentCore (6 cognitive runtimes) |
 | **Knowledge** | Bedrock Knowledge Base (RAG over curated farming docs) |
 | **Database** | Amazon DynamoDB (farmer profiles + chat sessions) |
 | **Voice In** | Web Speech API (Chrome) + Amazon Transcribe (Firefox, 12 languages) |
@@ -173,17 +194,21 @@ smart-rural-ai-advisor/
 │   └── dist/               # Production build
 ├── backend/
 │   └── lambdas/
-│       ├── agent_orchestrator/  # Main AI orchestrator (666 lines)
+│       ├── agent_orchestrator/  # Main AI orchestrator (cognitive pipeline)
 │       ├── weather_lookup/      # OpenWeather integration
 │       ├── crop_advisory/       # Crop recommendation engine
 │       ├── govt_schemes/        # Scheme eligibility + search
 │       ├── farmer_profile/      # DynamoDB profile CRUD
 │       ├── image_analysis/      # Claude Vision crop diagnosis
 │       └── transcribe_speech/   # Amazon Transcribe STT
-├── agentcore/              # Bedrock AgentCore runtime
-│   └── agent.py            # Tool execution + model interaction
+├── agentcore/              # Bedrock AgentCore cognitive runtimes
+│   ├── agent.py            # 5 cognitive agents + master (Understanding,
+│   │                       #   Reasoning, Fact-Checking, Communication, Memory)
+│   └── agent_old_tool_wrapper.py  # Backup of old domain-specialist agent
+├── deploy_cognitive_agents.py  # Deploy/test cognitive runtimes
 ├── infrastructure/
-│   └── template.yaml       # SAM template (all resources)
+│   ├── template.yaml       # SAM template (all resources)
+│   └── bedrock_agentcore_config.json  # Cognitive pipeline config
 ├── data/
 │   ├── crop_data.csv       # Indian crop database
 │   ├── govt_schemes.json   # Government scheme details
@@ -197,13 +222,15 @@ smart-rural-ai-advisor/
 
 | Decision | Rationale |
 |---|---|
+| **Cognitive-role agents** over domain specialists | Each agent has a genuinely different capability (NLU, tool-use, validation, localization) instead of being a tool wrapper |
+| **Fact-Checking agent** | Validates every response against real tool data — catches hallucinations before they reach the farmer |
+| **Only Reasoning agent has tools** | Principle of least privilege — Understanding, Fact-Checking, Communication are pure LLM reasoning |
+| **Sequential pipeline** | Memory → Understanding → Reasoning → Fact-Checking → Communication mirrors expert cognition |
 | **Claude Sonnet 4.5** over Nova Pro | Superior tool-use, multilingual quality, vision capability |
 | **gTTS** for Indic TTS (free) | Amazon Polly only supports 2 Indian languages; gTTS covers all 13 for free |
 | **Web Speech API** primary STT | Zero-latency client-side recognition in Chrome/Edge (80%+ of users) |
 | **Amazon Transcribe** fallback | Firefox/Safari users get server-side STT with 12 Indian languages |
-| **AgentCore** for orchestration | Managed tool-calling loop, session memory, model fallback |
-| **Intent classification** | Route to specialist tools before AI, reducing hallucination |
-| **Policy guard** | Double-layer: code-level topic gate + grounding requirement |
+| **PIPELINE_MODE toggle** | Switch between `cognitive` (multi-agent) and `specialist` (legacy) via env var |
 
 ---
 

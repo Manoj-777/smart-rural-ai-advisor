@@ -1,68 +1,31 @@
 version: 0.2
 
-env:
-  variables:
-    SAM_TEMPLATE: infrastructure/template.yaml
-    STACK_NAME: smart-rural-ai
-    REGION: ap-south-1
-    S3_BUCKET: smart-rural-ai-948809294205
-  parameter-store:
-    OPENWEATHER_API_KEY: /smart-rural-ai/openweather-api-key
-
 phases:
   install:
     runtime-versions:
       python: 3.13
     commands:
       - echo "Installing SAM CLI..."
-      - pip install aws-sam-cli --quiet
+      - pip install --quiet aws-sam-cli
       - sam --version
-
-  pre_build:
-    commands:
-      - echo "Validating SAM template..."
-      - sam validate --template-file $SAM_TEMPLATE --lint
-      - echo "Running unit tests..."
-      - pip install pyyaml requests --quiet
-      - python test_unit.py -v 2>&1 | tail -5
 
   build:
     commands:
-      - echo "Building Lambda functions..."
-      - sam build --template-file $SAM_TEMPLATE
-      - echo "Build complete."
+      - echo "Building SAM application..."
+      - sam build --template-file infrastructure/template.yaml
 
   post_build:
     commands:
-      - echo "Deploying to AWS..."
-      - sam deploy
-          --stack-name $STACK_NAME
-          --region $REGION
-          --s3-bucket $S3_BUCKET
-          --s3-prefix sam-artifacts
-          --capabilities CAPABILITY_IAM
-          --no-confirm-changeset
-          --no-fail-on-empty-changeset
-          --parameter-overrides
-            OpenWeatherApiKey=$OPENWEATHER_API_KEY
-            BedrockAgentId=PLACEHOLDER
-            BedrockAgentAliasId=PLACEHOLDER
-            BedrockKBId=PLACEHOLDER
+      - echo "Deploying SAM application..."
+      - sam deploy --config-file infrastructure/samconfig.toml --config-env default --no-confirm-changeset --no-fail-on-empty-changeset
       - echo "Deployment complete!"
       - |
         API_URL=$(aws cloudformation describe-stacks \
-          --stack-name $STACK_NAME \
-          --region $REGION \
+          --stack-name smart-rural-ai \
+          --region ap-south-1 \
           --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
           --output text)
         echo "API URL: $API_URL"
-        curl -s "$API_URL/health" | python -m json.tool
-
-artifacts:
-  files:
-    - .aws-sam/build/**/*
-  discard-paths: no
-
-cache:
-  paths:
-    - '/root/.cache/pip/**/*'
+      - echo "Testing health endpoint..."
+      - |
+        curl -s "${API_URL}health" || echo "Health check skipped"

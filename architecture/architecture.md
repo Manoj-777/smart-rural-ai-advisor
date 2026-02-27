@@ -1,8 +1,25 @@
 # Architecture Overview
 
-## Smart Rural AI Advisor — System Architecture
+## Smart Rural AI Advisor — Cognitive Multi-Agent Architecture
 
-### High-Level Flow
+### Design Philosophy
+
+Instead of traditional domain-specialist agents (Weather Agent, Crop Agent, etc.) that are just tool wrappers, we use **cognitive-role agents** that mirror how an expert thinks:
+
+1. **Memory** — recall farmer context and seasonal awareness
+2. **Understanding** — parse the query, detect language, extract intent
+3. **Reasoning** — call tools, retrieve data, synthesize an answer
+4. **Fact-Checking** — validate the response against tool outputs, detect hallucinations
+5. **Communication** — adapt the response to the farmer's language and culture
+
+Each agent is a separate Bedrock AgentCore runtime with its own role-specific system prompt.
+Only the **Reasoning** agent has access to all 6 Lambda tools.
+Only the **Memory** agent can read farmer profiles.
+The others are pure cognitive (LLM-only, no tools).
+
+---
+
+### Cognitive Pipeline Flow
 
 ```
 Farmer (Mobile/Desktop)
@@ -17,20 +34,42 @@ API Gateway (REST, ap-south-1)
     │
     ├─ POST /chat ──────► Agent Orchestrator Lambda
     │                         │
-    │                         ├─ Amazon Bedrock AgentCore
-    │                         │    ├─ Claude Sonnet 4.5 (reasoning)
-    │                         │    ├─ Knowledge Base (S3 → Titan Embed → OpenSearch)
-    │                         │    └─ Action Groups → Tool Lambdas
-    │                         │         ├─ crop_advisory
-    │                         │         ├─ weather_lookup (OpenWeatherMap)
-    │                         │         ├─ govt_schemes
-    │                         │         └─ farmer_profile (DynamoDB)
+    │      ┌─────────────────────────────────────────────────────────┐
+    │      │              COGNITIVE PIPELINE (5 agents)              │
+    │      │                                                         │
+    │      │  ① Memory Agent ───────────────────────────────┐        │
+    │      │     └─ get_farmer_profile tool                 │        │
+    │      │     └─ Returns: farmer_context, season_info    │        │
+    │      │                                                ▼        │
+    │      │  ② Understanding Agent ────────────────────────┐        │
+    │      │     └─ No tools (pure LLM reasoning)           │        │
+    │      │     └─ Returns: {language, intents, entities,  │        │
+    │      │                  confidence, enriched_query}    │        │
+    │      │                                                ▼        │
+    │      │  ③ Reasoning Agent ────────────────────────────┐        │
+    │      │     └─ 6 Lambda tools (weather, crop, pest,    │        │
+    │      │        schemes, irrigation, profile)           │        │
+    │      │     └─ Returns: {result, tools_used,           │        │
+    │      │                  tool_outputs}                  │        │
+    │      │                                                ▼        │
+    │      │  ④ Fact-Checking Agent ────────────────────────┐        │
+    │      │     └─ No tools (pure LLM reasoning)           │        │
+    │      │     └─ Compares advisory vs. tool_outputs      │        │
+    │      │     └─ Returns: {validated, confidence,        │        │
+    │      │                  corrections, warnings,        │        │
+    │      │                  hallucinations_found}          │        │
+    │      │                                                ▼        │
+    │      │  ⑤ Communication Agent ────────────────────────┘        │
+    │      │     └─ No tools (pure LLM reasoning)                    │
+    │      │     └─ Adapts to farmer's language and culture          │
+    │      │     └─ Returns: localized, farmer-friendly text         │
+    │      └─────────────────────────────────────────────────────────┘
     │                         │
-    │                         ├─ Amazon Translate (multilingual)
-    │                         ├─ Amazon Polly (text-to-speech)
+    │                         ├─ Amazon Translate (13 Indian languages)
+    │                         ├─ Amazon Polly + gTTS (text-to-speech)
     │                         └─ DynamoDB (chat history)
     │
-    ├─ POST /voice ─────► Agent Orchestrator Lambda (same)
+    ├─ POST /voice ─────► Agent Orchestrator Lambda (same pipeline)
     ├─ GET  /weather/{loc} ► Weather Lambda → OpenWeatherMap API
     ├─ GET  /schemes ────► Govt Schemes Lambda → Knowledge Base
     ├─ POST /image-analyze ► Image Analysis Lambda → Claude Sonnet 4.5 Vision
@@ -39,6 +78,28 @@ API Gateway (REST, ap-south-1)
     ├─ POST /transcribe ──► Transcribe Lambda → Amazon Transcribe
     └─ GET  /health ──────► Health Check (inline)
 ```
+
+### Agent Role Matrix
+
+| Agent | Runtime Name | Tools | Input | Output |
+|---|---|---|---|---|
+| **Memory** | SmartRuralMemory | `get_farmer_profile` | farmer_id, session_id | Enriched farmer context + seasonal awareness |
+| **Understanding** | SmartRuralUnderstanding | None (LLM only) | Raw user query | `{language, intents[], entities{}, confidence, enriched_query}` |
+| **Reasoning** | SmartRuralReasoning | All 6 Lambda tools | Understanding output | `{result, tools_used[], tool_outputs{}}` |
+| **Fact-Checking** | SmartRuralFactChecking | None (LLM only) | Advisory + tool_outputs | `{validated, confidence, corrections[], warnings[]}` |
+| **Communication** | SmartRuralCommunication | None (LLM only) | Validated advisory + target language | Localized, farmer-friendly response text |
+| **Master** (legacy) | SmartRuralAdvisor | All 6 Lambda tools | Full query | Complete response (backward compatible) |
+
+### Why Cognitive Roles Instead of Domain Specialists?
+
+| Old Architecture (Domain Specialists) | New Architecture (Cognitive Roles) |
+|---|---|
+| Weather Agent, Crop Agent, Pest Agent, etc. | Understanding, Reasoning, Fact-Checking, etc. |
+| Each agent is a tool wrapper with the same code | Each agent has a genuinely different capability |
+| No validation — hallucinations unchecked | Fact-Checking agent verifies against tool data |
+| Language handling mixed into every agent | Dedicated Communication agent for localization |
+| No structured intent parsing | Understanding agent produces structured JSON |
+| All agents have all tools | Only Reasoning agent has tools (principle of least privilege) |
 
 ### AWS Services Used
 

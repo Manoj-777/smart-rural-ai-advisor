@@ -22,6 +22,13 @@ Globals:
         AGENTCORE_SCHEMES_RUNTIME_ARN: !Ref AgentCoreSchemesRuntimeArn
         AGENTCORE_PROFILE_RUNTIME_ARN: !Ref AgentCoreProfileRuntimeArn
         AGENTCORE_PEST_RUNTIME_ARN: !Ref AgentCorePestRuntimeArn
+        # Cognitive Multi-Agent Pipeline ARNs
+        AGENTCORE_UNDERSTANDING_RUNTIME_ARN: !Ref AgentCoreUnderstandingRuntimeArn
+        AGENTCORE_REASONING_RUNTIME_ARN: !Ref AgentCoreReasoningRuntimeArn
+        AGENTCORE_FACTCHECK_RUNTIME_ARN: !Ref AgentCoreFactCheckRuntimeArn
+        AGENTCORE_COMMUNICATION_RUNTIME_ARN: !Ref AgentCoreCommunicationRuntimeArn
+        AGENTCORE_MEMORY_RUNTIME_ARN: !Ref AgentCoreMemoryRuntimeArn
+        PIPELINE_MODE: !Ref PipelineMode
         ENABLE_SPECIALIST_FANOUT: !Ref EnableSpecialistFanout
         ENFORCE_CODE_POLICY: !Ref EnforceCodePolicy
 
@@ -66,6 +73,32 @@ Parameters:
     Type: String
     Description: Pest specialist AgentCore Runtime ARN
     Default: ''
+  # Cognitive Multi-Agent Pipeline Parameters
+  AgentCoreUnderstandingRuntimeArn:
+    Type: String
+    Description: Understanding cognitive agent Runtime ARN
+    Default: ''
+  AgentCoreReasoningRuntimeArn:
+    Type: String
+    Description: Reasoning cognitive agent Runtime ARN
+    Default: ''
+  AgentCoreFactCheckRuntimeArn:
+    Type: String
+    Description: Fact-Checking cognitive agent Runtime ARN
+    Default: ''
+  AgentCoreCommunicationRuntimeArn:
+    Type: String
+    Description: Communication cognitive agent Runtime ARN
+    Default: ''
+  AgentCoreMemoryRuntimeArn:
+    Type: String
+    Description: Memory cognitive agent Runtime ARN
+    Default: ''
+  PipelineMode:
+    Type: String
+    AllowedValues: ['cognitive', 'specialist']
+    Description: "Pipeline mode: 'cognitive' (multi-agent) or 'specialist' (legacy domain fan-out)"
+    Default: 'cognitive'
   EnableSpecialistFanout:
     Type: String
     AllowedValues: ['true', 'false']
@@ -105,6 +138,10 @@ Resources:
                 - bedrock-agentcore-control:InvokeAgentRuntime
                 - bedrock-agentcore-control:GetAgentRuntime
               Resource: '*'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:smart-rural-ai-*'
             - Effect: Allow
               Action:
                 - translate:TranslateText
