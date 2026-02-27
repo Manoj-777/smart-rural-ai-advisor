@@ -54,7 +54,7 @@ function CropDoctorPage() {
 
         try {
             if (config.MOCK_AI) {
-                const data = await mockImageAnalyze(null, '', '', language);
+                const data = await mockImageAnalyze(null, 'Crop', 'India', language);
                 if (data.status === 'success') {
                     setAnalysis(data.data.analysis);
                 } else {
@@ -95,25 +95,45 @@ function CropDoctorPage() {
         }
     };
 
+    const resetForm = () => {
+        setImage(null);
+        setPreview(null);
+        setAnalysis('');
+        setError('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     return (
         <div>
             <div className="page-header">
                 <h2>
                     📸 {t('cropDocTitle')}
-                    {config.MOCK_AI && <span className="demo-badge">{t('demoMode')}</span>}
                 </h2>
                 <p>{t('cropDocSubtitle')}</p>
             </div>
 
-            <div style={{ maxWidth: '600px' }}>
+            <div style={{ maxWidth: '650px' }}>
+                {/* Image Upload */}
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div
                         className={preview ? '' : 'upload-zone'}
                         onClick={() => fileInputRef.current.click()}
-                        style={preview ? { cursor: 'pointer', padding: '16px' } : {}}
+                        style={preview ? { cursor: 'pointer', padding: '16px', position: 'relative' } : {}}
                     >
                         {preview ? (
-                            <img src={preview} alt="Crop" style={{ width: '100%', borderRadius: '12px', display: 'block' }} />
+                            <>
+                                <img src={preview} alt="Crop" style={{ width: '100%', borderRadius: '12px', display: 'block' }} />
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); resetForm(); }}
+                                    style={{
+                                        position: 'absolute', top: 24, right: 24,
+                                        background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none',
+                                        borderRadius: '50%', width: 32, height: 32, cursor: 'pointer',
+                                        fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}
+                                    title="Remove image"
+                                >✕</button>
+                            </>
                         ) : (
                             <>
                                 <span className="upload-icon">📷</span>
@@ -132,6 +152,7 @@ function CropDoctorPage() {
                     />
                 </div>
 
+                {/* Analyze Button */}
                 {image && (
                     <button
                         onClick={analyzeImage}

@@ -556,6 +556,39 @@ body {
     border-radius: 8px;
 }
 
+.speak-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 4px 12px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card-bg);
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.speak-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.speak-btn.speaking {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+    animation: pulse-speak 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-speak {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
 .message.user {
     align-self: flex-end;
     flex-direction: row-reverse;

@@ -178,7 +178,7 @@ function ChatPage() {
             if (config.MOCK_AI) {
                 data = await mockChat(text, targetSessionId, language);
             } else {
-                const res = await fetch(+"${config.API_URL}/chat"+@", {
+                const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -202,7 +202,7 @@ function ChatPage() {
             } else {
                 assistantMsg = {
                     role: 'assistant',
-                    content: '+[char]0x274C+' + ' ' + (data.message || t('connectionError')),
+                    content: '❌ ' + (data.message || t('connectionError')),
                     timestamp: Date.now()
                 };
             }
@@ -229,7 +229,7 @@ function ChatPage() {
         } catch {
             const errorMsg = {
                 role: 'assistant',
-                content: '+[char]0x274C+' + ' ' + t('connectionError'),
+                content: '❌ ' + t('connectionError'),
                 timestamp: Date.now()
             };
             if (activeIdRef.current === targetSessionId) {
@@ -263,10 +263,10 @@ function ChatPage() {
             {/* History Side Panel */}
             <div className="chat-history-panel">
                 <div className="chat-history-header">
-                    <h3>+[char]0x1F4AC+' {t('yourChats') || 'Your Chats'}</h3>
+                    <h3>💬 {t('yourChats') || 'Your Chats'}</h3>
                 </div>
                 <button className="chat-history-new" onClick={startNewChat}>
-                    +[char]0xFF0B+' {t('newChat') || 'New Chat'}
+                    ＋ {t('newChat') || 'New Chat'}
                 </button>
                 <div className="chat-history-list">
                     {sessions.length === 0 && (
@@ -277,13 +277,13 @@ function ChatPage() {
                         .map(session => (
                         <div
                             key={session.id}
-                            className={+"chat-history-item "+@"}
+                            className={`chat-history-item ${session.id === activeSessionId ? 'active' : ''}`}
                             onClick={() => switchToSession(session.id)}
                         >
                             <div className="chat-history-item-content">
                                 <span className="chat-history-preview">{session.preview}</span>
                                 <span className="chat-history-meta">
-                                    {formatSessionDate(session.lastTimestamp, t)} +[char]0x00B7+' {session.messageCount} {t('chatMsgs')}
+                                    {formatSessionDate(session.lastTimestamp, t)} · {session.messageCount} {t('chatMsgs')}
                                 </span>
                             </div>
                             <button
@@ -291,7 +291,7 @@ function ChatPage() {
                                 onClick={(e) => deleteSession(session.id, e)}
                                 title={t('chatDeleteChat')}
                             >
-                                +[char]0x1F5D1+[char]0xFE0F+@"
+                                🗑️
                             </button>
                         </div>
                     ))}
@@ -303,22 +303,34 @@ function ChatPage() {
                 <div className="page-header">
                     <div className="page-header-top">
                         <h2>
-                            +[char]0x1F4AC+' {t('chatTitle')}
-                            {config.MOCK_AI && <span className="demo-badge">{t('demoMode')}</span>}
+                            💬 {t('chatTitle')}
                         </h2>
                     </div>
                     <p>{t('chatSubtitle')}</p>
                     {messages.length > 0 && (
                         <button className="clear-history-btn" onClick={clearHistory} title={t('chatClearHistory') || 'Clear chat'}>
-                            +[char]0x1F5D1+[char]0xFE0F+' {t('chatClearHistory') || 'Clear'}
+                            🗑️ {t('chatClearHistory') || 'Clear'}
                         </button>
                     )}
                 </div>
 
             <div className="chat-container">
                 {messages.length === 0 && (
-                    <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '40px' }}>
-                        +[char]0x1F33E+' Ask me about crops, weather, pests, or government schemes!
+                    <div className="chat-welcome">
+                        <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px 40px 10px' }}>
+                            🌾 Ask me about crops, weather, pests, or government schemes!
+                        </div>
+                        <div className="suggestions">
+                            {suggestions.map((s, i) => (
+                                <button
+                                    key={i}
+                                    className="suggestion-chip"
+                                    onClick={() => sendMessage(s)}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
                 {messages.map((msg, i) => (
@@ -326,7 +338,7 @@ function ChatPage() {
                 ))}
                 {loading && (
                     <div className="message assistant">
-                        <span className="typing-dots">+[char]0x1F33E+' Thinking...</span>
+                        <span className="typing-dots">🌾 Thinking...</span>
                     </div>
                 )}
                 <div ref={chatEndRef} />
@@ -336,14 +348,14 @@ function ChatPage() {
             <div className="input-bar">
                 <VoiceInput 
                     language={language} 
-                    onTranscript={(text) => sendMessage(text)} 
+                    onTranscript={handleVoiceResult} 
                 />
                 <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="+[char]0x0B89+[char]0x0B99+[char]0x0BCD+[char]0x0B95+[char]0x0BB3+[char]0x0BCD+' +[char]0x0B95+[char]0x0BC7+[char]0x0BB3+[char]0x0BCD+[char]0x0BB5+[char]0x0BBF+[char]0x0BAF+[char]0x0BC8+' +[char]0x0BA4+[char]0x0B9F+[char]0x0BCD+[char]0x0B9F+[char]0x0B9A+[char]0x0BCD+[char]0x0B9A+[char]0x0BC1+' +[char]0x0B9A+[char]0x0BC6+[char]0x0BAF+[char]0x0BCD+[char]0x0BAF+[char]0x0BB5+[char]0x0BC1+[char]0x0BAE+[char]0x0BCD+' / Type here..."
+                    placeholder={t('chatPlaceholder')}
                     disabled={loading}
                 />
                 <button 
@@ -351,7 +363,7 @@ function ChatPage() {
                     onClick={() => sendMessage(input)}
                     disabled={loading || !input.trim()}
                 >
-                    Send
+                    {t('send')}
                 </button>
             </div>
             </div>{/* end chat-main */}
