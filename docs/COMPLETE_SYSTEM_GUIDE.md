@@ -1246,6 +1246,59 @@ This file contains all configuration values. It's used by:
 }
 ```
 
+### 12.1 Route-to-Lambda Mapping (Detailed API Gateway View)
+
+This subsection explains exactly what API Gateway does for each route in this project.
+
+| Route | Gateway receives | Lambda integration | Typical success code | Notes |
+|---|---|---|---|---|
+| `GET /health` | No body | Inline health Lambda | `200` | Used for uptime checks and smoke tests. |
+| `POST /chat` | JSON body (`message`, `farmer_id`, `session_id`) | `AgentOrchestrator` | `200` | Main conversational route with translation, tools, policy, and audio. |
+| `POST /voice` | Voice payload and metadata | `AgentOrchestrator` | `200` | Voice-first path routed through the same orchestrator logic. |
+| `GET /weather/{location}` | Path parameter `location` | `WeatherLookup` | `200` | Direct weather access without full chat orchestration. |
+| `GET /schemes` | Optional query params | `GovtSchemes` | `200` | Returns all schemes or filtered search results. |
+| `GET /profile/{farmerId}` | Path parameter `farmerId` | `FarmerProfile` | `200` | Reads farmer profile from DynamoDB. |
+| `PUT /profile/{farmerId}` | JSON profile body + path parameter | `FarmerProfile` | `200` | Creates/updates profile and timestamps. |
+| `POST /image-analyze` | Base64 image + language info | `ImageAnalysis` | `200` | Uses Bedrock vision model for crop diagnosis. |
+| `POST /transcribe` | Base64 audio + language code | `TranscribeSpeech` | `200` | Speech-to-text fallback pipeline using S3 + Transcribe. |
+
+#### API Gateway request lifecycle in this project
+
+1. Frontend sends HTTP request to API Gateway stage URL.
+2. API Gateway matches method + path to a configured route.
+3. API Gateway invokes mapped Lambda integration.
+4. Lambda returns standardized JSON envelope (`status`, `data`, `message`).
+5. API Gateway returns response to frontend.
+
+#### Why API Gateway is important here
+
+- Single public entry point for all frontend calls.
+- Decouples frontend contract from internal Lambda implementation.
+- Allows unified CORS handling and browser compatibility.
+- Makes route-level monitoring and debugging easier.
+
+#### Common status code behavior (practical)
+
+| Status | Meaning in this project |
+|---|---|
+| `200` | Successful processing (including policy-safe responses). |
+| `400` | Bad request (missing required fields, invalid inputs). |
+| `500` | Unexpected server-side failure in Lambda path. |
+
+#### Quick examples beyond `/chat`
+
+**GET `/weather/Chennai`**
+- Gateway route -> `WeatherLookup`
+- Response includes current conditions, forecast summary, and advisory.
+
+**GET `/profile/farmer_123`**
+- Gateway route -> `FarmerProfile`
+- Response includes persisted profile or default profile object.
+
+**POST `/image-analyze`**
+- Gateway route -> `ImageAnalysis`
+- Response includes diagnosis, confidence, treatment steps, and urgency.
+
 ---
 
 ## 13. Tests
