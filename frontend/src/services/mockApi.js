@@ -304,3 +304,57 @@ export async function mockImageAnalyze(imageBase64, cropName, state, language) {
         }
     };
 }
+
+// ── Mock Prices — AI-enriched price data ────────────────────────────────────
+export async function mockPrices(cropName, language) {
+    await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
+    const lang = language || 'en-IN';
+
+    // AI advisory per crop
+    const advisories = {
+        'Rice': {
+            'en-IN': 'Rice prices peak in March-April when private traders compete with FCI. Consider storing for 2-3 months post-harvest for a 10-15% premium. Punjab & Haryana mandis offer strong MSP procurement.',
+            'ta-IN': 'அரிசி விலை மார்ச்-ஏப்ரல் மாதங்களில் உச்சமடையும். அறுவடைக்குப் பிறகு 2-3 மாதங்கள் சேமித்து 10-15% அதிக விலை பெறலாம்.',
+            'hi-IN': 'चावल की कीमतें मार्च-अप्रैल में चरम पर होती हैं। कटाई के बाद 2-3 महीने भंडारण करने पर 10-15% अधिक मूल्य मिल सकता है।',
+            'kn-IN': 'ಅಕ್ಕಿ ಬೆಲೆ ಮಾರ್ಚ್-ಏಪ್ರಿಲ್‌ನಲ್ಲಿ ಉತ್ತುಂಗಕ್ಕೇರುತ್ತದೆ. ಕೊಯ್ಲಿನ ನಂತರ 2-3 ತಿಂಗಳು ಸಂಗ್ರಹಿಸಿ 10-15% ಹೆಚ್ಚಿನ ಬೆಲೆ ಪಡೆಯಿರಿ.',
+            'te-IN': 'బియ్యం ధరలు మార్చి-ఏప్రిల్‌లో గరిష్ఠ స్థాయికి చేరతాయి. కోత తర్వాత 2-3 నెలలు నిల్వ చేస్తే 10-15% అధిక ధర పొందవచ్చు.',
+        },
+        'Wheat': {
+            'en-IN': 'Best wheat prices come in April-May post-harvest. Government procurement is strong in Punjab, Haryana, and MP. Store for 2-3 months if you have good storage facilities.',
+            'ta-IN': 'கோதுமை விலை ஏப்ரல்-மே மாதங்களில் சிறப்பாக இருக்கும். நல்ல சேமிப்பு வசதி இருந்தால் 2-3 மாதங்கள் சேமிக்கவும்.',
+            'hi-IN': 'गेहूं के सर्वोत्तम दाम अप्रैल-मई में आते हैं। पंजाब, हरियाणा और MP में सरकारी खरीद मजबूत है।',
+            'kn-IN': 'ಗೋಧಿ ಬೆಲೆ ಏಪ್ರಿಲ್-ಮೇನಲ್ಲಿ ಉತ್ತಮವಾಗಿರುತ್ತದೆ. ಒಳ್ಳೆಯ ಶೇಖರಣಾ ಸೌಲಭ್ಯ ಇದ್ದರೆ 2-3 ತಿಂಗಳು ಸಂಗ್ರಹಿಸಿ.',
+            'te-IN': 'గోధుమ ధరలు ఏప్రిల్-మేలో అత్యుత్తమంగా ఉంటాయి. మంచి నిల్వ సౌకర్యం ఉంటే 2-3 నెలలు నిల్వ చేయండి.',
+        },
+        'Cotton': {
+            'en-IN': 'Monitor international cotton prices closely. Sell in batches — 50% at harvest, 50% in Feb-March for best returns. Gujarat (Rajkot, Gondal) and Telangana mandis are key markets.',
+            'ta-IN': 'சர்வதேச பருத்தி விலையை கவனமாக கண்காணிக்கவும். 50% அறுவடையிலும், 50% பிப்-மார்ச்சிலும் விற்கவும்.',
+            'hi-IN': 'अंतरराष्ट्रीय कपास कीमतों पर नजर रखें। 50% कटाई पर और 50% फरवरी-मार्च में बेचें।',
+            'kn-IN': 'ಅಂತರರಾಷ್ಟ್ರೀಯ ಹತ್ತಿ ಬೆಲೆಯನ್ನು ನಿಕಟವಾಗಿ ಗಮನಿಸಿ. 50% ಕೊಯ್ಲಿನಲ್ಲಿ, 50% ಫೆಬ್ರವರಿ-ಮಾರ್ಚ್‌ನಲ್ಲಿ ಮಾರಾಟ ಮಾಡಿ.',
+            'te-IN': 'అంతర్జాతీయ పత్తి ధరలను నిశితంగా గమనించండి. 50% పంట సమయంలో, 50% ఫిబ్రవరి-మార్చిలో విక్రయించండి.',
+        },
+    };
+
+    // Default advisory for crops not in the map
+    const defaultAdvisory = {
+        'en-IN': 'Compare prices across 3-4 nearby mandis before selling. Use eNAM (enam.gov.in) for real-time mandi prices. If market price is below MSP, sell through government procurement channels.',
+        'ta-IN': 'விற்பதற்கு முன் 3-4 அருகிலுள்ள மண்டிகளில் விலையை ஒப்பிடுங்கள். நிகழ்நேர விலைக்கு eNAM (enam.gov.in) பயன்படுத்தவும்.',
+        'hi-IN': 'बेचने से पहले 3-4 पास की मंडियों में दाम तुलना करें। रीयल-टाइम मंडी भाव के लिए eNAM (enam.gov.in) इस्तेमाल करें।',
+        'kn-IN': 'ಮಾರಾಟ ಮಾಡುವ ಮುನ್ನ 3-4 ಹತ್ತಿರದ ಮಂಡಿಗಳಲ್ಲಿ ಬೆಲೆ ಹೋಲಿಸಿ. ನೈಜ-ಸಮಯದ ಬೆಲೆಗಳಿಗೆ eNAM (enam.gov.in) ಬಳಸಿ.',
+        'te-IN': 'అమ్మే ముందు 3-4 సమీప మండీలలో ధరలను పోల్చండి. రియల్-టైమ్ మండీ ధరల కోసం eNAM (enam.gov.in) వాడండి.',
+    };
+
+    const advisory = (advisories[cropName] && advisories[cropName][lang])
+        || (advisories[cropName] && advisories[cropName]['en-IN'])
+        || defaultAdvisory[lang]
+        || defaultAdvisory['en-IN'];
+
+    return {
+        status: 'success',
+        data: {
+            advisory,
+            source: 'AI Knowledge Base (Mock)',
+            lastUpdated: new Date().toISOString().split('T')[0],
+        }
+    };
+}

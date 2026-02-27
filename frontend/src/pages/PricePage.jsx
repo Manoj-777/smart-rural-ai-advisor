@@ -1,8 +1,10 @@
 // src/pages/PricePage.jsx
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPriceT } from '../i18n/priceTranslations';
+import { mockPrices } from '../services/mockApi';
+import config from '../config';
 
 /* ── Crop market price data (MSP + simulated market prices) ─────── */
 const CROP_PRICES = [
@@ -58,6 +60,18 @@ const PEST_RATES = [
 const SEASONS = ['All', 'Kharif', 'Rabi', 'Annual', 'Perennial', 'Year-round'];
 const PEST_CATEGORIES = ['All', 'Bio-pesticide', 'Bio-fungicide', 'Bio-insecticide', 'Insecticide', 'Fungicide', 'Herbicide', 'Trap'];
 
+/* ── AI Advisory labels ─────── */
+const AI_LABELS = {
+    'en-IN': { ask: '🤖 Ask AI', asking: '⏳ Asking AI...', title: 'AI Price Advisory', source: 'Source', close: '✕ Close' },
+    'ta-IN': { ask: '🤖 AI கேளுங்கள்', asking: '⏳ AI கேட்கிறது...', title: 'AI விலை ஆலோசனை', source: 'மூலம்', close: '✕ மூடு' },
+    'hi-IN': { ask: '🤖 AI से पूछें', asking: '⏳ AI से पूछ रहे...', title: 'AI मूल्य सलाह', source: 'स्रोत', close: '✕ बंद करें' },
+    'kn-IN': { ask: '🤖 AI ಕೇಳಿ', asking: '⏳ AI ಕೇಳುತ್ತಿದೆ...', title: 'AI ಬೆಲೆ ಸಲಹೆ', source: 'ಮೂಲ', close: '✕ ಮುಚ್ಚಿ' },
+    'te-IN': { ask: '🤖 AI అడగండి', asking: '⏳ AI అడుగుతోంది...', title: 'AI ధర సలహా', source: 'మూలం', close: '✕ మూసివేయి' },
+    'ml-IN': { ask: '🤖 AI ചോദിക്കൂ', asking: '⏳ AI ചോദിക്കുന്നു...', title: 'AI വില ഉപദേശം', source: 'ഉറവിടം', close: '✕ അടയ്ക്കുക' },
+    'bn-IN': { ask: '🤖 AI জিজ্ঞাসা', asking: '⏳ AI জিজ্ঞাসা করছে...', title: 'AI মূল্য পরামর্শ', source: 'উৎস', close: '✕ বন্ধ' },
+    'mr-IN': { ask: '🤖 AI ला विचारा', asking: '⏳ AI ला विचारत आहे...', title: 'AI किंमत सल्ला', source: 'स्रोत', close: '✕ बंद करा' },
+};
+
 function TrendBadge({ trend, pt }) {
     const icons = { up: ['📈', '#16a34a'], down: ['📉', '#dc2626'], stable: ['➡️', '#d97706'] };
     const labels = { up: pt.trendRising, down: pt.trendFalling, stable: pt.trendStable };
@@ -73,6 +87,13 @@ function PricePage() {
     const [search, setSearch] = useState('');
     const [seasonFilter, setSeasonFilter] = useState('All');
     const [pestCatFilter, setPestCatFilter] = useState('All');
+
+    // AI Advisory state
+    const [aiAdvisory, setAiAdvisory] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiCrop, setAiCrop] = useState(null);
+
+    const aiLabel = AI_LABELS[language] || AI_LABELS['en-IN'];
 
     /* translate a crop name for display */
     const cropName = (en) => pt.crops?.[en] || en;
@@ -105,6 +126,49 @@ function PricePage() {
         });
     }, [search, pestCatFilter, language]);
 
+    /* ── Ask AI for price advisory ─────── */
+    const askAI = useCallback(async (crop) => {
+        setAiCrop(crop.name);
+        setAiLoading(true);
+        setAiAdvisory(null);
+        try {
+            let result;
+            if (config.MOCK_AI) {
+                result = await mockPrices(crop.name, language);
+            } else {
+                // Real backend — POST to /chat with a price query
+                const query = `What is the current market price advisory for ${crop.name}? Include best time to sell, recommended mandis, and MSP details.`;
+                const res = await fetch(`${config.API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query, language, session_id: 'price-advisory' }),
+                });
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+                result = {
+                    status: 'success',
+                    data: {
+                        advisory: data.response || data.message || data.data?.response || 'No advisory available.',
+                        source: 'Bedrock Knowledge Base',
+                        lastUpdated: new Date().toISOString().split('T')[0],
+                    }
+                };
+            }
+            setAiAdvisory(result.data);
+        } catch (err) {
+            console.error('AI price advisory error:', err);
+            setAiAdvisory({
+                advisory: language === 'ta-IN' ? 'AI ஆலோசனை தற்போது கிடைக்கவில்லை. மீண்டும் முயற்சிக்கவும்.'
+                         : language === 'hi-IN' ? 'AI सलाह अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।'
+                         : 'AI advisory unavailable right now. Please try again later.',
+                source: 'Error',
+                lastUpdated: '',
+            });
+        } finally {
+            setAiLoading(false);
+        }
+    }, [language]);
+
     return (
         <div className="price-page">
             <div className="page-header">
@@ -114,13 +178,30 @@ function PricePage() {
 
             {/* Tabs */}
             <div className="price-tabs">
-                <button className={`price-tab ${tab === 'crops' ? 'active' : ''}`} onClick={() => { setTab('crops'); setSearch(''); }}>
+                <button className={`price-tab ${tab === 'crops' ? 'active' : ''}`} onClick={() => { setTab('crops'); setSearch(''); setAiAdvisory(null); setAiCrop(null); }}>
                     🌾 {pt.tabCrops}
                 </button>
-                <button className={`price-tab ${tab === 'pests' ? 'active' : ''}`} onClick={() => { setTab('pests'); setSearch(''); }}>
+                <button className={`price-tab ${tab === 'pests' ? 'active' : ''}`} onClick={() => { setTab('pests'); setSearch(''); setAiAdvisory(null); setAiCrop(null); }}>
                     🧪 {pt.tabPests}
                 </button>
             </div>
+
+            {/* AI Advisory Panel */}
+            {aiAdvisory && (
+                <div className="ai-advisory-panel">
+                    <div className="ai-advisory-header">
+                        <h3>🤖 {aiLabel.title} — {cropName(aiCrop)}</h3>
+                        <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); }}>{aiLabel.close}</button>
+                    </div>
+                    <div className="ai-advisory-body">
+                        <p>{aiAdvisory.advisory}</p>
+                    </div>
+                    <div className="ai-advisory-footer">
+                        {aiAdvisory.source && <span>📂 {aiLabel.source}: {aiAdvisory.source}</span>}
+                        {aiAdvisory.lastUpdated && <span>📅 {aiAdvisory.lastUpdated}</span>}
+                    </div>
+                </div>
+            )}
 
             {/* Search & Filter */}
             <div className="price-toolbar">
@@ -153,11 +234,12 @@ function PricePage() {
                                 <th>{pt.thMSP}</th>
                                 <th>{pt.thMarketRange}</th>
                                 <th>{pt.thTrend}</th>
+                                <th>AI</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredCrops.map((c, i) => (
-                                <tr key={i}>
+                                <tr key={i} className={aiCrop === c.name ? 'ai-active-row' : ''}>
                                     <td className="price-crop-name">🌱 {cropName(c.name)}</td>
                                     <td><span className="price-season-badge">{seasonName(c.season)}</span></td>
                                     <td className="price-msp">{c.msp ? `₹${c.msp.toLocaleString()}` : '—'}</td>
@@ -166,6 +248,16 @@ function PricePage() {
                                         <span className="price-unit">{c.unit}</span>
                                     </td>
                                     <td><TrendBadge trend={c.trend} pt={pt} /></td>
+                                    <td>
+                                        <button
+                                            className="ai-ask-btn"
+                                            disabled={aiLoading}
+                                            onClick={() => askAI(c)}
+                                            title={aiLabel.ask}
+                                        >
+                                            {aiLoading && aiCrop === c.name ? aiLabel.asking : aiLabel.ask}
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
