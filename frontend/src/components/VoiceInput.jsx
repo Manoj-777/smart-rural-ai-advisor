@@ -1,21 +1,25 @@
 // src/components/VoiceInput.jsx
 
-import { useEffect } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useLanguage } from '../contexts/LanguageContext';
+
+const LISTENING_TEXT = {
+    'en-IN': 'Listening...', 'hi-IN': 'सुन रहा हूं...', 'ta-IN': 'கேட்கிறது...',
+    'te-IN': 'వింటుంది...', 'kn-IN': 'ಆಲಿಸುತ್ತಿದೆ...', 'ml-IN': 'കേൾക്കുന്നു...',
+    'bn-IN': 'শুনছি...', 'mr-IN': 'ऐकत आहे...', 'gu-IN': 'સાંભળી રહ્યું છે...',
+    'pa-IN': 'ਸੁਣ ਰਿਹਾ ਹਾਂ...', 'or-IN': 'ଶୁଣୁଛି...', 'as-IN': 'শুনি আছে...',
+    'ur-IN': 'سن رہا ہوں...',
+};
 
 function VoiceInput({ language, onTranscript }) {
-    const { isListening, transcript, error, startListening, stopListening } = 
-        useSpeechRecognition(language);
+    const { t } = useLanguage();
+    const { isListening, error, startListening, stopListening } = 
+        useSpeechRecognition(language, onTranscript);
 
-    // When transcript changes, send it up to parent
-    useEffect(() => {
-        if (transcript) {
-            onTranscript(transcript);
-        }
-    }, [transcript, onTranscript]);
+    const listeningLabel = LISTENING_TEXT[language] || 'Listening...';
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="voice-input-group">
             <button 
                 className={`mic-btn ${isListening ? 'recording' : ''}`}
                 onClick={isListening ? stopListening : startListening}
@@ -23,8 +27,8 @@ function VoiceInput({ language, onTranscript }) {
             >
                 {isListening ? '🔴' : '🎤'}
             </button>
-            {isListening && <span style={{color: '#e53e3e', fontSize: '14px'}}>Listening...</span>}
-            {error && <span style={{color: '#e53e3e', fontSize: '13px'}}>{error}</span>}
+            {isListening && <span className="voice-status listening">{listeningLabel}</span>}
+            {error && <span className="voice-status error">{error}</span>}
         </div>
     );
 }

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import config from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
+import { SchemesSkeleton } from '../components/SkeletonLoader';
 
 function SchemesPage() {
+    const { t } = useLanguage();
     const [schemes, setSchemes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -13,7 +16,6 @@ function SchemesPage() {
             try {
                 const res = await fetch(`${config.API_URL}/schemes`);
                 const data = await res.json();
-                // API returns { schemes: { "pm-kisan": {...}, ... } } — convert object to array
                 const schemesObj = data.data?.schemes || data.schemes || {};
                 const schemesArray = Array.isArray(schemesObj)
                     ? schemesObj
@@ -27,54 +29,69 @@ function SchemesPage() {
         fetchSchemes();
     }, []);
 
-    const filtered = schemes.filter(s => 
+    const filtered = schemes.filter(s =>
         s.name?.toLowerCase().includes(search.toLowerCase()) ||
         s.full_name?.toLowerCase().includes(search.toLowerCase())
     );
 
     return (
         <div>
-            <h2>📋 Government Schemes for Farmers</h2>
-            <input 
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search schemes..."
-                style={{ width: '100%', padding: '12px', margin: '16px 0', 
-                         borderRadius: '8px', border: '2px solid var(--border)' }}
-            />
+            <div className="page-header">
+                <h2>📋 {t('schemesTitle')}</h2>
+                <p>{t('schemesSubtitle')}</p>
+            </div>
 
-            {loading ? <p>Loading schemes...</p> : (
+            <div className="search-bar">
+                <span className="search-icon">🔍</span>
+                <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t('schemesSearch')}
+                />
+            </div>
+
+            {loading ? (
+                <SchemesSkeleton />
+            ) : (
                 <div>
                     {filtered.map((scheme, i) => (
-                        <div key={i} className="card">
+                        <div key={i} className="scheme-card" style={{ animationDelay: `${i * 0.05}s` }}>
                             <h3>{scheme.name}</h3>
                             {scheme.full_name && (
-                                <p style={{ marginBottom: '8px', fontStyle: 'italic' }}>{scheme.full_name}</p>
+                                <p className="scheme-fullname">{scheme.full_name}</p>
                             )}
                             {scheme.benefit && (
-                                <p style={{ fontSize: '14px', color: 'var(--success)' }}>
-                                    <strong>💰 Benefit:</strong> {scheme.benefit}
-                                </p>
+                                <div className="scheme-detail">
+                                    <span className="detail-icon">💰</span>
+                                    <span><span className="detail-label">{t('schemesBenefit')}:</span> {scheme.benefit}</span>
+                                </div>
                             )}
                             {scheme.eligibility && (
-                                <p style={{ fontSize: '14px', color: 'var(--text-light)' }}>
-                                    <strong>👤 Eligibility:</strong> {scheme.eligibility}
-                                </p>
+                                <div className="scheme-detail">
+                                    <span className="detail-icon">👤</span>
+                                    <span><span className="detail-label">{t('schemesEligibility')}:</span> {scheme.eligibility}</span>
+                                </div>
                             )}
                             {scheme.how_to_apply && (
-                                <p style={{ fontSize: '14px', whiteSpace: 'pre-line' }}>
-                                    <strong>📝 How to Apply:</strong> {scheme.how_to_apply}
-                                </p>
+                                <div className="scheme-detail">
+                                    <span className="detail-icon">📝</span>
+                                    <span><span className="detail-label">{t('schemesHowToApply')}:</span> {scheme.how_to_apply}</span>
+                                </div>
                             )}
                             {scheme.helpline && (
-                                <p style={{ fontSize: '14px' }}>
-                                    <strong>📞 Helpline:</strong> {scheme.helpline}
-                                </p>
+                                <div className="scheme-detail">
+                                    <span className="detail-icon">📞</span>
+                                    <span><span className="detail-label">{t('schemesHelpline')}:</span> {scheme.helpline}</span>
+                                </div>
                             )}
                         </div>
                     ))}
-                    {filtered.length === 0 && <p>No schemes found matching "{search}"</p>}
+                    {filtered.length === 0 && (
+                        <div className="alert alert-warning">
+                            {t('schemesNoMatch')} "{search}"
+                        </div>
+                    )}
                 </div>
             )}
         </div>
