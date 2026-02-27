@@ -22,12 +22,14 @@
    - 5.6 [Image Analysis](#56-image-analysis)
    - 5.7 [Transcribe Speech](#57-transcribe-speech)
    - 5.8 [Health Check](#58-health-check)
+  - 5.9 [Control Plane vs Worker Lambdas](#59-control-plane-vs-worker-lambdas)
 6. [Utility Modules (Shared Helpers)](#6-utility-modules-shared-helpers)
    - 6.1 [response_helper.py](#61-response_helperpy)
    - 6.2 [translate_helper.py](#62-translate_helperpy)
    - 6.3 [polly_helper.py](#63-polly_helperpy)
    - 6.4 [dynamodb_helper.py](#64-dynamodb_helperpy)
    - 6.5 [error_handler.py](#65-error_handlerpy)
+  - 6.6 [Lambda-to-Utils Dependency Map](#66-lambda-to-utils-dependency-map)
 7. [Amazon Bedrock AgentCore — The AI Brain](#7-amazon-bedrock-agentcore--the-ai-brain)
    - 7.1 [What Is AgentCore?](#71-what-is-agentcore)
    - 7.2 [agent.py — The Runtime Code](#72-agentpy--the-runtime-code)
@@ -771,6 +773,47 @@ Think of it as a smart search engine for documents. You upload PDFs/documents ab
 
 ---
 
+### 5.9 Control Plane vs Worker Lambdas
+
+This is the most important architecture concept for understanding this codebase.
+
+#### What "control plane" means here
+
+In this project, the **Agent Orchestrator Lambda** is the control plane because it:
+
+1. Decides execution order (translation → policy → runtime → localization → persistence)
+2. Chooses the processing mode (AgentCore preferred, Bedrock Agents fallback)
+3. Applies safety logic (off-topic blocking + grounding enforcement)
+4. Coordinates multi-service outputs (text + audio + session history)
+
+It is not a domain-data source itself; it is the coordinator.
+
+#### What "worker lambdas" mean here
+
+Worker Lambdas do focused domain tasks and return structured outputs:
+
+- `weather_lookup` -> weather + farming advisory
+- `crop_advisory` -> KB retrieval for crop/pest/irrigation
+- `govt_schemes` -> scheme lookup/search
+- `farmer_profile` -> profile read/write
+- `image_analysis` -> vision diagnosis
+- `transcribe_speech` -> speech-to-text pipeline
+
+#### Execution ownership summary
+
+| Lambda | Plane | Primary responsibility |
+|---|---|---|
+| Agent Orchestrator | Control plane | End-to-end chat orchestration and policy gating |
+| Weather Lookup | Worker | Real-time weather retrieval + advisory generation |
+| Crop Advisory | Worker | Knowledge Base retrieval and factual crop guidance |
+| Government Schemes | Worker | Scheme data lookup and filtering |
+| Farmer Profile | Worker | DynamoDB profile CRUD |
+| Image Analysis | Worker | Crop image analysis via vision model |
+| Transcribe Speech | Worker | Audio transcription workflow |
+| Health Check | Worker (ops) | Service liveness response |
+
+---
+
 ## 6. Utility Modules (Shared Helpers)
 
 These are in `backend/utils/` and are imported by multiple Lambda functions.
@@ -871,6 +914,63 @@ If the wrapped function raises:
 - Any other `Exception` → returns HTTP 500 "Internal server error"
 
 Also logs the full event and traceback for debugging in CloudWatch.
+
+---
+
+### 6.6 Lambda-to-Utils Dependency Map
+
+This matrix shows exactly which Lambda depends on which shared utility and why.
+
+| Lambda | response_helper | translate_helper | polly_helper | dynamodb_helper | error_handler | Notes |
+|---|---|---|---|---|---|---|
+| Agent Orchestrator | ✅ | ✅ | ✅ | ✅ | (optional) | Uses all core helpers for full chat lifecycle. |
+| Weather Lookup | ✅ | ❌ | ❌ | ❌ | ❌ | Uses Bedrock/API dual response formatting. |
+| Crop Advisory | ✅ | ❌ | ❌ | ❌ | ❌ | Uses Bedrock/API dual response formatting. |
+| Govt Schemes | ✅ | ❌ | ❌ | ❌ | ❌ | Uses query/body parsing + unified response envelope. |
+| Farmer Profile | ❌ | ❌ | ❌ | (direct boto3) | ❌ | Implements CORS and DynamoDB access inline. |
+| Image Analysis | ❌ | (inline boto3 translate) | ❌ | ❌ | ❌ | Implements response helper inline (`make_response`). |
+| Transcribe Speech | ✅ | ❌ | ❌ | ❌ | ❌ | Uses standardized success/error responses. |
+
+#### Important packaging note
+
+There are two utility paths in the repo:
+
+1. `backend/utils/` (primary shared utility source)
+2. `backend/lambdas/agent_orchestrator/utils/` (packaged copy for orchestrator deployment artifact)
+
+They serve the same conceptual purpose: reusable helper behavior across Lambda runtime environments.
+
+#### Visual dependency map (parser-safe Mermaid)
+
+```mermaid
+flowchart TB
+  ORCH[Agent Orchestrator]
+  WL[Weather Lookup]
+  CL[Crop Advisory]
+  GL[Govt Schemes]
+  FP[Farmer Profile]
+  IA[Image Analysis]
+  TS[Transcribe Speech]
+
+  RH[Utils response_helper]
+  TH[Utils translate_helper]
+  PH[Utils polly_helper]
+  DH[Utils dynamodb_helper]
+
+  ORCH --> RH
+  ORCH --> TH
+  ORCH --> PH
+  ORCH --> DH
+
+  WL --> RH
+  CL --> RH
+  GL --> RH
+  TS --> RH
+
+  FP --> DDB[(DynamoDB direct)]
+  IA --> TR[Translate direct client]
+  IA --> BR[Bedrock Runtime direct client]
+```
 
 ---
 
@@ -1732,3 +1832,95 @@ Goal after Stage 5:
 - Can I locate where multilingual conversion happens?
 
 If all five are "yes," your understanding is already strong.
+
+### 17.19 Complete System Master Map (Gateway, Lambdas, Agents, Policy, Guardrails)
+
+This is a single-place explanation of the full runtime stack: how API Gateway enters the system, what every Lambda owns, how agents run, and where safety is enforced.
+
+#### A) API Gateway (single entry layer)
+
+API Gateway is the public HTTP entry point for your frontend and clients.
+
+It does three core jobs:
+1. Accept request at route + method (for example `POST /chat`)
+2. Match route to Lambda integration
+3. Return Lambda response back to client in HTTP form
+
+In this project it fronts all major endpoints (`/chat`, `/voice`, `/weather`, `/schemes`, `/profile`, `/image-analyze`, `/transcribe`, `/health`).
+
+#### B) Control Plane Lambda (Agent Orchestrator)
+
+`Agent Orchestrator` is the control plane because it coordinates complete chat flow:
+
+1. Parse request and validate payload
+2. Detect language + translate to English
+3. Apply topic gate and intent classification
+4. Enrich prompt with farmer profile context
+5. Invoke AI runtime (AgentCore preferred, Bedrock Agents fallback)
+6. Enforce grounding + append sources
+7. Translate final response back to user language
+8. Generate optional audio via Polly
+9. Save conversation in DynamoDB
+10. Return standardized API payload
+
+It is the only Lambda that sees and coordinates the entire pipeline end-to-end.
+
+#### C) Worker Lambdas (domain execution)
+
+These Lambdas are specialized executors:
+
+- **Weather Lookup**: OpenWeather current + forecast + weather-based farming advisory.
+- **Crop Advisory**: Bedrock KB retrieval for crop/pest/irrigation facts.
+- **Govt Schemes**: Scheme lookup and keyword filtering.
+- **Farmer Profile**: DynamoDB profile GET/PUT and personalization data.
+- **Image Analysis**: Vision diagnosis from crop image (confidence + treatment guidance).
+- **Transcribe Speech**: S3 + Transcribe speech-to-text pipeline.
+- **Health Check**: Liveness endpoint.
+
+#### D) Agent Runtime and Agent Paths
+
+There are two invocation paths:
+
+1. **Primary**: AgentCore Runtime (`bedrock-agentcore` client)
+2. **Fallback**: Bedrock Agents Runtime (`bedrock-agent-runtime` invoke_agent)
+
+Optional specialist mode (`ENABLE_SPECIALIST_FANOUT=true`) allows intent-based parallel specialist runtimes, followed by synthesis into one final answer.
+
+#### E) Policy System (code-level safety)
+
+Policy is enforced in orchestrator code with deterministic checks:
+
+1. **Topic gate (pre-AI)**
+  - Blocks non-agriculture queries before model invocation.
+2. **Grounding requirement (post-AI)**
+  - For factual intents, requires tool-backed evidence.
+3. **Source attribution**
+  - Appends source labels based on tools used.
+4. **Policy metadata output**
+  - Response includes policy flags for traceability.
+
+#### F) Guardrails (runtime-level safety)
+
+Guardrails are platform-level controls configured in AgentCore runtime (when enabled):
+
+- Guardrail identifier + version applied at model call level.
+- Acts as additional protection beyond code policy.
+- Best practice in this project: use both code-policy and guardrails (defense in depth).
+
+#### G) Lambda -> Utils usage summary
+
+| Lambda | Core utils used |
+|---|---|
+| Agent Orchestrator | `response_helper`, `translate_helper`, `polly_helper`, `dynamodb_helper` |
+| Weather Lookup | `response_helper` (including Bedrock event helpers) |
+| Crop Advisory | `response_helper` (including Bedrock event helpers) |
+| Govt Schemes | `response_helper` (including Bedrock event helpers) |
+| Transcribe Speech | `response_helper` |
+| Farmer Profile | Inline CORS + direct boto3 DynamoDB |
+| Image Analysis | Inline response helper + direct boto3 clients |
+
+#### H) End-to-end runtime chain (compressed)
+
+User -> Frontend -> API Gateway -> Agent Orchestrator -> (Translate/Profile/Agent runtime/Tools/Policy/Polly/DynamoDB) -> API Gateway -> Frontend -> User
+
+If you understand this chain, you understand the whole deployed system architecture.
