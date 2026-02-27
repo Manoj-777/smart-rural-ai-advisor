@@ -161,6 +161,11 @@ def lambda_handler(event, context):
                 english_message, session_id
             )
 
+        # Clean up model thinking tags (Nova Pro emits <thinking>...</thinking>)
+        import re
+        result_text = re.sub(r'<thinking>.*?</thinking>\s*', '', result_text, flags=re.DOTALL)
+        result_text = result_text.strip()
+
         logger.info(f"Agent response: {result_text[:200]}... tools={tools_used}")
 
         # --- Step 4: Translate response to farmer's language ---

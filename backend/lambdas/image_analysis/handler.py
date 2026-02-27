@@ -89,67 +89,67 @@ def lambda_handler(event, context):
         logger.info(f"Crop: {crop_name} | Size: {image_size_mb:.1f} MB | "
                     f"Type: {media_type} | State: {farmer_state}")
 
-        # Call Claude Sonnet 4.5 Vision
-        response = bedrock.invoke_model(
-            modelId='anthropic.claude-sonnet-4-5-20250929-v1:0',
-            contentType='application/json',
-            accept='application/json',
-            body=json.dumps({
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 1024,
-                "system": (
-                    "You are an expert Indian agricultural scientist with "
-                    "20 years of field experience across major Indian crops. "
-                    "You diagnose crop diseases from photos.\n\n"
-                    "RULES:\n"
-                    "1. Be HONEST about confidence. If the image is blurry, "
-                    "too far away, or shows something you cannot identify "
-                    "with confidence, SAY SO. Never guess a specific disease "
-                    "name if you are not reasonably sure.\n"
-                    "2. When confident, give practical farmer-friendly advice "
-                    "using products and remedies available in Indian markets.\n"
-                    "3. Always recommend the nearest KVK for confirmation.\n"
-                    "4. Use bullet points and short sentences. The farmer "
-                    "may be reading on a small phone screen."
-                ),
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": media_type,
-                                    "data": image_base64
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": (
-                                    f"Analyze this image of a {crop_name} crop from {farmer_state}, India.\n\n"
-                                    "Provide your assessment in EXACTLY this format:\n\n"
-                                    "**🔍 Confidence:** [High / Medium / Low] — explain briefly why\n\n"
-                                    "**🦠 Disease/Pest:** [Name of disease, pest, or deficiency — or 'Unable to identify clearly' if unsure]\n\n"
-                                    "**⚠️ Severity:** [Low / Medium / High]\n\n"
-                                    "**❓ Cause:** What causes this condition?\n\n"
-                                    f"**🌿 Organic Treatment:** Traditional/organic remedies available locally in {farmer_state}\n\n"
-                                    "**💊 Chemical Treatment:** Recommended pesticides/fungicides with dosage (use Indian brand names if possible)\n\n"
-                                    "**🛡️ Prevention:** How to prevent this in the future (2-3 short steps)\n\n"
-                                    "**⏰ Urgency:** How quickly should the farmer act?\n\n"
-                                    "**🏥 Next Step:** Always end with: 'Visit your nearest Krishi Vigyan Kendra (KVK) to confirm this diagnosis.'\n\n"
-                                    "IMPORTANT: If the image is unclear, blurry, or does not clearly show a crop disease, say so honestly. "
-                                    "Do NOT fabricate a diagnosis.\n\nRespond in simple, farmer-friendly language. Use short sentences."
-                                )
-                            }
-                        ]
-                    }
-                ]
-            })
+        # Call Nova Pro Vision via Converse API (supports APAC inference profiles)
+        VISION_MODEL = 'apac.amazon.nova-pro-v1:0'
+        system_prompt = (
+            "You are an expert Indian agricultural scientist with "
+            "20 years of field experience across major Indian crops. "
+            "You diagnose crop diseases from photos.\n\n"
+            "RULES:\n"
+            "1. Be HONEST about confidence. If the image is blurry, "
+            "too far away, or shows something you cannot identify "
+            "with confidence, SAY SO. Never guess a specific disease "
+            "name if you are not reasonably sure.\n"
+            "2. When confident, give practical farmer-friendly advice "
+            "using products and remedies available in Indian markets.\n"
+            "3. Always recommend the nearest KVK for confirmation.\n"
+            "4. Use bullet points and short sentences. The farmer "
+            "may be reading on a small phone screen."
+        )
+        user_prompt = (
+            f"Analyze this image of a {crop_name} crop from {farmer_state}, India.\n\n"
+            "Provide your assessment in EXACTLY this format:\n\n"
+            "**🔍 Confidence:** [High / Medium / Low] — explain briefly why\n\n"
+            "**🦠 Disease/Pest:** [Name of disease, pest, or deficiency — or 'Unable to identify clearly' if unsure]\n\n"
+            "**⚠️ Severity:** [Low / Medium / High]\n\n"
+            "**❓ Cause:** What causes this condition?\n\n"
+            f"**🌿 Organic Treatment:** Traditional/organic remedies available locally in {farmer_state}\n\n"
+            "**💊 Chemical Treatment:** Recommended pesticides/fungicides with dosage (use Indian brand names if possible)\n\n"
+            "**🛡️ Prevention:** How to prevent this in the future (2-3 short steps)\n\n"
+            "**⏰ Urgency:** How quickly should the farmer act?\n\n"
+            "**🏥 Next Step:** Always end with: 'Visit your nearest Krishi Vigyan Kendra (KVK) to confirm this diagnosis.'\n\n"
+            "IMPORTANT: If the image is unclear, blurry, or does not clearly show a crop disease, say so honestly. "
+            "Do NOT fabricate a diagnosis.\n\nRespond in simple, farmer-friendly language. Use short sentences."
         )
 
-        result = json.loads(response['body'].read())
-        analysis = result['content'][0]['text']
+        # Map our media_type to Converse API format name
+        format_map = {'image/jpeg': 'jpeg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp'}
+        img_format = format_map.get(media_type, 'jpeg')
+
+        import base64
+        image_bytes = base64.b64decode(image_base64)
+
+        response = bedrock.converse(
+            modelId=VISION_MODEL,
+            system=[{"text": system_prompt}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "image": {
+                                "format": img_format,
+                                "source": {"bytes": image_bytes}
+                            }
+                        },
+                        {"text": user_prompt}
+                    ]
+                }
+            ],
+            inferenceConfig={"maxTokens": 1024, "temperature": 0.3}
+        )
+
+        analysis = response['output']['message']['content'][0]['text']
 
         # Extract confidence from Claude's response
         confidence = 'MEDIUM'

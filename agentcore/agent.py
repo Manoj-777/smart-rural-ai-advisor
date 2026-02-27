@@ -23,9 +23,9 @@ from bedrock_agentcore import BedrockAgentCoreApp
 logger.info(f"BedrockAgentCoreApp imported in {time.time()-_start:.1f}s")
 
 # Config
-MODEL_REGION = os.environ.get("MODEL_REGION", "us-east-1")
+MODEL_REGION = os.environ.get("MODEL_REGION", "ap-south-1")
 FOUNDATION_MODEL = os.environ.get(
-    "FOUNDATION_MODEL", "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    "FOUNDATION_MODEL", "apac.amazon.nova-pro-v1:0"
 )
 BEDROCK_API_KEY = os.environ.get("BEDROCK_API_KEY", "").strip()
 TOOLS_REGION = os.environ.get("AWS_REGION", "ap-south-1")
