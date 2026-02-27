@@ -265,7 +265,7 @@
             "description": "Promotes farm mechanization with subsidies of 40-50% on farm equipment for individual farmers, 80% for Farm Machinery Banks by FPOs/SHGs. Covers tractors (up to 20 HP), power tillers, seed drills, paddy transplanters, sprayers, drone sprayers (since 2023), harvesters, post-harvest equipment, and solar-powered equipment. Budget ~₹1,200 crore annually. Over 15 lakh farmers benefited.",
             "amount": "Small/Marginal & SC/ST/Women/NE farmers: 50% subsidy. General farmers: 40%. Custom Hiring Centres: 40%. Farm Machinery Banks (FPO/SHG): 80%.",
             "eligibility": {
-                "land_required": false,
+                "land_required": true,
                 "max_land_hectares": "No limit",
                 "min_age": 18,
                 "max_age": "No maximum",
