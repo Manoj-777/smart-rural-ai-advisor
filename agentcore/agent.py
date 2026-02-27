@@ -11,6 +11,7 @@ import json
 import logging
 import sys
 import time
+from datetime import datetime
 
 _start = time.time()
 
@@ -25,12 +26,15 @@ logger.info(f"BedrockAgentCoreApp imported in {time.time()-_start:.1f}s")
 # Config
 MODEL_REGION = os.environ.get("MODEL_REGION", "ap-south-1")
 FOUNDATION_MODEL = os.environ.get(
-    "FOUNDATION_MODEL", "apac.amazon.nova-pro-v1:0"
+    "FOUNDATION_MODEL", "anthropic.claude-sonnet-4-5-20250929-v1:0"
 )
+FALLBACK_FOUNDATION_MODEL = os.environ.get("FALLBACK_FOUNDATION_MODEL", "amazon.nova-lite-v1:0")
 BEDROCK_API_KEY = os.environ.get("BEDROCK_API_KEY", "").strip()
 TOOLS_REGION = os.environ.get("AWS_REGION", "ap-south-1")
 MAX_TURNS = 10
 USE_API_KEY = bool(BEDROCK_API_KEY)
+BEDROCK_GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", "").strip()
+BEDROCK_GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT").strip() or "DRAFT"
 
 app = BedrockAgentCoreApp()
 logger.info(
@@ -38,7 +42,11 @@ logger.info(
     f"model={FOUNDATION_MODEL} | region={MODEL_REGION}"
 )
 
-SYSTEM_PROMPT = """You are the Smart Rural AI Advisor, an expert Indian agricultural assistant \
+AGENT_ROLE = os.environ.get("AGENT_ROLE", "master").strip().lower()
+
+
+def _build_system_prompt(role: str) -> str:
+    base_prompt = """You are the Smart Rural AI Advisor, an expert Indian agricultural assistant \
 helping small and marginal farmers across India. You are a trusted Krishi Mitra (farming friend).
 
 Provide actionable advice about crops, pests, weather, irrigation, and government schemes.
@@ -46,7 +54,20 @@ Use Indian context: Kharif/Rabi seasons, Indian soil types, local crop varieties
 Only discuss agriculture and farming-related topics.
 
 When a farmer asks about crops, weather, pests, irrigation, schemes, or their profile, \
-use the available tools to get accurate data before answering."""
+use the available tools to get accurate data before answering.
+
+If reliable tool data is unavailable for a factual query, do not guess — ask for missing details and clearly state you could not verify."""
+
+    role_suffix = {
+        "master": "You are the master orchestrator. Use tools broadly and synthesize the final farmer-facing answer.",
+        "weather": "You are the weather specialist. Prioritize weather risk, rainfall windows, irrigation timing, and field operations.",
+        "crop": "You are the crop specialist. Prioritize crop stage, soil, pests/diseases, and agronomic recommendations.",
+        "schemes": "You are the government schemes specialist. Prioritize eligibility, required documents, deadlines, and application steps.",
+    }.get(role, "You are a specialist farming advisor. Give concise, practical, region-specific guidance.")
+
+    return f"{base_prompt}\n\n{role_suffix}"
+
+SYSTEM_PROMPT = _build_system_prompt(AGENT_ROLE)
 
 # ==================== Tool Definitions (Anthropic format) ====================
 
@@ -170,20 +191,80 @@ def _invoke_lambda(function_key, payload):
         return {"error": str(e)}
 
 
-def _execute_tool(tool_name, tool_input):
+def _infer_india_season() -> str:
+    month = datetime.utcnow().month
+    if 6 <= month <= 10:
+        return "Kharif"
+    if month in (11, 12, 1, 2, 3):
+        return "Rabi"
+    return "Summer"
+
+
+def _normalize_context_defaults(context):
+    context = context or {}
+    crops = context.get("crops") or []
+    primary_crop = crops[0] if isinstance(crops, list) and crops else ""
+    state = (context.get("state") or "").strip()
+    district = (context.get("district") or "").strip()
+    soil_type = (context.get("soil_type") or "").strip()
+    season = (context.get("season") or "").strip() or _infer_india_season()
+    weather_location = ", ".join([p for p in [district, state] if p])
+
+    return {
+        "state": state,
+        "district": district,
+        "soil_type": soil_type,
+        "season": season,
+        "primary_crop": primary_crop,
+        "weather_location": weather_location,
+    }
+
+
+def _fill_tool_input_from_context(tool_name, tool_input, context_defaults):
+    merged = dict(tool_input or {})
+    defaults = context_defaults or {}
+
+    def use_default(field, key=None):
+        target_key = key or field
+        if not str(merged.get(field, "")).strip():
+            value = str(defaults.get(target_key, "")).strip()
+            if value:
+                merged[field] = value
+
+    if tool_name in ("get_crop_advisory", "get_pest_alert"):
+        use_default("state")
+        use_default("season")
+        use_default("crop", "primary_crop")
+
+    if tool_name in ("get_crop_advisory", "get_irrigation_advice"):
+        use_default("soil_type")
+
+    if tool_name == "get_irrigation_advice":
+        use_default("location", "weather_location")
+        use_default("crop", "primary_crop")
+
+    if tool_name == "get_weather":
+        use_default("location", "weather_location")
+
+    logger.info(f"Tool input after context fill ({tool_name}): {json.dumps(merged)[:250]}")
+    return merged
+
+
+def _execute_tool(tool_name, tool_input, context_defaults=None):
     """Execute a tool and return the result string."""
-    logger.info(f"Executing tool: {tool_name} with input: {json.dumps(tool_input)[:200]}")
+    effective_input = _fill_tool_input_from_context(tool_name, tool_input, context_defaults)
+    logger.info(f"Executing tool: {tool_name} with input: {json.dumps(effective_input)[:200]}")
 
     if tool_name == "get_crop_advisory":
         payload = {
             "httpMethod": "GET", "pathParameters": {},
             "queryStringParameters": {
                 "operation": "get_crop_advisory",
-                "crop": tool_input.get("crop", ""),
-                "state": tool_input.get("state", ""),
-                "season": tool_input.get("season", ""),
-                "soil_type": tool_input.get("soil_type", ""),
-                "query": tool_input.get("query", ""),
+                "crop": effective_input.get("crop", ""),
+                "state": effective_input.get("state", ""),
+                "season": effective_input.get("season", ""),
+                "soil_type": effective_input.get("soil_type", ""),
+                "query": effective_input.get("query", ""),
             },
         }
         return json.dumps(_invoke_lambda("crop_advisory", payload), indent=2)
@@ -193,10 +274,10 @@ def _execute_tool(tool_name, tool_input):
             "httpMethod": "GET", "pathParameters": {},
             "queryStringParameters": {
                 "operation": "get_pest_alert",
-                "crop": tool_input.get("crop", ""),
-                "symptoms": tool_input.get("symptoms", ""),
-                "state": tool_input.get("state", ""),
-                "season": tool_input.get("season", ""),
+                "crop": effective_input.get("crop", ""),
+                "symptoms": effective_input.get("symptoms", ""),
+                "state": effective_input.get("state", ""),
+                "season": effective_input.get("season", ""),
             },
         }
         return json.dumps(_invoke_lambda("crop_advisory", payload), indent=2)
@@ -206,10 +287,10 @@ def _execute_tool(tool_name, tool_input):
             "httpMethod": "GET", "pathParameters": {},
             "queryStringParameters": {
                 "operation": "get_irrigation_advice",
-                "crop": tool_input.get("crop", ""),
-                "location": tool_input.get("location", ""),
-                "soil_type": tool_input.get("soil_type", ""),
-                "query": tool_input.get("query", ""),
+                "crop": effective_input.get("crop", ""),
+                "location": effective_input.get("location", ""),
+                "soil_type": effective_input.get("soil_type", ""),
+                "query": effective_input.get("query", ""),
             },
         }
         return json.dumps(_invoke_lambda("crop_advisory", payload), indent=2)
@@ -217,7 +298,7 @@ def _execute_tool(tool_name, tool_input):
     elif tool_name == "get_weather":
         payload = {
             "httpMethod": "GET",
-            "pathParameters": {"location": tool_input.get("location", "")},
+            "pathParameters": {"location": effective_input.get("location", "")},
             "queryStringParameters": {},
         }
         return json.dumps(_invoke_lambda("weather", payload), indent=2)
@@ -226,8 +307,8 @@ def _execute_tool(tool_name, tool_input):
         payload = {
             "httpMethod": "GET", "pathParameters": {},
             "queryStringParameters": {
-                "keyword": tool_input.get("keyword", ""),
-                "category": tool_input.get("category", ""),
+                "keyword": effective_input.get("keyword", ""),
+                "category": effective_input.get("category", ""),
             },
         }
         return json.dumps(_invoke_lambda("govt_schemes", payload), indent=2)
@@ -235,7 +316,7 @@ def _execute_tool(tool_name, tool_input):
     elif tool_name == "get_farmer_profile":
         payload = {
             "httpMethod": "GET",
-            "pathParameters": {"farmerId": tool_input.get("farmer_id", "")},
+            "pathParameters": {"farmerId": effective_input.get("farmer_id", "")},
             "queryStringParameters": {},
         }
         return json.dumps(_invoke_lambda("farmer_profile", payload), indent=2)
@@ -374,19 +455,28 @@ def _converse_to_anthropic(response):
     return {"content": content, "stop_reason": stop_reason}
 
 
-def _call_claude_iam(messages):
+def _call_claude_iam(messages, model_id=None):
     """Call Claude via boto3 converse API with IAM role credentials. Returns Anthropic-compatible dict."""
     client = _get_bedrock_client()
     converse_msgs = _anthropic_msgs_to_converse(messages)
     tool_config = _anthropic_tools_to_converse()
+    target_model = model_id or FOUNDATION_MODEL
 
-    resp = client.converse(
-        modelId=FOUNDATION_MODEL,
-        system=[{"text": SYSTEM_PROMPT}],
-        messages=converse_msgs,
-        toolConfig=tool_config,
-        inferenceConfig={"maxTokens": 4096, "temperature": 0.3},
-    )
+    converse_kwargs = {
+        "modelId": target_model,
+        "system": [{"text": SYSTEM_PROMPT}],
+        "messages": converse_msgs,
+        "toolConfig": tool_config,
+        "inferenceConfig": {"maxTokens": 4096, "temperature": 0.3},
+    }
+
+    if BEDROCK_GUARDRAIL_ID:
+        converse_kwargs["guardrailConfig"] = {
+            "guardrailIdentifier": BEDROCK_GUARDRAIL_ID,
+            "guardrailVersion": BEDROCK_GUARDRAIL_VERSION,
+        }
+
+    resp = client.converse(**converse_kwargs)
 
     return _converse_to_anthropic(resp)
 
@@ -397,17 +487,55 @@ def _call_claude_iam(messages):
 def _call_claude(messages):
     """Call Claude using the configured auth method. Returns Anthropic-format response dict."""
     if USE_API_KEY:
+        if BEDROCK_GUARDRAIL_ID:
+            logger.warning("BEDROCK_GUARDRAIL_ID is set but API key invoke path may not enforce converse guardrailConfig.")
         logger.info("Calling Claude via API key (invoke_model)")
         return _call_claude_apikey(messages)
     else:
         logger.info("Calling Claude via IAM role (converse)")
-        return _call_claude_iam(messages)
+        try:
+            return _call_claude_iam(messages)
+        except Exception as e:
+            err = str(e)
+            should_fallback = (
+                "INVALID_PAYMENT_INSTRUMENT" in err
+                or "AccessDeniedException" in err
+                or "Model access is denied" in err
+            )
+            if should_fallback and FALLBACK_FOUNDATION_MODEL and FALLBACK_FOUNDATION_MODEL != FOUNDATION_MODEL:
+                logger.warning(
+                    f"Primary model failed ({FOUNDATION_MODEL}): {err[:180]} | "
+                    f"Falling back to {FALLBACK_FOUNDATION_MODEL}"
+                )
+                return _call_claude_iam(messages, model_id=FALLBACK_FOUNDATION_MODEL)
+            raise
+
+
+def _append_sources_to_result(text, tools_used):
+    cleaned = (text or "").strip()
+    if not cleaned or not tools_used:
+        return cleaned
+    if "sources:" in cleaned.lower():
+        return cleaned
+
+    tool_labels = {
+        "get_crop_advisory": "CropAdvisoryFunction(KB)",
+        "get_pest_alert": "CropAdvisoryFunction(Pest Tool)",
+        "get_irrigation_advice": "CropAdvisoryFunction(Irrigation Tool)",
+        "get_weather": "WeatherFunction(OpenWeather)",
+        "search_schemes": "GovtSchemesFunction",
+        "get_farmer_profile": "FarmerProfileFunction",
+    }
+    unique_tools = list(dict.fromkeys(tools_used))
+    source_list = [tool_labels.get(tool, tool) for tool in unique_tools]
+    return f"{cleaned}\n\nSources: {', '.join(source_list)}"
 
 
 def _run_agent_loop(prompt, context=None):
     """Run the agent loop: send prompt, handle tool calls, return final text."""
     messages = []
     tools_used = []
+    context_defaults = _normalize_context_defaults(context)
 
     # Build enriched prompt
     enriched = prompt
@@ -434,7 +562,7 @@ def _run_agent_loop(prompt, context=None):
 
         if stop_reason == "end_turn" or stop_reason == "max_tokens":
             text_parts = [block["text"] for block in content if block.get("type") == "text"]
-            return "\n".join(text_parts), tools_used
+            return _append_sources_to_result("\n".join(text_parts), tools_used), tools_used
 
         if stop_reason == "tool_use":
             # Add assistant's response to messages
@@ -449,7 +577,7 @@ def _run_agent_loop(prompt, context=None):
                     tool_id = block["id"]
 
                     tools_used.append(tool_name)
-                    result_str = _execute_tool(tool_name, tool_input)
+                    result_str = _execute_tool(tool_name, tool_input, context_defaults)
 
                     tool_results.append({
                         "type": "tool_result",
@@ -462,9 +590,10 @@ def _run_agent_loop(prompt, context=None):
 
         # Unknown stop reason — extract text
         text_parts = [block["text"] for block in content if block.get("type") == "text"]
-        return "\n".join(text_parts) if text_parts else "I couldn't process your request.", tools_used
+        fallback = "\n".join(text_parts) if text_parts else "I couldn't process your request."
+        return _append_sources_to_result(fallback, tools_used), tools_used
 
-    return "I reached the maximum number of tool calls. Here's what I found so far.", tools_used
+    return _append_sources_to_result("I reached the maximum number of tool calls. Here's what I found so far.", tools_used), tools_used
 
 
 # ==================== AgentCore Entrypoint ====================

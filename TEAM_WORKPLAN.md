@@ -252,7 +252,7 @@ const mockReply = {
 | `backend/lambdas/crop_advisory/handler.py` | Implement: AgentCore tool — crop advisory + pest alert + irrigation | 🔴 TODO |
 | `backend/lambdas/weather_lookup/handler.py` | Implement: OpenWeatherMap API call → format response | 🔴 TODO |
 | `backend/lambdas/govt_schemes/handler.py` | Implement: load schemes from S3/JSON → search → return | 🔴 TODO |
-| `backend/lambdas/image_analysis/handler.py` | Implement: base64 image → Bedrock Nova Lite → diagnosis | 🔴 TODO |
+| `backend/lambdas/image_analysis/handler.py` | Implement: base64 image → Bedrock Claude Sonnet 4.5 → diagnosis | 🔴 TODO |
 | `backend/lambdas/farmer_profile/handler.py` | Implement: GET/PUT farmer profile in DynamoDB | 🔴 TODO |
 | `backend/lambdas/transcribe_speech/handler.py` | Implement: audio → S3 → Amazon Transcribe → text | 🔴 TODO |
 | `backend/utils/response_helper.py` | Standard response envelope — **already done** | ✅ Done |

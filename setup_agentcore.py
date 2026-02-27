@@ -217,6 +217,7 @@ class IAMSetup:
                     "Action": [
                         "bedrock-agentcore:InvokeGateway",
                         "bedrock-agentcore:GetGateway",
+                        "bedrock-agentcore:ListGatewayTargets",
                     ],
                     "Resource": "*",
                 },
@@ -359,10 +360,25 @@ class IAMSetup:
                     "Action": [
                         "bedrock:InvokeModel",
                         "bedrock:InvokeModelWithResponseStream",
+                        "bedrock:Converse",
+                        "bedrock:ConverseStream",
                     ],
                     "Resource": [
                         f"arn:aws:bedrock:{REGION}::foundation-model/*",
                         f"arn:aws:bedrock:us-*::foundation-model/*",
+                        f"arn:aws:bedrock:*:{ACCOUNT_ID}:inference-profile/*",
+                        "arn:aws:bedrock:*::foundation-model/*",
+                    ],
+                },
+                {
+                    "Sid": "BedrockKnowledgeBase",
+                    "Effect": "Allow",
+                    "Action": [
+                        "bedrock:Retrieve",
+                        "bedrock:RetrieveAndGenerate",
+                    ],
+                    "Resource": [
+                        f"arn:aws:bedrock:{REGION}:{ACCOUNT_ID}:knowledge-base/*",
                     ],
                 },
                 {
@@ -408,6 +424,16 @@ class IAMSetup:
                         f"arn:aws:dynamodb:{REGION}:{ACCOUNT_ID}:table/chat_sessions",
                     ],
                 },
+                {
+                    "Sid": "TranslatePollyAccess",
+                    "Effect": "Allow",
+                    "Action": [
+                        "translate:TranslateText",
+                        "comprehend:DetectDominantLanguage",
+                        "polly:SynthesizeSpeech",
+                    ],
+                    "Resource": "*",
+                },
             ],
         }
 
@@ -439,17 +465,24 @@ class IAMSetup:
         print(f"  ✓ Attached inline policy")
 
         # Also attach managed policies for Bedrock access
-        for managed_policy in [
+        managed_policies = [
             "arn:aws:iam::aws:policy/AmazonBedrockFullAccess",
-        ]:
+        ]
+        for managed_policy in managed_policies:
             try:
                 self.iam.attach_role_policy(
                     RoleName=role_name,
                     PolicyArn=managed_policy,
                 )
                 print(f"  ✓ Attached: {managed_policy.split('/')[-1]}")
-            except ClientError:
-                pass
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "NoSuchEntity":
+                    print(f"  ⚠ Managed policy not found: {managed_policy.split('/')[-1]} — skipping")
+                elif error_code == "AccessDeniedException":
+                    print(f"  ⚠ No permission to attach: {managed_policy.split('/')[-1]} — inline policy covers essentials")
+                else:
+                    print(f"  ⚠ Could not attach {managed_policy.split('/')[-1]}: {error_code} — {e}")
 
         wait_with_spinner(10, "Waiting for IAM propagation")
         return role_arn

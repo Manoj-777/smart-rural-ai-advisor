@@ -33,7 +33,7 @@ API Gateway (REST, ap-south-1)
     ├─ POST /voice ─────► Agent Orchestrator Lambda (same)
     ├─ GET  /weather/{loc} ► Weather Lambda → OpenWeatherMap API
     ├─ GET  /schemes ────► Govt Schemes Lambda → Knowledge Base
-    ├─ POST /image-analyze ► Image Analysis Lambda → Nova Lite Vision
+    ├─ POST /image-analyze ► Image Analysis Lambda → Claude Sonnet 4.5 Vision
     ├─ GET  /profile/{id} ► Farmer Profile Lambda → DynamoDB
     ├─ PUT  /profile/{id} ► Farmer Profile Lambda → DynamoDB
     ├─ POST /transcribe ──► Transcribe Lambda → Amazon Transcribe

@@ -1,4 +1,4 @@
-// src/pages/ChatPage.jsx
+﻿// src/pages/ChatPage.jsx
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import config from '../config';
@@ -12,8 +12,13 @@ const SESSIONS_KEY = 'sra_chat_sessions';
 const ACTIVE_SESSION_KEY = 'sra_active_session';
 const MAX_STORED = 50;
 
-/* ── helpers ── */
-function generateId() { return crypto.randomUUID(); }
+/* -- helpers -- */
+function generateId() {
+    if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return session-+Date.now()+-+Math.random().toString(36).slice(2, 10);
+}
 
 function formatSessionDate(ts, t) {
     const d = new Date(ts);
@@ -73,7 +78,7 @@ function ChatPage() {
         activeIdRef.current = activeSessionId;
     }, [activeSessionId]);
 
-    // Persist messages — only when NOT switching sessions
+    // Persist messages -- only when NOT switching sessions
     useEffect(() => {
         if (switchingRef.current) return;
         const sid = activeIdRef.current;
@@ -100,6 +105,7 @@ function ChatPage() {
         }
     }, [messages]);
 
+    // Auto-scroll to bottom when new message arrives
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -172,7 +178,7 @@ function ChatPage() {
             if (config.MOCK_AI) {
                 data = await mockChat(text, targetSessionId, language);
             } else {
-                const res = await fetch(`${config.API_URL}/chat`, {
+                const res = await fetch(+"${config.API_URL}/chat"+@", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -196,7 +202,7 @@ function ChatPage() {
             } else {
                 assistantMsg = {
                     role: 'assistant',
-                    content: '❌ ' + (data.message || t('connectionError')),
+                    content: '+[char]0x274C+' + ' ' + (data.message || t('connectionError')),
                     timestamp: Date.now()
                 };
             }
@@ -205,7 +211,7 @@ function ChatPage() {
             if (activeIdRef.current === targetSessionId) {
                 setMessages(prev => [...prev, assistantMsg]);
             } else {
-                // User switched away — save directly to the original session's storage
+                // User switched away -- save directly to the original session's storage
                 const storedMsgs = loadSessionMessages(targetSessionId);
                 storedMsgs.push(assistantMsg);
                 saveSessionMessages(targetSessionId, storedMsgs);
@@ -223,7 +229,7 @@ function ChatPage() {
         } catch {
             const errorMsg = {
                 role: 'assistant',
-                content: '❌ ' + t('connectionError'),
+                content: '+[char]0x274C+' + ' ' + t('connectionError'),
                 timestamp: Date.now()
             };
             if (activeIdRef.current === targetSessionId) {
@@ -257,10 +263,10 @@ function ChatPage() {
             {/* History Side Panel */}
             <div className="chat-history-panel">
                 <div className="chat-history-header">
-                    <h3>💬 {t('yourChats') || 'Your Chats'}</h3>
+                    <h3>+[char]0x1F4AC+' {t('yourChats') || 'Your Chats'}</h3>
                 </div>
                 <button className="chat-history-new" onClick={startNewChat}>
-                    ＋ {t('newChat') || 'New Chat'}
+                    +[char]0xFF0B+' {t('newChat') || 'New Chat'}
                 </button>
                 <div className="chat-history-list">
                     {sessions.length === 0 && (
@@ -271,13 +277,13 @@ function ChatPage() {
                         .map(session => (
                         <div
                             key={session.id}
-                            className={`chat-history-item ${session.id === activeSessionId ? 'active' : ''}`}
+                            className={+"chat-history-item "+@"}
                             onClick={() => switchToSession(session.id)}
                         >
                             <div className="chat-history-item-content">
                                 <span className="chat-history-preview">{session.preview}</span>
                                 <span className="chat-history-meta">
-                                    {formatSessionDate(session.lastTimestamp, t)} · {session.messageCount} {t('chatMsgs')}
+                                    {formatSessionDate(session.lastTimestamp, t)} +[char]0x00B7+' {session.messageCount} {t('chatMsgs')}
                                 </span>
                             </div>
                             <button
@@ -285,7 +291,7 @@ function ChatPage() {
                                 onClick={(e) => deleteSession(session.id, e)}
                                 title={t('chatDeleteChat')}
                             >
-                                🗑️
+                                +[char]0x1F5D1+[char]0xFE0F+@"
                             </button>
                         </div>
                     ))}
@@ -297,34 +303,22 @@ function ChatPage() {
                 <div className="page-header">
                     <div className="page-header-top">
                         <h2>
-                            💬 {t('chatTitle')}
+                            +[char]0x1F4AC+' {t('chatTitle')}
                             {config.MOCK_AI && <span className="demo-badge">{t('demoMode')}</span>}
                         </h2>
                     </div>
                     <p>{t('chatSubtitle')}</p>
                     {messages.length > 0 && (
                         <button className="clear-history-btn" onClick={clearHistory} title={t('chatClearHistory') || 'Clear chat'}>
-                            🗑️ {t('chatClearHistory') || 'Clear'}
+                            +[char]0x1F5D1+[char]0xFE0F+' {t('chatClearHistory') || 'Clear'}
                         </button>
                     )}
                 </div>
 
             <div className="chat-container">
                 {messages.length === 0 && (
-                    <div className="chat-empty">
-                        <div className="empty-illustration">
-                            <span className="empty-icon">🌾</span>
-                            <span className="empty-icon-sub">🤖</span>
-                        </div>
-                        <h3>{t('chatEmpty')}</h3>
-                        <p className="chat-empty-hint">{t('chatSubtitle')}</p>
-                        <div className="suggestions">
-                            {suggestions.map((s, i) => (
-                                <button key={i} className="suggestion-chip" onClick={() => sendMessage(s)}>
-                                    {['🌾', '🐛', '📋', '💧'][i]} {s}
-                                </button>
-                            ))}
-                        </div>
+                    <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '40px' }}>
+                        +[char]0x1F33E+' Ask me about crops, weather, pests, or government schemes!
                     </div>
                 )}
                 {messages.map((msg, i) => (
@@ -332,32 +326,32 @@ function ChatPage() {
                 ))}
                 {loading && (
                     <div className="message assistant">
-                        <div className="message-avatar">🤖</div>
-                        <div className="message-body">
-                            <span className="thinking">
-                                <span className="typing-dots">
-                                    <span></span><span></span><span></span>
-                                </span>
-                                {t('chatThinking')}
-                            </span>
-                        </div>
+                        <span className="typing-dots">+[char]0x1F33E+' Thinking...</span>
                     </div>
                 )}
                 <div ref={chatEndRef} />
             </div>
 
+            {/* Input bar with voice */}
             <div className="input-bar">
-                <VoiceInput language={language} onTranscript={handleVoiceResult} />
+                <VoiceInput 
+                    language={language} 
+                    onTranscript={(text) => sendMessage(text)} 
+                />
                 <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={t('chatPlaceholder')}
+                    placeholder="+[char]0x0B89+[char]0x0B99+[char]0x0BCD+[char]0x0B95+[char]0x0BB3+[char]0x0BCD+' +[char]0x0B95+[char]0x0BC7+[char]0x0BB3+[char]0x0BCD+[char]0x0BB5+[char]0x0BBF+[char]0x0BAF+[char]0x0BC8+' +[char]0x0BA4+[char]0x0B9F+[char]0x0BCD+[char]0x0B9F+[char]0x0B9A+[char]0x0BCD+[char]0x0B9A+[char]0x0BC1+' +[char]0x0B9A+[char]0x0BC6+[char]0x0BAF+[char]0x0BCD+[char]0x0BAF+[char]0x0BB5+[char]0x0BC1+[char]0x0BAE+[char]0x0BCD+' / Type here..."
                     disabled={loading}
                 />
-                <button className="send-btn" onClick={() => sendMessage(input)} disabled={loading || !input.trim()}>
-                    <span className="send-icon">➤</span> {t('send')}
+                <button 
+                    className="send-btn" 
+                    onClick={() => sendMessage(input)}
+                    disabled={loading || !input.trim()}
+                >
+                    Send
                 </button>
             </div>
             </div>{/* end chat-main */}

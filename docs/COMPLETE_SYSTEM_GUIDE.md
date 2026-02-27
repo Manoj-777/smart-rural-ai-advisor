@@ -17,17 +17,20 @@
    - 5.1 [Agent Orchestrator (The Brain)](#51-agent-orchestrator-the-brain)
    - 5.2 [Weather Lookup](#52-weather-lookup)
    - 5.3 [Crop Advisory](#53-crop-advisory)
+   
    - 5.4 [Government Schemes](#54-government-schemes)
    - 5.5 [Farmer Profile](#55-farmer-profile)
    - 5.6 [Image Analysis](#56-image-analysis)
    - 5.7 [Transcribe Speech](#57-transcribe-speech)
    - 5.8 [Health Check](#58-health-check)
+  - 5.9 [Control Plane vs Worker Lambdas](#59-control-plane-vs-worker-lambdas)
 6. [Utility Modules (Shared Helpers)](#6-utility-modules-shared-helpers)
    - 6.1 [response_helper.py](#61-response_helperpy)
    - 6.2 [translate_helper.py](#62-translate_helperpy)
    - 6.3 [polly_helper.py](#63-polly_helperpy)
    - 6.4 [dynamodb_helper.py](#64-dynamodb_helperpy)
    - 6.5 [error_handler.py](#65-error_handlerpy)
+  - 6.6 [Lambda-to-Utils Dependency Map](#66-lambda-to-utils-dependency-map)
 7. [Amazon Bedrock AgentCore — The AI Brain](#7-amazon-bedrock-agentcore--the-ai-brain)
    - 7.1 [What Is AgentCore?](#71-what-is-agentcore)
    - 7.2 [agent.py — The Runtime Code](#72-agentpy--the-runtime-code)
@@ -79,7 +82,7 @@ flowchart LR
   Orch[Agent Orchestrator Lambda]
 
   AgentCore[Bedrock AgentCore Runtime]
-  Bedrock[Amazon Bedrock Model<br/>apac.amazon.nova-pro-v1:0]
+  Bedrock[Amazon Bedrock Model<br/>anthropic.claude-sonnet-4-5-20250929-v1:0]
 
   Weather[Weather Lambda]
   Crop[Crop Advisory Lambda]
@@ -132,42 +135,29 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph Client Layer
-    FE[Frontend (Vite/React)]
-  end
+  FE[Client Frontend Vite React]
+  GW[API Gateway Prod]
 
-  subgraph API Layer
-    GW[API Gateway /Prod]
-  end
+  ORCH[Orchestration Agent Orchestrator Lambda]
+  POLICY[Orchestration Code Policy Engine]
+  I18N[Orchestration Translation Localization]
+  AUDIO[Orchestration TTS Pipeline]
 
-  subgraph Orchestration Layer
-    ORCH[Agent Orchestrator Lambda<br/>POST /chat, /voice]
-    POLICY[Code Policy Engine<br/>topic gate + grounding + sources]
-    I18N[Translation + Localization]
-    AUDIO[TTS Pipeline]
-  end
+  ACR[AI AgentCore Runtime]
+  FM[AI Foundation Model Claude Sonnet 4.5]
+  TOOL_LOOP[AI Tool Calling Loop]
 
-  subgraph AI Layer
-    ACR[AgentCore Runtime(s)]
-    FM[Foundation Model<br/>Nova Pro]
-    TOOLS[Tool Calling Loop]
-  end
+  WL[Tool Weather Lambda]
+  CL[Tool Crop Lambda]
+  GL[Tool Govt Schemes Lambda]
+  PL[Tool Profile Lambda]
 
-  subgraph Tool Layer
-    WL[Weather Tool Lambda]
-    CL[Crop Tool Lambda]
-    GL[Govt Schemes Tool Lambda]
-    PL[Profile Tool Lambda]
-  end
-
-  subgraph Data & External Layer
-    DDB[(DynamoDB<br/>farmer_profiles, chat_sessions)]
-    S3[(S3<br/>audio + uploads)]
-    TR[Amazon Translate]
-    PO[Amazon Polly]
-    KBS[Bedrock KB]
-    OWM[OpenWeatherMap]
-  end
+  DDB[(Data DynamoDB farmer_profiles and chat_sessions)]
+  S3[(Data S3 audio and uploads)]
+  TR[External Amazon Translate]
+  PO[External Amazon Polly]
+  KBS[External Bedrock KB]
+  OWM[External OpenWeatherMap]
 
   FE --> GW --> ORCH
   ORCH --> POLICY
@@ -176,11 +166,11 @@ flowchart TB
   ORCH --> DDB
 
   ORCH --> ACR --> FM
-  ACR --> TOOLS
-  TOOLS --> WL --> OWM
-  TOOLS --> CL --> KBS
-  TOOLS --> GL
-  TOOLS --> PL --> DDB
+  ACR --> TOOL_LOOP
+  TOOL_LOOP --> WL --> OWM
+  TOOL_LOOP --> CL --> KBS
+  TOOL_LOOP --> GL
+  TOOL_LOOP --> PL --> DDB
 ```
 
 **Explanation:**
@@ -391,7 +381,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  S[Start with user prompt] --> M1[Call Nova Pro model]
+  S[Start with user prompt] --> M1[Call Claude Sonnet 4.5 model]
   M1 --> R{stop_reason}
 
   R -- end_turn/max_tokens --> F[Return final answer]
@@ -528,7 +518,7 @@ If `farmer_id` is not "anonymous", the system fetches the farmer's saved profile
 This context is **prepended** to the message so the AI knows the farmer's background.
 
 ### Step 6: AI Agent (AgentCore) Processing
-The enriched English message is sent to the **AgentCore Runtime**. The AI model (Amazon Nova Pro) reads the message, decides which tools to call, and runs the **agent loop**:
+The enriched English message is sent to the **AgentCore Runtime**. The AI model (Claude Sonnet 4.5) reads the message, decides which tools to call, and runs the **agent loop**:
 
 1. AI says: "I need weather data for this farmer's location" → calls `get_weather` tool
 2. AI says: "I also need crop advisory for wheat" → calls `get_crop_advisory` tool
@@ -577,7 +567,7 @@ Both the user message and AI response are saved to the `chat_sessions` DynamoDB 
 |---|---|
 | **API Gateway** | Creates REST API URLs (`/chat`, `/weather/{location}`, `/schemes`, etc.) and routes HTTP requests to Lambda |
 | **Lambda** | Runs our Python code without a server. Each function handles one concern. |
-| **Amazon Bedrock** | Hosts the AI model (Amazon Nova Pro). We call it to generate intelligent responses. |
+| **Amazon Bedrock** | Hosts the AI model (Claude Sonnet 4.5). We call it to generate intelligent responses. |
 | **Bedrock AgentCore** | Manages the AI agent runtime — gives the model tools, handles the tool-calling loop, manages sessions. |
 | **Amazon Translate** | Auto-detects language (Tamil, Telugu, Hindi, etc.) and translates text to/from English. |
 | **Amazon Polly** | Converts text to natural-sounding speech (MP3 audio). Uses the neural Kajal voice. |
@@ -732,13 +722,13 @@ Think of it as a smart search engine for documents. You upload PDFs/documents ab
 
 **File:** `backend/lambdas/image_analysis/handler.py`  
 **Endpoint:** `POST /image-analyze`  
-**Uses:** Amazon Nova Pro Vision model via Bedrock Converse API
+**Uses:** Claude Sonnet 4.5 Vision model via Bedrock Converse API
 
 **What it does:**
 1. Receives a **base64-encoded image** of a crop
 2. Validates the image (format, size < 4MB)
 3. Detects image format (JPEG, PNG, GIF, WebP) from base64 magic bytes
-4. Sends the image to **Amazon Nova Pro Vision** with a detailed system prompt
+4. Sends the image to **Claude Sonnet 4.5 Vision** with a detailed system prompt
 5. The AI analyzes the image and returns a structured diagnosis:
    - Confidence level (High/Medium/Low)
    - Disease/pest name
@@ -781,6 +771,47 @@ Think of it as a smart search engine for documents. You upload PDFs/documents ab
 **Endpoint:** `GET /health`
 
 **What it does:** Returns `{"status": "healthy", "service": "Smart Rural AI Advisor"}`. Used to verify the API is up and running. No external dependencies.
+
+---
+
+### 5.9 Control Plane vs Worker Lambdas
+
+This is the most important architecture concept for understanding this codebase.
+
+#### What "control plane" means here
+
+In this project, the **Agent Orchestrator Lambda** is the control plane because it:
+
+1. Decides execution order (translation → policy → runtime → localization → persistence)
+2. Chooses the processing mode (AgentCore preferred, Bedrock Agents fallback)
+3. Applies safety logic (off-topic blocking + grounding enforcement)
+4. Coordinates multi-service outputs (text + audio + session history)
+
+It is not a domain-data source itself; it is the coordinator.
+
+#### What "worker lambdas" mean here
+
+Worker Lambdas do focused domain tasks and return structured outputs:
+
+- `weather_lookup` -> weather + farming advisory
+- `crop_advisory` -> KB retrieval for crop/pest/irrigation
+- `govt_schemes` -> scheme lookup/search
+- `farmer_profile` -> profile read/write
+- `image_analysis` -> vision diagnosis
+- `transcribe_speech` -> speech-to-text pipeline
+
+#### Execution ownership summary
+
+| Lambda | Plane | Primary responsibility |
+|---|---|---|
+| Agent Orchestrator | Control plane | End-to-end chat orchestration and policy gating |
+| Weather Lookup | Worker | Real-time weather retrieval + advisory generation |
+| Crop Advisory | Worker | Knowledge Base retrieval and factual crop guidance |
+| Government Schemes | Worker | Scheme data lookup and filtering |
+| Farmer Profile | Worker | DynamoDB profile CRUD |
+| Image Analysis | Worker | Crop image analysis via vision model |
+| Transcribe Speech | Worker | Audio transcription workflow |
+| Health Check | Worker (ops) | Service liveness response |
 
 ---
 
@@ -887,6 +918,63 @@ Also logs the full event and traceback for debugging in CloudWatch.
 
 ---
 
+### 6.6 Lambda-to-Utils Dependency Map
+
+This matrix shows exactly which Lambda depends on which shared utility and why.
+
+| Lambda | response_helper | translate_helper | polly_helper | dynamodb_helper | error_handler | Notes |
+|---|---|---|---|---|---|---|
+| Agent Orchestrator | ✅ | ✅ | ✅ | ✅ | (optional) | Uses all core helpers for full chat lifecycle. |
+| Weather Lookup | ✅ | ❌ | ❌ | ❌ | ❌ | Uses Bedrock/API dual response formatting. |
+| Crop Advisory | ✅ | ❌ | ❌ | ❌ | ❌ | Uses Bedrock/API dual response formatting. |
+| Govt Schemes | ✅ | ❌ | ❌ | ❌ | ❌ | Uses query/body parsing + unified response envelope. |
+| Farmer Profile | ❌ | ❌ | ❌ | (direct boto3) | ❌ | Implements CORS and DynamoDB access inline. |
+| Image Analysis | ❌ | (inline boto3 translate) | ❌ | ❌ | ❌ | Implements response helper inline (`make_response`). |
+| Transcribe Speech | ✅ | ❌ | ❌ | ❌ | ❌ | Uses standardized success/error responses. |
+
+#### Important packaging note
+
+There are two utility paths in the repo:
+
+1. `backend/utils/` (primary shared utility source)
+2. `backend/lambdas/agent_orchestrator/utils/` (packaged copy for orchestrator deployment artifact)
+
+They serve the same conceptual purpose: reusable helper behavior across Lambda runtime environments.
+
+#### Visual dependency map (parser-safe Mermaid)
+
+```mermaid
+flowchart TB
+  ORCH[Agent Orchestrator]
+  WL[Weather Lookup]
+  CL[Crop Advisory]
+  GL[Govt Schemes]
+  FP[Farmer Profile]
+  IA[Image Analysis]
+  TS[Transcribe Speech]
+
+  RH[Utils response_helper]
+  TH[Utils translate_helper]
+  PH[Utils polly_helper]
+  DH[Utils dynamodb_helper]
+
+  ORCH --> RH
+  ORCH --> TH
+  ORCH --> PH
+  ORCH --> DH
+
+  WL --> RH
+  CL --> RH
+  GL --> RH
+  TS --> RH
+
+  FP --> DDB[(DynamoDB direct)]
+  IA --> TR[Translate direct client]
+  IA --> BR[Bedrock Runtime direct client]
+```
+
+---
+
 ## 7. Amazon Bedrock AgentCore — The AI Brain
 
 ### 7.1 What Is AgentCore?
@@ -894,7 +982,7 @@ Also logs the full event and traceback for debugging in CloudWatch.
 **AgentCore** is Amazon's managed service for running AI agents. Think of it as:
 
 - A **hosting platform** for your AI agent code
-- It manages the **model connection** (to Amazon Nova Pro)
+- It manages the **model connection** (to Claude Sonnet 4.5)
 - It provides a **Gateway** that exposes your Lambda functions as tools the AI can call
 - It handles **sessions** (remembers conversation context)
 
@@ -1053,15 +1141,15 @@ Orchestrator detects intents: [weather, crop, schemes]
 
 ## 8. The Bedrock Foundation Model
 
-**Model:** `apac.amazon.nova-pro-v1:0` (Amazon Nova Pro)
+**Model:** `anthropic.claude-sonnet-4-5-20250929-v1:0` (Claude Sonnet 4.5)
 
-**What is it?** Amazon Nova Pro is Amazon's own large language model. It's similar to ChatGPT or Claude but runs natively on AWS Bedrock. The `apac` prefix means it's using the Asia Pacific inference profile (lower latency for `ap-south-1` region).
+**What is it?** Claude Sonnet 4.5 is Anthropic's advanced large language model, hosted on AWS Bedrock. It excels at tool use, multi-turn reasoning, and vision tasks — ideal for our agricultural advisory use case.
 
 **Why this model?**
 - Available in `ap-south-1` (Mumbai) — low latency for Indian users
-- Supports tool use (can call our Lambda tools)
+- Best-in-class tool-use support (can call our Lambda tools reliably)
 - Supports vision (can analyze crop images)
-- Good balance of speed and quality
+- Excellent balance of speed, quality, and multilingual capability
 - No cross-region inference needed
 
 **Model parameters we use:**
@@ -1070,7 +1158,7 @@ max_tokens = 4096      # Maximum response length
 temperature = 0.3      # Low = more focused/deterministic, High = more creative
 ```
 
-**For image analysis**, we use the same model (`apac.amazon.nova-pro-v1:0`) but via the Converse API with image content blocks.
+**For image analysis**, we use the same model (`anthropic.claude-sonnet-4-5-20250929-v1:0`) but via the Converse API with image content blocks.
 
 ---
 
@@ -1259,6 +1347,59 @@ This file contains all configuration values. It's used by:
 }
 ```
 
+### 12.1 Route-to-Lambda Mapping (Detailed API Gateway View)
+
+This subsection explains exactly what API Gateway does for each route in this project.
+
+| Route | Gateway receives | Lambda integration | Typical success code | Notes |
+|---|---|---|---|---|
+| `GET /health` | No body | Inline health Lambda | `200` | Used for uptime checks and smoke tests. |
+| `POST /chat` | JSON body (`message`, `farmer_id`, `session_id`) | `AgentOrchestrator` | `200` | Main conversational route with translation, tools, policy, and audio. |
+| `POST /voice` | Voice payload and metadata | `AgentOrchestrator` | `200` | Voice-first path routed through the same orchestrator logic. |
+| `GET /weather/{location}` | Path parameter `location` | `WeatherLookup` | `200` | Direct weather access without full chat orchestration. |
+| `GET /schemes` | Optional query params | `GovtSchemes` | `200` | Returns all schemes or filtered search results. |
+| `GET /profile/{farmerId}` | Path parameter `farmerId` | `FarmerProfile` | `200` | Reads farmer profile from DynamoDB. |
+| `PUT /profile/{farmerId}` | JSON profile body + path parameter | `FarmerProfile` | `200` | Creates/updates profile and timestamps. |
+| `POST /image-analyze` | Base64 image + language info | `ImageAnalysis` | `200` | Uses Bedrock vision model for crop diagnosis. |
+| `POST /transcribe` | Base64 audio + language code | `TranscribeSpeech` | `200` | Speech-to-text fallback pipeline using S3 + Transcribe. |
+
+#### API Gateway request lifecycle in this project
+
+1. Frontend sends HTTP request to API Gateway stage URL.
+2. API Gateway matches method + path to a configured route.
+3. API Gateway invokes mapped Lambda integration.
+4. Lambda returns standardized JSON envelope (`status`, `data`, `message`).
+5. API Gateway returns response to frontend.
+
+#### Why API Gateway is important here
+
+- Single public entry point for all frontend calls.
+- Decouples frontend contract from internal Lambda implementation.
+- Allows unified CORS handling and browser compatibility.
+- Makes route-level monitoring and debugging easier.
+
+#### Common status code behavior (practical)
+
+| Status | Meaning in this project |
+|---|---|
+| `200` | Successful processing (including policy-safe responses). |
+| `400` | Bad request (missing required fields, invalid inputs). |
+| `500` | Unexpected server-side failure in Lambda path. |
+
+#### Quick examples beyond `/chat`
+
+**GET `/weather/Chennai`**
+- Gateway route -> `WeatherLookup`
+- Response includes current conditions, forecast summary, and advisory.
+
+**GET `/profile/farmer_123`**
+- Gateway route -> `FarmerProfile`
+- Response includes persisted profile or default profile object.
+
+**POST `/image-analyze`**
+- Gateway route -> `ImageAnalysis`
+- Response includes diagnosis, confidence, treatment steps, and urgency.
+
 ---
 
 ## 13. Tests
@@ -1337,7 +1478,7 @@ python setup_agentcore.py --cleanup        # Delete everything
 |---|---|
 | **Lambda** | AWS service that runs your code without a server. You pay only when it runs. |
 | **API Gateway** | AWS service that creates HTTP endpoints (URLs) and routes requests to Lambda. |
-| **Bedrock** | AWS's managed AI service. Hosts foundation models like Nova Pro. |
+| **Bedrock** | AWS's managed AI service. Hosts foundation models like Claude Sonnet 4.5. |
 | **AgentCore** | AWS service for running AI agents with tool-calling capabilities. |
 | **Knowledge Base (KB)** | A search index over your documents. Uses vector embeddings for semantic search. |
 | **RAG** | Retrieval Augmented Generation — feed relevant documents to the AI so it answers based on facts, not just its training data. |
@@ -1357,7 +1498,7 @@ python setup_agentcore.py --cleanup        # Delete everything
 | **Hallucination** | When an AI makes up information that sounds real but isn't. Our policy checks prevent this. |
 | **Tool Use** | The AI's ability to call external functions (our Lambdas) to get real data instead of guessing. |
 | **Converse API** | AWS's unified API for calling AI models. Works with Claude, Nova, Titan, etc. |
-| **Inference Profile** | Region-specific model deployment. `apac.amazon.nova-pro-v1:0` is optimized for Asia Pacific. |
+| **Inference Profile** | Region-specific model deployment. E.g., `anthropic.claude-sonnet-4-5-20250929-v1:0` for ap-south-1. |
 
 ---
 
@@ -1508,11 +1649,11 @@ Two auth paths exist:
 
 ### 17.8 Section 8 — Foundation model choices
 
-- `apac.amazon.nova-pro-v1:0` is selected for:
-  - regional latency fit (`ap-south-1` usage profile),
-  - tool-use support,
+- `anthropic.claude-sonnet-4-5-20250929-v1:0` is selected for:
+  - regional latency fit (`ap-south-1` availability),
+  - best-in-class tool-use support,
   - vision support,
-  - balanced speed/quality.
+  - balanced speed/quality with excellent multilingual ability.
 - Low temperature (`0.3`) biases toward deterministic advisory over creativity.
 
 ### 17.9 Section 9 — Policy and hallucination prevention (defense in depth)
@@ -1692,3 +1833,95 @@ Goal after Stage 5:
 - Can I locate where multilingual conversion happens?
 
 If all five are "yes," your understanding is already strong.
+
+### 17.19 Complete System Master Map (Gateway, Lambdas, Agents, Policy, Guardrails)
+
+This is a single-place explanation of the full runtime stack: how API Gateway enters the system, what every Lambda owns, how agents run, and where safety is enforced.
+
+#### A) API Gateway (single entry layer)
+
+API Gateway is the public HTTP entry point for your frontend and clients.
+
+It does three core jobs:
+1. Accept request at route + method (for example `POST /chat`)
+2. Match route to Lambda integration
+3. Return Lambda response back to client in HTTP form
+
+In this project it fronts all major endpoints (`/chat`, `/voice`, `/weather`, `/schemes`, `/profile`, `/image-analyze`, `/transcribe`, `/health`).
+
+#### B) Control Plane Lambda (Agent Orchestrator)
+
+`Agent Orchestrator` is the control plane because it coordinates complete chat flow:
+
+1. Parse request and validate payload
+2. Detect language + translate to English
+3. Apply topic gate and intent classification
+4. Enrich prompt with farmer profile context
+5. Invoke AI runtime (AgentCore preferred, Bedrock Agents fallback)
+6. Enforce grounding + append sources
+7. Translate final response back to user language
+8. Generate optional audio via Polly
+9. Save conversation in DynamoDB
+10. Return standardized API payload
+
+It is the only Lambda that sees and coordinates the entire pipeline end-to-end.
+
+#### C) Worker Lambdas (domain execution)
+
+These Lambdas are specialized executors:
+
+- **Weather Lookup**: OpenWeather current + forecast + weather-based farming advisory.
+- **Crop Advisory**: Bedrock KB retrieval for crop/pest/irrigation facts.
+- **Govt Schemes**: Scheme lookup and keyword filtering.
+- **Farmer Profile**: DynamoDB profile GET/PUT and personalization data.
+- **Image Analysis**: Vision diagnosis from crop image (confidence + treatment guidance).
+- **Transcribe Speech**: S3 + Transcribe speech-to-text pipeline.
+- **Health Check**: Liveness endpoint.
+
+#### D) Agent Runtime and Agent Paths
+
+There are two invocation paths:
+
+1. **Primary**: AgentCore Runtime (`bedrock-agentcore` client)
+2. **Fallback**: Bedrock Agents Runtime (`bedrock-agent-runtime` invoke_agent)
+
+Optional specialist mode (`ENABLE_SPECIALIST_FANOUT=true`) allows intent-based parallel specialist runtimes, followed by synthesis into one final answer.
+
+#### E) Policy System (code-level safety)
+
+Policy is enforced in orchestrator code with deterministic checks:
+
+1. **Topic gate (pre-AI)**
+  - Blocks non-agriculture queries before model invocation.
+2. **Grounding requirement (post-AI)**
+  - For factual intents, requires tool-backed evidence.
+3. **Source attribution**
+  - Appends source labels based on tools used.
+4. **Policy metadata output**
+  - Response includes policy flags for traceability.
+
+#### F) Guardrails (runtime-level safety)
+
+Guardrails are platform-level controls configured in AgentCore runtime (when enabled):
+
+- Guardrail identifier + version applied at model call level.
+- Acts as additional protection beyond code policy.
+- Best practice in this project: use both code-policy and guardrails (defense in depth).
+
+#### G) Lambda -> Utils usage summary
+
+| Lambda | Core utils used |
+|---|---|
+| Agent Orchestrator | `response_helper`, `translate_helper`, `polly_helper`, `dynamodb_helper` |
+| Weather Lookup | `response_helper` (including Bedrock event helpers) |
+| Crop Advisory | `response_helper` (including Bedrock event helpers) |
+| Govt Schemes | `response_helper` (including Bedrock event helpers) |
+| Transcribe Speech | `response_helper` |
+| Farmer Profile | Inline CORS + direct boto3 DynamoDB |
+| Image Analysis | Inline response helper + direct boto3 clients |
+
+#### H) End-to-end runtime chain (compressed)
+
+User -> Frontend -> API Gateway -> Agent Orchestrator -> (Translate/Profile/Agent runtime/Tools/Policy/Polly/DynamoDB) -> API Gateway -> Frontend -> User
+
+If you understand this chain, you understand the whole deployed system architecture.

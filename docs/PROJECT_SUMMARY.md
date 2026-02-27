@@ -16,7 +16,7 @@ An AI-powered agricultural advisor that helps Indian farmers with crop guidance,
 |---------|-------------|
 | **AI Chat** | Claude Sonnet 4.5 via Bedrock AgentCore with RAG knowledge base |
 | **Voice I/O** | Web Speech API + Amazon Polly (TTS) + Transcribe fallback |
-| **Crop Doctor** | Upload photo → Nova Lite Vision → disease diagnosis + treatment |
+| **Crop Doctor** | Upload photo → Claude Sonnet 4.5 Vision → disease diagnosis + treatment |
 | **Weather** | OpenWeatherMap API → farming-specific advisories |
 | **Govt Schemes** | Knowledge base of 9+ schemes with eligibility matching |
 | **Farmer Profile** | DynamoDB storage for personalized recommendations |

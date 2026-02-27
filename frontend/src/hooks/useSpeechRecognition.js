@@ -91,8 +91,9 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
                                 body: JSON.stringify({ audio: base64, language, format: mimeType })
                             });
                             const data = await res.json();
-                            if (data.transcript?.trim() && onResultRef.current) {
-                                onResultRef.current(data.transcript);
+                            const transcript = data?.data?.transcript || data?.transcript;
+                            if (transcript?.trim() && onResultRef.current) {
+                                onResultRef.current(transcript);
                             } else {
                                 setError('Could not understand. Try again.');
                             }

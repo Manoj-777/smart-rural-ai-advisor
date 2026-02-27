@@ -2,7 +2,7 @@
     "_comment": "Bedrock AgentCore configuration placeholder — fill after console setup",
     "agent": {
         "agent_name": "SmartRuralAdvisor",
-        "foundation_model": "anthropic.claude-sonnet-4-5-20250514",
+        "foundation_model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
         "instruction": "You are an experienced Indian agricultural advisor who helps small-scale farmers with crop guidance, pest management, weather interpretation, government scheme navigation, and market advice. Always respond in the farmer's language. Be practical, specific to their region and crops, and include actionable steps.",
         "idle_session_ttl_in_seconds": 1800,
         "agent_id": "FILL_AFTER_CREATION",
