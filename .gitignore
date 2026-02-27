@@ -58,3 +58,23 @@ kb-storage-config.json
 aoss-enc-policy.json
 .bedrock_agentcore.yaml
 .venv313/
+
+## Temp debug/test artifacts
+*.out.json
+*_out.json
+*_out.txt
+inspect_event.json
+inspect_out.json
+invoke_event.json
+invoke_ta.json
+ta_audio_test.json
+ta_audio_out.json
+ta_out.json
+response_out.json
+payload_*.json
+resp_*.json
+verify_*.txt
+indic_audio_check.txt
+weather_out.json
+weather_payload.json
+.tools/
