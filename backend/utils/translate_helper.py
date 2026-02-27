@@ -10,10 +10,30 @@ translate = boto3.client('translate')
 # Supported languages
 SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn"]
 
+LANGUAGE_ALIASES = {
+    'en-in': 'en',
+    'en-us': 'en',
+    'hi-in': 'hi',
+    'ta-in': 'ta',
+    'te-in': 'te',
+    'kn-in': 'kn',
+    'ml-in': 'ml',
+    'mr-in': 'mr',
+    'bn-in': 'bn',
+}
+
 # Language code reference:
 # Tamil: 'ta'    | Telugu: 'te'   | Hindi: 'hi'
 # English: 'en'  | Kannada: 'kn'  | Malayalam: 'ml'
 # Marathi: 'mr'  | Bengali: 'bn'
+
+
+def normalize_language_code(language_code, default='en'):
+    normalized = (language_code or '').strip().lower().replace('_', '-')
+    if not normalized:
+        return default
+    normalized = LANGUAGE_ALIASES.get(normalized, normalized)
+    return normalized if normalized in SUPPORTED_LANGUAGES else default
 
 
 def detect_and_translate(text, target_language='en'):
@@ -27,17 +47,18 @@ def detect_and_translate(text, target_language='en'):
     Returns:
         dict with detected_language, translated_text, target_language
     """
+    normalized_target = normalize_language_code(target_language, default='en')
     try:
         response = translate.translate_text(
             Text=text,
             SourceLanguageCode='auto',  # Auto-detect!
-            TargetLanguageCode=target_language
+            TargetLanguageCode=normalized_target
         )
 
         return {
-            'detected_language': response['SourceLanguageCode'],
+            'detected_language': normalize_language_code(response['SourceLanguageCode'], default='en'),
             'translated_text': response['TranslatedText'],
-            'target_language': target_language
+            'target_language': normalized_target
         }
 
     except Exception as e:
@@ -46,7 +67,7 @@ def detect_and_translate(text, target_language='en'):
         return {
             'detected_language': 'en',
             'translated_text': text,
-            'target_language': target_language
+            'target_language': normalized_target
         }
 
 
@@ -54,14 +75,17 @@ def translate_response(text, source_language='en', target_language='ta'):
     """
     Translate AI response from English to farmer's language.
     """
-    if source_language == target_language:
+    normalized_source = normalize_language_code(source_language, default='en')
+    normalized_target = normalize_language_code(target_language, default='en')
+
+    if normalized_source == normalized_target:
         return text
 
     try:
         response = translate.translate_text(
             Text=text,
-            SourceLanguageCode=source_language,
-            TargetLanguageCode=target_language
+            SourceLanguageCode=normalized_source,
+            TargetLanguageCode=normalized_target
         )
         return response['TranslatedText']
 
