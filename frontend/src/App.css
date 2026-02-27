@@ -1647,11 +1647,31 @@ body {
     opacity: 0.65;
     cursor: wait;
 }
+/* Pest-specific AI button — purple/blue tone */
+.ai-ask-btn.ai-ask-pest {
+    background: linear-gradient(135deg, #5c6bc0, #7986cb);
+}
+.ai-ask-btn.ai-ask-pest:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3949ab, #5c6bc0);
+    box-shadow: 0 2px 8px rgba(63, 81, 181, 0.3);
+}
 .ai-active-row {
     background: #e8f5e9 !important;
 }
 .ai-active-row td {
     border-bottom-color: #a5d6a7;
+}
+/* Advisory panel for pest tab — blue border */
+.ai-advisory-panel.pest-panel {
+    background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 100%);
+    border-color: #9fa8da;
+}
+.ai-advisory-panel.pest-panel .ai-advisory-header {
+    background: rgba(92, 107, 192, 0.12);
+    border-bottom-color: #c5cae9;
+}
+.ai-advisory-panel.pest-panel .ai-advisory-header h3 {
+    color: #283593;
 }
 
 /* ── Dashboard ─────────────────────────────────────────── */

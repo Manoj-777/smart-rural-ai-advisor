@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPriceT } from '../i18n/priceTranslations';
-import { mockPrices } from '../services/mockApi';
+import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import config from '../config';
 
 /* ── Crop market price data (MSP + simulated market prices) ─────── */
@@ -62,14 +62,14 @@ const PEST_CATEGORIES = ['All', 'Bio-pesticide', 'Bio-fungicide', 'Bio-insectici
 
 /* ── AI Advisory labels ─────── */
 const AI_LABELS = {
-    'en-IN': { ask: '🤖 Ask AI', asking: '⏳ Asking AI...', title: 'AI Price Advisory', source: 'Source', close: '✕ Close' },
-    'ta-IN': { ask: '🤖 AI கேளுங்கள்', asking: '⏳ AI கேட்கிறது...', title: 'AI விலை ஆலோசனை', source: 'மூலம்', close: '✕ மூடு' },
-    'hi-IN': { ask: '🤖 AI से पूछें', asking: '⏳ AI से पूछ रहे...', title: 'AI मूल्य सलाह', source: 'स्रोत', close: '✕ बंद करें' },
-    'kn-IN': { ask: '🤖 AI ಕೇಳಿ', asking: '⏳ AI ಕೇಳುತ್ತಿದೆ...', title: 'AI ಬೆಲೆ ಸಲಹೆ', source: 'ಮೂಲ', close: '✕ ಮುಚ್ಚಿ' },
-    'te-IN': { ask: '🤖 AI అడగండి', asking: '⏳ AI అడుగుతోంది...', title: 'AI ధర సలహా', source: 'మూలం', close: '✕ మూసివేయి' },
-    'ml-IN': { ask: '🤖 AI ചോദിക്കൂ', asking: '⏳ AI ചോദിക്കുന്നു...', title: 'AI വില ഉപദേശം', source: 'ഉറവിടം', close: '✕ അടയ്ക്കുക' },
-    'bn-IN': { ask: '🤖 AI জিজ্ঞাসা', asking: '⏳ AI জিজ্ঞাসা করছে...', title: 'AI মূল্য পরামর্শ', source: 'উৎস', close: '✕ বন্ধ' },
-    'mr-IN': { ask: '🤖 AI ला विचारा', asking: '⏳ AI ला विचारत आहे...', title: 'AI किंमत सल्ला', source: 'स्रोत', close: '✕ बंद करा' },
+    'en-IN': { ask: '🤖 Ask AI', asking: '⏳ Asking AI...', titleCrop: 'AI Price Advisory', titlePest: 'AI Pesticide Guide', source: 'Source', close: '✕ Close' },
+    'ta-IN': { ask: '🤖 AI கேளுங்கள்', asking: '⏳ AI கேட்கிறது...', titleCrop: 'AI விலை ஆலோசனை', titlePest: 'AI பூச்சிக்கொல்லி வழிகாட்டி', source: 'மூலம்', close: '✕ மூடு' },
+    'hi-IN': { ask: '🤖 AI से पूछें', asking: '⏳ AI से पूछ रहे...', titleCrop: 'AI मूल्य सलाह', titlePest: 'AI कीटनाशक गाइड', source: 'स्रोत', close: '✕ बंद करें' },
+    'kn-IN': { ask: '🤖 AI ಕೇಳಿ', asking: '⏳ AI ಕೇಳುತ್ತಿದೆ...', titleCrop: 'AI ಬೆಲೆ ಸಲಹೆ', titlePest: 'AI ಕೀಟನಾಶಕ ಮಾರ್ಗದರ್ಶಿ', source: 'ಮೂಲ', close: '✕ ಮುಚ್ಚಿ' },
+    'te-IN': { ask: '🤖 AI అడగండి', asking: '⏳ AI అడుగుతోంది...', titleCrop: 'AI ధర సలహా', titlePest: 'AI పురుగుమందు గైడ్', source: 'మూలం', close: '✕ మూసివేయి' },
+    'ml-IN': { ask: '🤖 AI ചോദിക്കൂ', asking: '⏳ AI ചോദിക്കുന്നു...', titleCrop: 'AI വില ഉപദേശം', titlePest: 'AI കീടനാശിനി ഗൈഡ്', source: 'ഉറവிടം', close: '✕ അടയ്ക്കുക' },
+    'bn-IN': { ask: '🤖 AI জিজ্ঞাসা', asking: '⏳ AI জিজ্ঞাসা করছে...', titleCrop: 'AI মূল্য পরামর্শ', titlePest: 'AI কীটনাশক গাইড', source: 'উৎস', close: '✕ বন্ধ' },
+    'mr-IN': { ask: '🤖 AI ला विचारा', asking: '⏳ AI ला विचारत आहे...', titleCrop: 'AI किंमत सल्ला', titlePest: 'AI कीटकनाशक मार्गदर्शक', source: 'स्रोत', close: '✕ बंद करा' },
 };
 
 function TrendBadge({ trend, pt }) {
@@ -92,6 +92,7 @@ function PricePage() {
     const [aiAdvisory, setAiAdvisory] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
     const [aiCrop, setAiCrop] = useState(null);
+    const [aiType, setAiType] = useState('crop'); // 'crop' or 'pest'
 
     const aiLabel = AI_LABELS[language] || AI_LABELS['en-IN'];
 
@@ -129,6 +130,7 @@ function PricePage() {
     /* ── Ask AI for price advisory ─────── */
     const askAI = useCallback(async (crop) => {
         setAiCrop(crop.name);
+        setAiType('crop');
         setAiLoading(true);
         setAiAdvisory(null);
         try {
@@ -136,7 +138,6 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPrices(crop.name, language);
             } else {
-                // Real backend — POST to /chat with a price query
                 const query = `What is the current market price advisory for ${crop.name}? Include best time to sell, recommended mandis, and MSP details.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
@@ -169,6 +170,49 @@ function PricePage() {
         }
     }, [language]);
 
+    /* ── Ask AI for pesticide advisory ─────── */
+    const askPestAI = useCallback(async (pest) => {
+        setAiCrop(pest.name);
+        setAiType('pest');
+        setAiLoading(true);
+        setAiAdvisory(null);
+        try {
+            let result;
+            if (config.MOCK_AI) {
+                result = await mockPestAdvice(pest.name, pest.category, pest.usage, language);
+            } else {
+                const query = `Give me a detailed usage guide for ${pest.name} (${pest.category}). Include exact dosage per litre, target pests, safety precautions, pre-harvest interval, organic alternatives, best crops to use on, and application timing.`;
+                const res = await fetch(`${config.API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query, language, session_id: 'pest-advisory' }),
+                });
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+                result = {
+                    status: 'success',
+                    data: {
+                        advisory: data.response || data.message || data.data?.response || 'No advisory available.',
+                        source: 'Bedrock Knowledge Base',
+                        lastUpdated: new Date().toISOString().split('T')[0],
+                    }
+                };
+            }
+            setAiAdvisory(result.data);
+        } catch (err) {
+            console.error('AI pest advisory error:', err);
+            setAiAdvisory({
+                advisory: language === 'ta-IN' ? 'AI ஆலோசனை தற்போது கிடைக்கவில்லை. மீண்டும் முயற்சிக்கவும்.'
+                         : language === 'hi-IN' ? 'AI सलाह अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।'
+                         : 'AI advisory unavailable right now. Please try again later.',
+                source: 'Error',
+                lastUpdated: '',
+            });
+        } finally {
+            setAiLoading(false);
+        }
+    }, [language]);
+
     return (
         <div className="price-page">
             <div className="page-header">
@@ -188,13 +232,20 @@ function PricePage() {
 
             {/* AI Advisory Panel */}
             {aiAdvisory && (
-                <div className="ai-advisory-panel">
+                <div className={`ai-advisory-panel${aiType === 'pest' ? ' pest-panel' : ''}`}>
                     <div className="ai-advisory-header">
-                        <h3>🤖 {aiLabel.title} — {cropName(aiCrop)}</h3>
+                        <h3>🤖 {aiType === 'pest' ? aiLabel.titlePest : aiLabel.titleCrop} — {aiType === 'pest' ? (pestName(aiCrop) || aiCrop) : (cropName(aiCrop) || aiCrop)}</h3>
                         <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); }}>{aiLabel.close}</button>
                     </div>
                     <div className="ai-advisory-body">
-                        <p>{aiAdvisory.advisory}</p>
+                        {aiAdvisory.advisory.split('\n').map((line, i) => {
+                            if (!line.trim()) return <br key={i} />;
+                            // Bold markers
+                            const parts = line.split(/\*\*(.*?)\*\*/g);
+                            return <p key={i} style={{ margin: '2px 0' }}>{parts.map((part, j) =>
+                                j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+                            )}</p>;
+                        })}
                     </div>
                     <div className="ai-advisory-footer">
                         {aiAdvisory.source && <span>📂 {aiLabel.source}: {aiAdvisory.source}</span>}
@@ -281,15 +332,26 @@ function PricePage() {
                                 <th>{pt.thCategory}</th>
                                 <th>{pt.thPrice}</th>
                                 <th>{pt.thUsage}</th>
+                                <th>AI</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredPests.map((p, i) => (
-                                <tr key={i}>
+                                <tr key={i} className={aiCrop === p.name && aiType === 'pest' ? 'ai-active-row' : ''}>
                                     <td className="price-crop-name">🧴 {pestName(p.name)}</td>
                                     <td><span className={`pest-cat-badge cat-${p.category.toLowerCase().replace(/[^a-z]/g, '')}`}>{catName(p.category)}</span></td>
                                     <td className="price-msp">₹{p.price} <span className="price-unit">{p.unit}</span></td>
                                     <td className="price-usage">{pestUsage(p.name, p.usage)}</td>
+                                    <td>
+                                        <button
+                                            className="ai-ask-btn ai-ask-pest"
+                                            disabled={aiLoading}
+                                            onClick={() => askPestAI(p)}
+                                            title={aiLabel.ask}
+                                        >
+                                            {aiLoading && aiCrop === p.name && aiType === 'pest' ? aiLabel.asking : aiLabel.ask}
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
