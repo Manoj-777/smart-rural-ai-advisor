@@ -108,6 +108,8 @@ function DashboardPage() {
                 <div className="dash-hero-art">🌾</div>
             </div>
 
+            <div className="dashboard-scroll">
+
             {/* Quick Actions */}
             <h3 className="dash-section-title">{t('dashQuickActions')}</h3>
             <div className="dash-actions">
@@ -129,7 +131,7 @@ function DashboardPage() {
                     <p>{dailyTip}</p>
                 </div>
             </div>
-
+            </div>{/* end dashboard-scroll */}
         </div>
     );
 }

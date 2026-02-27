@@ -307,11 +307,6 @@ function ChatPage() {
                         </h2>
                     </div>
                     <p>{t('chatSubtitle')}</p>
-                    {messages.length > 0 && (
-                        <button className="clear-history-btn" onClick={clearHistory} title={t('chatClearHistory') || 'Clear chat'}>
-                            🗑️ {t('chatClearHistory') || 'Clear'}
-                        </button>
-                    )}
                 </div>
 
             <div className="chat-container">

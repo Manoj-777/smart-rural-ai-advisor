@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import config from '../config';
 
 function Sidebar() {
-    const { t } = useLanguage();
+    const { t, language, setLanguage } = useLanguage();
     const [mobileOpen, setMobileOpen] = useState(false);
 
     const closeMobile = () => setMobileOpen(false);
@@ -51,6 +52,19 @@ function Sidebar() {
                     <NavLink to="/profile" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
                         <span className="nav-icon">👤</span> <span className="nav-label">{t('navProfile')}</span>
                     </NavLink>
+                </div>
+
+                <div className="navbar-lang">
+                    <span className="navbar-lang-icon">🌐</span>
+                    <select
+                        className="navbar-lang-select"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                    >
+                        {Object.entries(config.LANGUAGES).map(([code, lang]) => (
+                            <option key={code} value={code}>{lang.name}</option>
+                        ))}
+                    </select>
                 </div>
             </nav>
         </>

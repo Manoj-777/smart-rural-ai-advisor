@@ -67,9 +67,6 @@ function App() {
                 <ScrollToTop />
                 <Sidebar />
                 <div className="app-body">
-                    <div className="lang-bar">
-                        <TopBar />
-                    </div>
                     <main className="main-content">
                         <Routes>
                             <Route path="/" element={<DashboardPage />} />
