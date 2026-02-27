@@ -132,42 +132,29 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph Client Layer
-    FE[Frontend (Vite/React)]
-  end
+  FE[Client Frontend Vite React]
+  GW[API Gateway Prod]
 
-  subgraph API Layer
-    GW[API Gateway /Prod]
-  end
+  ORCH[Orchestration Agent Orchestrator Lambda]
+  POLICY[Orchestration Code Policy Engine]
+  I18N[Orchestration Translation Localization]
+  AUDIO[Orchestration TTS Pipeline]
 
-  subgraph Orchestration Layer
-    ORCH[Agent Orchestrator Lambda<br/>POST /chat, /voice]
-    POLICY[Code Policy Engine<br/>topic gate + grounding + sources]
-    I18N[Translation + Localization]
-    AUDIO[TTS Pipeline]
-  end
+  ACR[AI AgentCore Runtime]
+  FM[AI Foundation Model Nova Pro]
+  TOOL_LOOP[AI Tool Calling Loop]
 
-  subgraph AI Layer
-    ACR[AgentCore Runtime(s)]
-    FM[Foundation Model<br/>Nova Pro]
-    TOOLS[Tool Calling Loop]
-  end
+  WL[Tool Weather Lambda]
+  CL[Tool Crop Lambda]
+  GL[Tool Govt Schemes Lambda]
+  PL[Tool Profile Lambda]
 
-  subgraph Tool Layer
-    WL[Weather Tool Lambda]
-    CL[Crop Tool Lambda]
-    GL[Govt Schemes Tool Lambda]
-    PL[Profile Tool Lambda]
-  end
-
-  subgraph Data & External Layer
-    DDB[(DynamoDB<br/>farmer_profiles, chat_sessions)]
-    S3[(S3<br/>audio + uploads)]
-    TR[Amazon Translate]
-    PO[Amazon Polly]
-    KBS[Bedrock KB]
-    OWM[OpenWeatherMap]
-  end
+  DDB[(Data DynamoDB farmer_profiles and chat_sessions)]
+  S3[(Data S3 audio and uploads)]
+  TR[External Amazon Translate]
+  PO[External Amazon Polly]
+  KBS[External Bedrock KB]
+  OWM[External OpenWeatherMap]
 
   FE --> GW --> ORCH
   ORCH --> POLICY
@@ -176,11 +163,11 @@ flowchart TB
   ORCH --> DDB
 
   ORCH --> ACR --> FM
-  ACR --> TOOLS
-  TOOLS --> WL --> OWM
-  TOOLS --> CL --> KBS
-  TOOLS --> GL
-  TOOLS --> PL --> DDB
+  ACR --> TOOL_LOOP
+  TOOL_LOOP --> WL --> OWM
+  TOOL_LOOP --> CL --> KBS
+  TOOL_LOOP --> GL
+  TOOL_LOOP --> PL --> DDB
 ```
 
 **Explanation:**
