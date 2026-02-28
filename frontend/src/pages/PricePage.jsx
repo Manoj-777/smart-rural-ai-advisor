@@ -240,7 +240,7 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPestAdvice(pest.name, pest.category, pest.usage, language);
             } else {
-                const query = `You are an agricultural input expert. Provide a comprehensive usage guide for the following farm product:\n- Product: ${pest.name}\n- Category: ${pest.category}\n- Primary Uses: ${pest.usage}\n- Market Price: ₹${pest.price} ${pest.unit}\n\nInclude: exact dosage per litre/acre, target pests and diseases it controls, crops it is commonly used on, best application timing and method, safety precautions and protective equipment, pre-harvest interval (days), organic/bio alternatives, and storage advice. Give specific actionable advice for Indian farmers.`;
+                const query = `Pesticide product guide for ${pest.name} (${pest.category}). Product details: ${pest.name}, Category: ${pest.category}, Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}. Provide comprehensive usage guide including: exact dosage per litre/acre, target pests and diseases it controls, crops it is commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice for Indian farmers.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

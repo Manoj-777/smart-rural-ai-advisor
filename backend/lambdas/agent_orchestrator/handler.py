@@ -382,6 +382,24 @@ DIRECT_TOOLS = [
                 }
             }
         }
+    },
+    {
+        "toolSpec": {
+            "name": "get_pest_alert",
+            "description": "Get pesticide product guides, pest alerts, disease identification, and treatment recommendations from the Knowledge Base. Use this for queries about specific pesticides, bio-pesticides, fungicides, herbicides, dosage, safety, and pest/disease management.",
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Pest/disease/pesticide query text"},
+                        "crop": {"type": "string", "description": "Crop name if relevant"},
+                        "symptoms": {"type": "string", "description": "Observed symptoms or pest name"},
+                        "location": {"type": "string", "description": "Farmer location"}
+                    },
+                    "required": ["query"]
+                }
+            }
+        }
     }
 ]
 
@@ -389,6 +407,7 @@ DIRECT_TOOLS = [
 TOOL_TO_LAMBDA = {
     "get_weather": LAMBDA_WEATHER,
     "get_crop_advisory": LAMBDA_CROP,
+    "get_pest_alert": LAMBDA_CROP,
     "search_schemes": LAMBDA_SCHEMES,
     "get_farmer_profile": LAMBDA_PROFILE,
 }
@@ -406,6 +425,9 @@ def _execute_tool(tool_name, tool_input):
             # Weather Lambda reads from pathParameters.location (API Gateway: /weather/{location})
             lambda_payload = {"pathParameters": {"location": tool_input.get("location", "Chennai")}}
         elif tool_name == "get_crop_advisory":
+            lambda_payload = {"queryStringParameters": tool_input}
+        elif tool_name == "get_pest_alert":
+            # Route pest queries to crop advisory Lambda with KB lookup
             lambda_payload = {"queryStringParameters": tool_input}
         elif tool_name == "search_schemes":
             lambda_payload = {"queryStringParameters": tool_input}
@@ -585,7 +607,7 @@ Output STRICT JSON (no markdown, no ```):
     "state": "Indian state or null",
     "pest_symptom": "described symptom or null"
   },
-  "tools_needed": ["get_weather", "get_crop_advisory", "search_schemes", "get_farmer_profile"],
+  "tools_needed": ["get_weather", "get_crop_advisory", "get_pest_alert", "search_schemes", "get_farmer_profile"],
   "urgency": "high/medium/low",
   "summary": "One-line summary of what the farmer needs"
 }
@@ -597,6 +619,7 @@ Rules:
 - If location is missing but needed, note it in summary
 - For weather queries, get_weather is always needed
 - For crop/pest queries, get_crop_advisory is always needed
+- For pest/disease/pesticide queries, get_pest_alert is always needed (queries Knowledge Base for pesticide guides, dosage, safety, treatment)
 - For scheme queries, search_schemes is always needed"""
 
 # ── Agent 3: Fact-Checking Agent ──
