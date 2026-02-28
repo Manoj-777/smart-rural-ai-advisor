@@ -124,18 +124,35 @@ function WeatherPage() {
         setWeather(null);
         try {
             const res = await fetch(`${config.API_URL}/weather/${encodeURIComponent(loc)}`);
-            if (!res.ok) throw new Error(`API returned ${res.status}`);
             const data = await res.json();
+            
+            if (!res.ok) {
+                // API returned an error
+                const errorMsg = data.message || `API returned ${res.status}`;
+                console.error('Weather API error:', errorMsg);
+                setError(t('weatherFetchError') + ': ' + errorMsg);
+                setLoading(false);
+                return;
+            }
+            
             if (data.status === 'success' && data.data) {
                 setWeather(data.data);
             } else if (data.current) {
                 setWeather(data);
             } else {
+                console.error('Unexpected weather data format:', data);
                 setError(t('weatherNoData'));
             }
         } catch (err) {
             console.error('Weather fetch error:', err);
-            setError(t('weatherFetchError'));
+            // More specific error messages
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setError(t('weatherFetchError') + ': Network error. Please check your connection.');
+            } else if (err.name === 'AbortError') {
+                setError(t('weatherFetchError') + ': Request timeout. Please try again.');
+            } else {
+                setError(t('weatherFetchError') + ': ' + err.message);
+            }
             setWeather(null);
         }
         setLoading(false);

@@ -97,15 +97,17 @@ function LoginPage() {
     return (
         <div className="login-page">
             <div className="login-container">
-                {/* Language selector at top */}
-                <div className="login-lang">
-                    <span>🌐</span>
-                    <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                        {Object.entries(config.LANGUAGES).map(([code, lang]) => (
-                            <option key={code} value={code}>{lang.name}</option>
-                        ))}
-                    </select>
-                </div>
+                {/* Language selector - only show on welcome screen */}
+                {mode === 'welcome' && (
+                    <div className="login-lang">
+                        <span>🌐</span>
+                        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                            {Object.entries(config.LANGUAGES).map(([code, lang]) => (
+                                <option key={code} value={code}>{lang.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
                 {/* Logo */}
                 <div className="login-logo">

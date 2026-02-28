@@ -41,27 +41,76 @@ def lambda_handler(event, context):
             location = event.get('pathParameters', {}).get('location', 'Chennai')
 
         if not OPENWEATHER_API_KEY:
+            logger.error("OPENWEATHER_API_KEY not configured")
             return error_response('OpenWeather API key not configured', 500)
 
-        # Current weather
+        # Current weather with retry logic
         current_url = (
             f"http://api.openweathermap.org/data/2.5/weather"
             f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric"
         )
-        current = requests.get(current_url, timeout=10).json()
+        
+        max_retries = 2
+        current = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Fetching current weather for {location} (attempt {attempt + 1}/{max_retries})")
+                response = requests.get(current_url, timeout=8)
+                current = response.json()
+                
+                if current.get('cod') == 200:
+                    break
+                elif current.get('cod') == 429:
+                    logger.warning(f"Rate limit hit for {location}")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(1)
+                        continue
+                else:
+                    logger.error(f"OpenWeather API error: {current.get('message', 'Unknown')}")
+                    break
+            except requests.exceptions.Timeout:
+                logger.warning(f"Timeout on attempt {attempt + 1} for {location}")
+                if attempt == max_retries - 1:
+                    raise
+            except Exception as e:
+                logger.error(f"Request error on attempt {attempt + 1}: {str(e)}")
+                if attempt == max_retries - 1:
+                    raise
 
-        if current.get('cod') != 200:
+        if not current or current.get('cod') != 200:
+            error_msg = current.get('message', 'Unknown error') if current else 'No response'
+            logger.error(f"Failed to get weather for {location}: {error_msg}")
             return error_response(
-                f"Weather data not found for '{location}': {current.get('message', 'Unknown error')}",
-                404
+                f"Weather data not found for '{location}': {error_msg}",
+                404 if current and current.get('cod') == '404' else 500
             )
 
-        # 5-day forecast
+        # 5-day forecast with retry
         forecast_url = (
             f"http://api.openweathermap.org/data/2.5/forecast"
             f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
         )
-        forecast_raw = requests.get(forecast_url, timeout=10).json()
+        
+        forecast_raw = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Fetching forecast for {location} (attempt {attempt + 1}/{max_retries})")
+                response = requests.get(forecast_url, timeout=8)
+                forecast_raw = response.json()
+                if forecast_raw.get('cod') == '200':
+                    break
+            except requests.exceptions.Timeout:
+                logger.warning(f"Forecast timeout on attempt {attempt + 1}")
+                if attempt == max_retries - 1:
+                    # Continue without forecast if it fails
+                    forecast_raw = {'list': []}
+                    break
+            except Exception as e:
+                logger.error(f"Forecast error on attempt {attempt + 1}: {str(e)}")
+                if attempt == max_retries - 1:
+                    forecast_raw = {'list': []}
+                    break
 
         # Build response matching API contract field names
         weather_data = {
