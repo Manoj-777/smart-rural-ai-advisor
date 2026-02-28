@@ -2328,6 +2328,43 @@ body {
     color: rgba(255,255,255,0.35);
 }
 
+/* ── Registration form (scrollable, multi-field) ── */
+.login-form-register {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+.login-form-register::-webkit-scrollbar {
+    width: 4px;
+}
+.login-form-register::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+}
+.login-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.login-form-row-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+@media (max-width: 500px) {
+    .login-form-row, .login-form-row-3 {
+        grid-template-columns: 1fr;
+    }
+}
+.login-form-register .login-form-group {
+    margin-bottom: 12px;
+}
+.crop-chips-compact {
+    gap: 6px !important;
+}
+.crop-chips-compact .crop-chip {
+    font-size: 12px;
+    padding: 5px 10px;
+}
+
 /* ── Navbar user / logout ── */
 .navbar-user {
     display: flex;

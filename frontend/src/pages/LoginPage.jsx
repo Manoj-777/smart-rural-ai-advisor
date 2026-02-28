@@ -6,10 +6,11 @@ import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
 
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
-    const { loginWithPhone } = useFarmer();
+    const { loginWithPhone, checkPhoneExists } = useFarmer();
     const [phone, setPhone] = useState('');
     const [name, setName] = useState('');
     const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning'
@@ -17,21 +18,66 @@ function LoginPage() {
     const [error, setError] = useState('');
     const [returnedProfile, setReturnedProfile] = useState(null);
 
+    // Registration form fields
+    const [regState, setRegState] = useState('Tamil Nadu');
+    const [regDistrict, setRegDistrict] = useState('');
+    const [regCrops, setRegCrops] = useState([]);
+    const [regSoilType, setRegSoilType] = useState('Alluvial');
+    const [regLandSize, setRegLandSize] = useState('');
+    const [regLanguage, setRegLanguage] = useState(language);
+
     const isValidPhone = phone.replace(/\D/g, '').length >= 10;
 
-    const handleLogin = async () => {
-        if (!isValidPhone) {
-            setError(t('loginInvalidPhone'));
-            return;
-        }
+    const handleCropToggle = (crop) => {
+        setRegCrops(prev =>
+            prev.includes(crop) ? prev.filter(c => c !== crop) : [...prev, crop]
+        );
+    };
+
+    const handleReturningLogin = async () => {
+        if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         setLoading(true);
         setError('');
         try {
-            const profile = await loginWithPhone(phone, name);
-            if (profile) {
-                setReturnedProfile(profile);
+            const existing = await checkPhoneExists(phone);
+            if (!existing) {
+                setError(t('loginNotRegistered'));
+                setLoading(false);
+                return;
             }
-            // FarmerContext will set isLoggedIn=true, App.jsx will redirect
+            // Phone is registered — proceed with login
+            const profile = await loginWithPhone(phone);
+            if (profile) setReturnedProfile(profile);
+        } catch {
+            setError(t('loginError'));
+        }
+        setLoading(false);
+    };
+
+    const handleNewSignup = async () => {
+        if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
+        if (!name.trim()) { setError(t('loginNameRequired')); return; }
+        setLoading(true);
+        setError('');
+        try {
+            // Check if already registered
+            const existing = await checkPhoneExists(phone);
+            if (existing) {
+                setError(t('loginAlreadyRegistered'));
+                setLoading(false);
+                return;
+            }
+            // Build full profile
+            const profileData = {
+                name: name.trim(),
+                state: regState,
+                district: regDistrict.trim(),
+                crops: regCrops,
+                soil_type: regSoilType,
+                land_size_acres: parseFloat(regLandSize) || 0,
+                language: regLanguage,
+            };
+            await loginWithPhone(phone, name.trim(), profileData);
         } catch {
             setError(t('loginError'));
         }
@@ -76,8 +122,10 @@ function LoginPage() {
                 )}
 
                 {mode === 'new' && (
-                    <div className="login-form">
+                    <div className="login-form login-form-register">
                         <h2>{t('loginCreateProfile')}</h2>
+
+                        {/* Phone */}
                         <div className="login-form-group">
                             <label>{t('loginPhoneLabel')}</label>
                             <div className="login-phone-input">
@@ -92,8 +140,10 @@ function LoginPage() {
                                 />
                             </div>
                         </div>
+
+                        {/* Name */}
                         <div className="login-form-group">
-                            <label>{t('profileName')}</label>
+                            <label>{t('profileName')} *</label>
                             <input
                                 type="text"
                                 className="form-input"
@@ -102,15 +152,79 @@ function LoginPage() {
                                 placeholder={t('profileNamePlaceholder')}
                             />
                         </div>
+
+                        {/* State & District */}
+                        <div className="login-form-row">
+                            <div className="login-form-group">
+                                <label>{t('profileState')}</label>
+                                <select className="form-input" value={regState}
+                                    onChange={(e) => setRegState(e.target.value)}>
+                                    {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="login-form-group">
+                                <label>{t('profileDistrict')}</label>
+                                <input className="form-input" type="text" value={regDistrict}
+                                    onChange={(e) => setRegDistrict(e.target.value)}
+                                    placeholder={t('profileDistrictPlaceholder')} />
+                            </div>
+                        </div>
+
+                        {/* Crops */}
+                        <div className="login-form-group">
+                            <label>{t('profileCrops')}</label>
+                            <div className="crop-chips crop-chips-compact">
+                                {CROP_KEYS.map((key, i) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        className={`crop-chip ${regCrops.includes(CROP_VALUES_EN[i]) ? 'selected' : ''}`}
+                                        onClick={() => handleCropToggle(CROP_VALUES_EN[i])}
+                                    >
+                                        {t(key)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Soil Type, Land Size, Language */}
+                        <div className="login-form-row login-form-row-3">
+                            <div className="login-form-group">
+                                <label>{t('profileSoilType')}</label>
+                                <select className="form-input" value={regSoilType}
+                                    onChange={(e) => setRegSoilType(e.target.value)}>
+                                    {SOIL_KEYS.map((key, i) =>
+                                        <option key={key} value={SOIL_VALUES_EN[i]}>{t(key)}</option>
+                                    )}
+                                </select>
+                            </div>
+                            <div className="login-form-group">
+                                <label>{t('profileLandSize')}</label>
+                                <input className="form-input" type="number" value={regLandSize}
+                                    min="0" step="0.5"
+                                    onChange={(e) => setRegLandSize(e.target.value)}
+                                    placeholder="0" />
+                            </div>
+                            <div className="login-form-group">
+                                <label>{t('profileLanguage')}</label>
+                                <select className="form-input" value={regLanguage}
+                                    onChange={(e) => setRegLanguage(e.target.value)}>
+                                    {Object.entries(config.LANGUAGES).map(([code, lang]) =>
+                                        <option key={code} value={code}>{lang.name}</option>
+                                    )}
+                                </select>
+                            </div>
+                        </div>
+
                         {error && <div className="login-error">{error}</div>}
                         <button
                             className="login-btn login-btn-primary"
-                            onClick={handleLogin}
-                            disabled={loading || !isValidPhone}
+                            onClick={handleNewSignup}
+                            disabled={loading || !isValidPhone || !name.trim()}
                         >
                             {loading ? '⏳ ...' : `✅ ${t('loginStart')}`}
                         </button>
-                        <button className="login-btn login-btn-back" onClick={() => setMode('welcome')}>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
                             ← {t('loginBack')}
                         </button>
                     </div>
@@ -137,12 +251,12 @@ function LoginPage() {
                         {error && <div className="login-error">{error}</div>}
                         <button
                             className="login-btn login-btn-primary"
-                            onClick={handleLogin}
+                            onClick={handleReturningLogin}
                             disabled={loading || !isValidPhone}
                         >
                             {loading ? '⏳ ...' : `🔓 ${t('loginContinue')}`}
                         </button>
-                        <button className="login-btn login-btn-back" onClick={() => setMode('welcome')}>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
                             ← {t('loginBack')}
                         </button>
                     </div>

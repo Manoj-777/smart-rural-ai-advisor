@@ -36,11 +36,30 @@ export function FarmerProvider({ children }) {
     }, [farmerId]);
 
     /**
+     * Check if a phone number is already registered (has a profile with a name).
+     * Returns the profile data if exists, or null if not registered.
+     */
+    const checkPhoneExists = useCallback(async (phone) => {
+        const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+        const id = `ph_${cleanPhone}`;
+        try {
+            const res = await fetch(`${config.API_URL}/profile/${id}`);
+            const data = await res.json();
+            if (data.data && data.data.name) {
+                return data.data; // registered user
+            }
+        } catch { /* offline */ }
+        return null; // not registered
+    }, []);
+
+    /**
      * Login with phone number.
      * Phone number becomes the farmer_id (prefixed with 'ph_' to distinguish from legacy UUIDs).
-     * Returns the profile if it exists in DynamoDB (returning user), or null (new user).
+     * For new users, pass a full profileData object.
+     * For returning users, pass no profileData — profile will be loaded from DB.
+     * Returns the profile if it exists in DynamoDB (returning user), or the new profile.
      */
-    const loginWithPhone = useCallback(async (phone, name = '') => {
+    const loginWithPhone = useCallback(async (phone, name = '', profileData = null) => {
         const cleanPhone = phone.replace(/\D/g, '').slice(-10); // last 10 digits
         const id = `ph_${cleanPhone}`;
 
@@ -63,9 +82,13 @@ export function FarmerProvider({ children }) {
             }
         } catch { /* offline */ }
 
-        // New user — create minimal profile
-        if (name) {
-            const newProfile = { name, language: 'en-IN', state: '', district: '', crops: [], soil_type: '', land_size_acres: 0 };
+        // New user — create full profile
+        const newProfile = profileData || {
+            name, language: 'en-IN', state: '', district: '',
+            crops: [], soil_type: '', land_size_acres: 0
+        };
+        if (newProfile.name || name) {
+            if (!newProfile.name) newProfile.name = name;
             try {
                 await fetch(`${config.API_URL}/profile/${id}`, {
                     method: 'PUT',
@@ -74,8 +97,8 @@ export function FarmerProvider({ children }) {
                 });
             } catch { /* will save later */ }
             setFarmerProfile(newProfile);
-            setFarmerNameState(name);
-            localStorage.setItem(FARMER_NAME_KEY, name);
+            setFarmerNameState(newProfile.name);
+            localStorage.setItem(FARMER_NAME_KEY, newProfile.name);
         }
         return null;
     }, []);
@@ -106,6 +129,7 @@ export function FarmerProvider({ children }) {
             farmerName,
             farmerProfile,
             isLoggedIn,
+            checkPhoneExists,
             loginWithPhone,
             logout,
             updateProfile,
