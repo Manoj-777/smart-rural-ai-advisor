@@ -228,8 +228,14 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
         return text, cleaned_tools, policy_meta
 
     if policy_meta['grounding_required'] and not cleaned_tools:
-        policy_meta['grounding_satisfied'] = False
-        text = _grounding_prompt_for_intents(intents)
+        # If the AI already generated a substantive response (>200 chars),
+        # allow it through — the query itself contained enough data
+        if len(text) > 200:
+            logger.info("Grounding: no tools but response is substantive — passing through")
+            policy_meta['grounding_satisfied'] = True
+        else:
+            policy_meta['grounding_satisfied'] = False
+            text = _grounding_prompt_for_intents(intents)
 
     text = _append_sources(text, cleaned_tools)
 

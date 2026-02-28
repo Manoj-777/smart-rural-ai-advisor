@@ -96,7 +96,7 @@ function translateCondition(desc, lang) {
 function cleanLocationName(name) {
     if (!name) return name;
     return name
-        .replace(/\b(Tahsil|Tehsil|Block|Mandal|Taluk|Taluka|District|Division|Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|Circle|Range)\b/gi, '')
+        .replace(/\b(Tahsil|Tehsil|Block|Mandal|Taluk[ua]?|District|Division|Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|Circle|Range)\b/gi, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
