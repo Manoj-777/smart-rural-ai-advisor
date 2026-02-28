@@ -1,25 +1,22 @@
 // src/pages/ProfilePage.jsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
 
 function ProfilePage() {
     const { t } = useLanguage();
+    const { farmerId, farmerPhone, updateProfile } = useFarmer();
     const [profile, setProfile] = useState({
         name: '', state: 'Tamil Nadu', district: '', crops: [],
         soil_type: 'Alluvial', land_size_acres: 0, language: 'ta-IN'
     });
-    const [farmerId] = useState(() => {
-        const stored = localStorage.getItem('farmer_id');
-        if (stored) return stored;
-        const newId = `f_${crypto.randomUUID().slice(0, 8)}`;
-        localStorage.setItem('farmer_id', newId);
-        return newId;
-    });
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
+    const debounceRef = useRef(null);
+    const hasLoadedRef = useRef(false);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -28,6 +25,7 @@ function ProfilePage() {
                 const data = await res.json();
                 if (data.data) setProfile(prev => ({ ...prev, ...data.data }));
             } catch { /* New user — use defaults */ }
+            hasLoadedRef.current = true;
         };
         loadProfile();
     }, [farmerId]);
@@ -41,7 +39,33 @@ function ProfilePage() {
         }));
     };
 
+    // Auto-save with debounce (2s after last edit)
+    const autoSave = useCallback((updatedProfile) => {
+        if (!hasLoadedRef.current) return; // don't auto-save before initial load
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(async () => {
+            try {
+                await fetch(`${config.API_URL}/profile/${farmerId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedProfile)
+                });
+                updateProfile(updatedProfile);
+                setMessage({ type: 'success', text: '✅ ' + t('profileAutoSaved') });
+                setTimeout(() => setMessage(null), 2000);
+            } catch {
+                setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
+            }
+        }, 2000);
+    }, [farmerId, t, updateProfile]);
+
+    // Trigger auto-save when profile changes
+    useEffect(() => {
+        if (hasLoadedRef.current) autoSave(profile);
+    }, [profile, autoSave]);
+
     const handleSave = async () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current); // cancel pending auto-save
         setSaving(true);
         setMessage(null);
         try {
@@ -50,6 +74,7 @@ function ProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile)
             });
+            updateProfile(profile);
             setMessage({ type: 'success', text: '✅ ' + t('profileSaved') });
         } catch {
             setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
@@ -70,6 +95,7 @@ function ProfilePage() {
                 <p>{t('profileSubtitle')}</p>
                 <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                     {t('profileFarmerId')}: {farmerId}
+                    {farmerPhone && ` • 📞 +91 ${farmerPhone}`}
                 </p>
             </div>
 

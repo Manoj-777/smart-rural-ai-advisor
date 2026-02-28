@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
 
 function Sidebar() {
     const { t, language, setLanguage } = useLanguage();
+    const { farmerName, farmerPhone, logout } = useFarmer();
     const [mobileOpen, setMobileOpen] = useState(false);
 
     const closeMobile = () => setMobileOpen(false);
@@ -65,6 +67,15 @@ function Sidebar() {
                             <option key={code} value={code}>{lang.name}</option>
                         ))}
                     </select>
+                </div>
+
+                {/* User info + logout */}
+                <div className="navbar-user">
+                    {farmerName && <span className="navbar-user-name">👤 {farmerName}</span>}
+                    {farmerPhone && <span className="navbar-user-phone">📞 {farmerPhone}</span>}
+                    <button className="navbar-logout-btn" onClick={logout} title={t('loginLogout')}>
+                        🚪 {t('loginLogout')}
+                    </button>
                 </div>
             </nav>
         </>

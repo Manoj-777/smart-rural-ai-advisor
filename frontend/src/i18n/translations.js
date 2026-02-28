@@ -220,6 +220,28 @@ const translations = {
         weatherFetchError: 'Could not fetch weather. Please try again.',
         voiceStopListening: 'Stop listening',
         voiceClickToSpeak: 'Click to speak',
+
+        // Login / Identity
+        loginNewFarmer: 'I\'m a New Farmer',
+        loginReturningFarmer: 'I Have an Account',
+        loginCreateProfile: 'Create Your Profile',
+        loginWelcomeBack: 'Welcome Back!',
+        loginEnterPhone: 'Enter the phone number you registered with.',
+        loginPhoneLabel: 'Mobile Number',
+        loginPhonePlaceholder: '10-digit mobile number',
+        loginInvalidPhone: 'Please enter a valid 10-digit mobile number.',
+        loginStart: 'Get Started',
+        loginContinue: 'Continue',
+        loginBack: 'Back',
+        loginError: 'Something went wrong. Please try again.',
+        loginLogout: 'Logout',
+        loginFeatureWeather: 'Weather forecasts & advisories',
+        loginFeatureCrop: 'Crop & pest management',
+        loginFeatureSchemes: 'Government scheme info',
+        loginFeatureVoice: 'Voice support in 13 languages',
+
+        // Auto-save
+        profileAutoSaved: 'Auto-saved',
     },
     'ta-IN': {
         // App & sidebar
@@ -398,6 +420,26 @@ const translations = {
         weatherFetchError: 'வானிலையை பெற இயலவில்லை. மீண்டும் முயற்சிக்கவும்.',
         voiceStopListening: 'கேட்பதை நிறுத்து',
         voiceClickToSpeak: 'பேச கிளிக் செய்யவும்',
+
+        // Login
+        loginNewFarmer: 'நான் புதிய விவசாயி',
+        loginReturningFarmer: 'எனக்கு கணக்கு உள்ளது',
+        loginCreateProfile: 'உங்கள் சுயவிவரத்தை உருவாக்கவும்',
+        loginWelcomeBack: 'மீண்டும் வருக!',
+        loginEnterPhone: 'நீங்கள் பதிவு செய்த தொலைபேசி எண்ணை உள்ளிடவும்.',
+        loginPhoneLabel: 'மொபைல் எண்',
+        loginPhonePlaceholder: '10 இலக்க மொபைல் எண்',
+        loginInvalidPhone: 'செல்லுபடியான 10 இலக்க எண்ணை உள்ளிடவும்.',
+        loginStart: 'தொடங்கு',
+        loginContinue: 'தொடரவும்',
+        loginBack: 'பின்',
+        loginError: 'ஏதோ தவறு. மீண்டும் முயற்சிக்கவும்.',
+        loginLogout: 'வெளியேறு',
+        loginFeatureWeather: 'வானிலை முன்னறிவிப்புகள்',
+        loginFeatureCrop: 'பயிர் & பூச்சி மேலாண்மை',
+        loginFeatureSchemes: 'அரசு திட்டங்கள்',
+        loginFeatureVoice: '13 மொழிகளில் குரல் ஆதரவு',
+        profileAutoSaved: 'தானாக சேமிக்கப்பட்டது',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -580,6 +622,26 @@ const translations = {
         weatherFetchError: 'मौसम प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।',
         voiceStopListening: 'सुनना बंद करें',
         voiceClickToSpeak: 'बोलने के लिए क्लिक करें',
+
+        // Login
+        loginNewFarmer: 'मैं नया किसान हूँ',
+        loginReturningFarmer: 'मेरा खाता है',
+        loginCreateProfile: 'अपनी प्रोफ़ाइल बनाएँ',
+        loginWelcomeBack: 'वापस आपका स्वागत है!',
+        loginEnterPhone: 'अपना पंजीकृत मोबाइल नंबर दर्ज करें।',
+        loginPhoneLabel: 'मोबाइल नंबर',
+        loginPhonePlaceholder: '10 अंकों का मोबाइल नंबर',
+        loginInvalidPhone: 'कृपया एक मान्य 10 अंकों का नंबर दर्ज करें।',
+        loginStart: 'शुरू करें',
+        loginContinue: 'जारी रखें',
+        loginBack: 'वापस',
+        loginError: 'कुछ गलत हुआ। कृपया पुनः प्रयास करें।',
+        loginLogout: 'लॉगआउट',
+        loginFeatureWeather: 'मौसम पूर्वानुमान और सलाह',
+        loginFeatureCrop: 'फसल और कीट प्रबंधन',
+        loginFeatureSchemes: 'सरकारी योजनाएँ',
+        loginFeatureVoice: '13 भाषाओं में आवाज़ सहायता',
+        profileAutoSaved: 'ऑटो-सेव हो गया',
     },
 
     // ═══════════════════════════════════════════════════════════════════════

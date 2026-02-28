@@ -3,6 +3,7 @@
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
 import config from './config';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -12,6 +13,7 @@ import SchemesPage from './pages/SchemesPage';
 import CropDoctorPage from './pages/CropDoctorPage';
 import ProfilePage from './pages/ProfilePage';
 import PricePage from './pages/PricePage';
+import LoginPage from './pages/LoginPage';
 import './App.css';
 
 function ScrollToTop() {
@@ -60,26 +62,42 @@ function MicFab() {
     );
 }
 
+function AppContent() {
+    const { isLoggedIn } = useFarmer();
+
+    if (!isLoggedIn) {
+        return <LoginPage />;
+    }
+
+    return (
+        <>
+            <ScrollToTop />
+            <Sidebar />
+            <div className="app-body">
+                <main className="main-content">
+                    <Routes>
+                        <Route path="/" element={<DashboardPage />} />
+                        <Route path="/chat" element={<ChatPage />} />
+                        <Route path="/weather" element={<WeatherPage />} />
+                        <Route path="/schemes" element={<SchemesPage />} />
+                        <Route path="/crop-doctor" element={<CropDoctorPage />} />
+                        <Route path="/prices" element={<PricePage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                    </Routes>
+                </main>
+            </div>
+            <MicFab />
+        </>
+    );
+}
+
 function App() {
     return (
         <BrowserRouter>
             <LanguageProvider>
-                <ScrollToTop />
-                <Sidebar />
-                <div className="app-body">
-                    <main className="main-content">
-                        <Routes>
-                            <Route path="/" element={<DashboardPage />} />
-                            <Route path="/chat" element={<ChatPage />} />
-                            <Route path="/weather" element={<WeatherPage />} />
-                            <Route path="/schemes" element={<SchemesPage />} />
-                            <Route path="/crop-doctor" element={<CropDoctorPage />} />
-                            <Route path="/prices" element={<PricePage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
-                        </Routes>
-                    </main>
-                </div>
-                <MicFab />
+                <FarmerProvider>
+                    <AppContent />
+                </FarmerProvider>
             </LanguageProvider>
         </BrowserRouter>
     );

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import VoiceInput from '../components/VoiceInput';
 import ChatMessage from '../components/ChatMessage';
 import { mockChat } from '../services/mockApi';
@@ -53,6 +54,7 @@ function saveSessionMessages(sessionId, messages) {
 
 function ChatPage() {
     const { language, t } = useLanguage();
+    const { farmerId } = useFarmer();
     const [sessions, setSessions] = useState(loadSessions);
 
     // Active session
@@ -184,7 +186,7 @@ function ChatPage() {
                     body: JSON.stringify({
                         message: text,
                         session_id: targetSessionId,
-                        farmer_id: 'demo_farmer',
+                        farmer_id: farmerId || 'anonymous',
                         language: language
                     })
                 });

@@ -397,7 +397,8 @@ def _execute_tool(tool_name, tool_input):
     try:
         # Build Lambda payload based on tool
         if tool_name == "get_weather":
-            lambda_payload = {"queryStringParameters": {"location": tool_input.get("location", "Chennai")}}
+            # Weather Lambda reads from pathParameters.location (API Gateway: /weather/{location})
+            lambda_payload = {"pathParameters": {"location": tool_input.get("location", "Chennai")}}
         elif tool_name == "get_crop_advisory":
             lambda_payload = {"queryStringParameters": tool_input}
         elif tool_name == "search_schemes":
@@ -433,8 +434,10 @@ def _invoke_bedrock_direct(prompt, farmer_context=None):
     """
     Call Bedrock model directly with tool use (converse API).
     Fallback when AgentCore runtimes are cold-starting.
+    Returns: (result_text, tools_used, tool_data_log)
     """
     tools_used = []
+    tool_data_log = []  # raw tool results for fact-checking
 
     # Build messages
     system_prompt = DIRECT_SYSTEM_PROMPT
@@ -476,6 +479,13 @@ def _invoke_bedrock_direct(prompt, farmer_context=None):
                         tools_used.append(tool_name)
                         result = _execute_tool(tool_name, tool_input)
 
+                        # Save raw tool data for fact-checking
+                        tool_data_log.append({
+                            "tool": tool_name,
+                            "input": tool_input,
+                            "output": result,
+                        })
+
                         tool_results.append({
                             "toolResult": {
                                 "toolUseId": tool_id,
@@ -494,16 +504,16 @@ def _invoke_bedrock_direct(prompt, farmer_context=None):
                     result_text += block["text"]
 
             logger.info(f"Direct Bedrock response: {len(result_text)} chars, tools={tools_used}")
-            return result_text, tools_used
+            return result_text, tools_used, tool_data_log
 
         # Exhausted turns
-        return "I'm having trouble processing your request. Please try again.", tools_used
+        return "I'm having trouble processing your request. Please try again.", tools_used, tool_data_log
 
     except Exception as e:
         logger.error(f"Direct Bedrock invocation error: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        return f"I apologize, I encountered an error. Please try again.", []
+        return f"I apologize, I encountered an error. Please try again.", [], []
 
 
 def _invoke_agentcore_runtime_with_arn(runtime_arn, prompt, session_id, farmer_context=None):
@@ -745,7 +755,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         reasoning_context += f"\nIMPORTANT: Call the following tools first: {', '.join(tools_needed)}"
         reasoning_prompt = english_message + reasoning_context
 
-    reasoning_text, tools_used = _invoke_bedrock_direct(
+    reasoning_text, tools_used, tool_data_log = _invoke_bedrock_direct(
         reasoning_prompt, farmer_context
     )
     pipeline_meta['agents_invoked'].append('reasoning')
@@ -762,9 +772,19 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     # ══════════════════════════════════════════════════════════
     logger.info("Pipeline Step 3/4: Fact-Checking Agent")
 
+    # Build raw tool data summary for fact-checker (truncated to stay within token limits)
+    tool_data_summary = "None"
+    if tool_data_log:
+        tool_entries = []
+        for td in tool_data_log:
+            entry = f"Tool: {td['tool']}\nInput: {json.dumps(td['input'])}\nOutput: {json.dumps(td['output'])[:800]}"
+            tool_entries.append(entry)
+        tool_data_summary = "\n---\n".join(tool_entries)
+
     factcheck_input = (
         f"## Draft Advisory (from Reasoning Agent):\n{reasoning_text}\n\n"
         f"## Tools Used: {', '.join(tools_used) if tools_used else 'None'}\n\n"
+        f"## Raw Tool Data (ground truth):\n{tool_data_summary}\n\n"
         f"## Original Query: {english_message}\n"
     )
     if understanding:
@@ -1123,7 +1143,7 @@ def lambda_handler(event, context):
                 intents,
                 farmer_context,
             )
-            result_text, tools_used = _invoke_bedrock_direct(
+            result_text, tools_used, _ = _invoke_bedrock_direct(
                 routed_prompt, farmer_context
             )
         else:
@@ -1190,8 +1210,8 @@ def lambda_handler(event, context):
             logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
         # --- Step 6: Save chat history ---
-        save_chat_message(session_id, 'user', user_message, detected_lang)
-        save_chat_message(session_id, 'assistant', translated_reply, detected_lang)
+        save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+        save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
 
         # --- Step 7: Return response (matches API contract) ---
         return success_response({
