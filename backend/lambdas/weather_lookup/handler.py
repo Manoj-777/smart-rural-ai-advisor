@@ -57,9 +57,14 @@ def lambda_handler(event, context):
             # Called via API Gateway
             location = event.get('pathParameters', {}).get('location', 'Chennai')
 
+        # Extract optional lat/lon from query params (fallback for unknown cities)
+        qsp = event.get('queryStringParameters') or {}
+        lat = qsp.get('lat')
+        lon = qsp.get('lon')
+
         # Clean administrative suffixes (e.g. "Igatpuri Subdistrict" -> "Igatpuri")
         location = clean_location(location)
-        logger.info(f"Cleaned location: {location}")
+        logger.info(f"Cleaned location: {location}, lat={lat}, lon={lon}")
 
         if not OPENWEATHER_API_KEY:
             logger.error("OPENWEATHER_API_KEY not configured")
@@ -99,6 +104,22 @@ def lambda_handler(event, context):
                 if attempt == max_retries - 1:
                     raise
 
+        # If city name lookup failed and we have lat/lon, retry with coordinates
+        if (not current or current.get('cod') != 200) and lat and lon:
+            logger.info(f"City name '{location}' not found, falling back to lat={lat}, lon={lon}")
+            coord_url = (
+                f"http://api.openweathermap.org/data/2.5/weather"
+                f"?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+            )
+            try:
+                response = requests.get(coord_url, timeout=8)
+                coord_data = response.json()
+                if coord_data.get('cod') == 200:
+                    current = coord_data
+                    logger.info(f"Coordinate fallback succeeded for {location}")
+            except Exception as e:
+                logger.warning(f"Coordinate fallback also failed: {str(e)}")
+
         if not current or current.get('cod') != 200:
             error_msg = current.get('message', 'Unknown error') if current else 'No response'
             logger.error(f"Failed to get weather for {location}: {error_msg}")
@@ -107,11 +128,17 @@ def lambda_handler(event, context):
                 404 if current and current.get('cod') == '404' else 500
             )
 
-        # 5-day forecast with retry
-        forecast_url = (
-            f"http://api.openweathermap.org/data/2.5/forecast"
-            f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
-        )
+        # 5-day forecast with retry — use coordinates if city name failed earlier
+        if lat and lon and current.get('coord'):
+            forecast_url = (
+                f"http://api.openweathermap.org/data/2.5/forecast"
+                f"?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
+            )
+        else:
+            forecast_url = (
+                f"http://api.openweathermap.org/data/2.5/forecast"
+                f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
+            )
         
         forecast_raw = None
         for attempt in range(max_retries):

@@ -117,13 +117,16 @@ function WeatherPage() {
     const debounceRef = useRef(null);
     const searchBoxRef = useRef(null);
 
-    const fetchWeather = async (loc) => {
+    const fetchWeather = async (loc, coords) => {
         if (!loc || loc === 'Loading...') return;
         setLoading(true);
         setError(null);
         setWeather(null);
         try {
-            const res = await fetch(`${config.API_URL}/weather/${encodeURIComponent(loc)}`);
+            // Pass lat/lon as query params so backend can fallback to coordinates
+            const latlon = coords || markerPos;
+            const qs = latlon ? `?lat=${latlon.lat}&lon=${latlon.lng || latlon.lon}` : '';
+            const res = await fetch(`${config.API_URL}/weather/${encodeURIComponent(loc)}${qs}`);
             const data = await res.json();
             
             if (!res.ok) {
@@ -181,7 +184,7 @@ function WeatherPage() {
         const placeName = await reverseGeocode(lat, lng);
         setClickedPlace(placeName);
         setLocation(placeName);
-        fetchWeather(placeName);
+        fetchWeather(placeName, { lat, lng });
     }, [reverseGeocode]);
 
     const handleCityClick = useCallback((city) => {
@@ -189,7 +192,7 @@ function WeatherPage() {
         setFlyTarget({ lat: city.lat, lng: city.lng });
         setClickedPlace(city.name);
         setLocation(city.name);
-        fetchWeather(city.name);
+        fetchWeather(city.name, { lat: city.lat, lng: city.lng });
     }, []);
 
     const handleSearch = () => {
@@ -269,7 +272,7 @@ function WeatherPage() {
         setFlyTarget({ lat: s.lat, lng: s.lng });
         setSuggestions([]);
         setShowSuggestions(false);
-        fetchWeather(s.name);
+        fetchWeather(s.name, { lat: s.lat, lng: s.lng });
     }, []);
 
     // Close suggestions on outside click

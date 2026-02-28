@@ -137,16 +137,6 @@ function ChatMessage({ message }) {
                 {message.audioUrl && (
                     <audio controls src={message.audioUrl} className="message-audio" />
                 )}
-                {/* Browser TTS speak button for assistant messages */}
-                {!isUser && window.speechSynthesis && (
-                    <button 
-                        className={`speak-btn ${speaking ? 'speaking' : ''}`}
-                        onClick={handleSpeak}
-                        title={speaking ? 'Stop' : 'Listen'}
-                    >
-                        {speaking ? '⏹️ Stop' : '🔊 Listen'}
-                    </button>
-                )}
                 {message.timestamp && (
                     <span className="message-time">{formatTimestamp(message.timestamp)}</span>
                 )}

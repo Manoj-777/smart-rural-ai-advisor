@@ -2520,6 +2520,12 @@ body {
 }
 .login-form-row-3 {
     grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+}
+@media (max-width: 768px) {
+    .login-form-row-3 {
+        grid-template-columns: 1fr;
+    }
 }
 @media (max-width: 500px) {
     .login-form-row, .login-form-row-3 {
