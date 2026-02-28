@@ -1,17 +1,24 @@
 // src/pages/SchemesPage.jsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import { SchemesSkeleton } from '../components/SkeletonLoader';
 import schemeTranslations from '../i18n/schemeTranslations';
 
 function SchemesPage() {
     const { language, t } = useLanguage();
+    const { farmerProfile } = useFarmer();
     const [schemes, setSchemes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [expandedId, setExpandedId] = useState(null);
+
+    // State-specific schemes from KB
+    const [stateSchemes, setStateSchemes] = useState('');
+    const [stateLoading, setStateLoading] = useState(false);
+    const farmerState = farmerProfile?.state || '';
 
     useEffect(() => {
         const fetchSchemes = async () => {
@@ -30,6 +37,37 @@ function SchemesPage() {
         };
         fetchSchemes();
     }, []);
+
+    // Auto-fetch state-specific schemes from Knowledge Base
+    const fetchStateSchemes = useCallback(async (state) => {
+        if (!state) return;
+        setStateLoading(true);
+        setStateSchemes('');
+        try {
+            const query = `List all government schemes and subsidies available specifically for farmers in ${state} state, India. Include central government schemes applicable in ${state} and state-specific schemes. For each scheme mention: scheme name, benefit amount, eligibility, and how to apply.`;
+            const res = await fetch(`${config.API_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: query, language, session_id: 'schemes-state' }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const reply = data.data?.reply || data.response || data.message || '';
+                setStateSchemes(reply);
+            }
+        } catch (err) {
+            console.error('State schemes fetch error:', err);
+            setStateSchemes('');
+        } finally {
+            setStateLoading(false);
+        }
+    }, [language]);
+
+    useEffect(() => {
+        if (farmerState) {
+            fetchStateSchemes(farmerState);
+        }
+    }, [farmerState, fetchStateSchemes]);
 
     // Get translated scheme data — fall back to English, then to raw API data
     const getTranslated = (scheme) => {
@@ -58,6 +96,42 @@ function SchemesPage() {
             </div>
 
             <div className="schemes-page-scroll">
+
+            {/* State-specific schemes from Knowledge Base */}
+            {farmerState && (
+                <div className="state-schemes-section" style={{ marginBottom: '24px' }}>
+                    <div className="state-schemes-header">
+                        <h3>🏛️ {language === 'hi-IN' ? `${farmerState} के लिए योजनाएं` : language === 'ta-IN' ? `${farmerState} திட்டங்கள்` : `Schemes for ${farmerState}`}</h3>
+                        <button
+                            className="send-btn"
+                            style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '8px' }}
+                            onClick={() => fetchStateSchemes(farmerState)}
+                            disabled={stateLoading}
+                        >
+                            🔄 {stateLoading ? '...' : (language === 'hi-IN' ? 'रिफ्रेश' : language === 'ta-IN' ? 'புதுப்பி' : 'Refresh')}
+                        </button>
+                    </div>
+                    {stateLoading ? (
+                        <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-light)' }}>
+                            ⏳ {language === 'hi-IN' ? 'AI जानकारी ला रहा है...' : language === 'ta-IN' ? 'AI தகவல் பெறுகிறது...' : 'AI is fetching scheme information...'}
+                        </div>
+                    ) : stateSchemes ? (
+                        <div className="card" style={{ borderLeft: '4px solid var(--primary)', lineHeight: 1.7 }}>
+                            <div
+                                dangerouslySetInnerHTML={{
+                                    __html: stateSchemes
+                                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                        .replace(/\n/g, '<br/>')
+                                }}
+                            />
+                        </div>
+                    ) : null}
+                </div>
+            )}
+
+            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>
+                📋 {language === 'hi-IN' ? 'केंद्र सरकार की योजनाएं' : language === 'ta-IN' ? 'மத்திய அரசு திட்டங்கள்' : 'Central Government Schemes'}
+            </h3>
 
             <div className="search-bar">
                 <span className="search-icon">🔍</span>

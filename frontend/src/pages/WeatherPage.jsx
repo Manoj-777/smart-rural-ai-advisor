@@ -1,7 +1,7 @@
 // src/pages/WeatherPage.jsx
 
-import { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import config from '../config';
@@ -53,6 +53,17 @@ function MapClickHandler({ onMapClick }) {
     return null;
 }
 
+/* Fly map to a given position when it changes */
+function MapFlyTo({ lat, lng }) {
+    const map = useMap();
+    useEffect(() => {
+        if (lat && lng) {
+            map.flyTo([lat, lng], 10, { duration: 1.2 });
+        }
+    }, [lat, lng, map]);
+    return null;
+}
+
 // OpenWeatherMap condition translations
 const CONDITION_MAP = {
     'en-IN': {},
@@ -78,6 +89,18 @@ function translateCondition(desc, lang) {
     return map[lower] || desc;
 }
 
+/**
+ * Clean location names from Nominatim that OpenWeatherMap doesn't understand.
+ * Strips suffixes like "Tahsil", "Block", "Mandal", "Taluk", "Taluka", "District", "Division", "Tehsil", "Sub-Division"
+ */
+function cleanLocationName(name) {
+    if (!name) return name;
+    return name
+        .replace(/\b(Tahsil|Tehsil|Block|Mandal|Taluk|Taluka|District|Division|Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|Circle|Range)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 function WeatherPage() {
     const { language, t } = useLanguage();
     const [location, setLocation] = useState('Chennai');
@@ -86,6 +109,13 @@ function WeatherPage() {
     const [error, setError] = useState(null);
     const [markerPos, setMarkerPos] = useState({ lat: 13.0827, lng: 80.2707 });
     const [clickedPlace, setClickedPlace] = useState('Chennai');
+    const [flyTarget, setFlyTarget] = useState(null);
+
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const debounceRef = useRef(null);
+    const searchBoxRef = useRef(null);
 
     const fetchWeather = async (loc) => {
         if (!loc || loc === 'Loading...') return;
@@ -120,7 +150,8 @@ function WeatherPage() {
             );
             const data = await res.json();
             const addr = data.address;
-            return addr.city || addr.town || addr.village || addr.county || addr.state_district || addr.state || 'Unknown';
+            const raw = addr.city || addr.town || addr.village || addr.county || addr.state_district || addr.state || 'Unknown';
+            return cleanLocationName(raw);
         } catch {
             return `${lat.toFixed(2)},${lng.toFixed(2)}`;
         }
@@ -128,6 +159,7 @@ function WeatherPage() {
 
     const handleMapClick = useCallback(async (lat, lng) => {
         setMarkerPos({ lat, lng });
+        setFlyTarget(null); // don't fly on click — user already clicked the spot
         setClickedPlace('Loading...');
         const placeName = await reverseGeocode(lat, lng);
         setClickedPlace(placeName);
@@ -137,6 +169,7 @@ function WeatherPage() {
 
     const handleCityClick = useCallback((city) => {
         setMarkerPos({ lat: city.lat, lng: city.lng });
+        setFlyTarget({ lat: city.lat, lng: city.lng });
         setClickedPlace(city.name);
         setLocation(city.name);
         fetchWeather(city.name);
@@ -144,9 +177,94 @@ function WeatherPage() {
 
     const handleSearch = () => {
         if (!location.trim()) return;
-        setClickedPlace(location.trim());
-        fetchWeather(location.trim());
+        const cleaned = cleanLocationName(location.trim());
+        setShowSuggestions(false);
+        setSuggestions([]);
+        setClickedPlace(cleaned);
+        setLocation(cleaned);
+        // Forward geocode to also move the map pin
+        forwardGeocode(cleaned);
+        fetchWeather(cleaned);
     };
+
+    // Forward geocode: get lat/lng and fly map there
+    const forwardGeocode = useCallback(async (query) => {
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},India&limit=1&addressdetails=1`,
+                { headers: { 'Accept-Language': 'en' } }
+            );
+            const results = await res.json();
+            if (results.length > 0) {
+                const { lat, lon } = results[0];
+                const latN = parseFloat(lat);
+                const lngN = parseFloat(lon);
+                setMarkerPos({ lat: latN, lng: lngN });
+                setFlyTarget({ lat: latN, lng: lngN });
+            }
+        } catch { /* ignore geocode failure */ }
+    }, []);
+
+    // Autocomplete: debounced forward geocode search as user types
+    const handleLocationInput = useCallback((value) => {
+        setLocation(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (!value.trim() || value.trim().length < 2) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)},India&limit=5&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const results = await res.json();
+                const items = results
+                    .filter(r => r.lat && r.lon)
+                    .map(r => ({
+                        name: cleanLocationName(r.address?.city || r.address?.town || r.address?.village || r.address?.county || r.address?.state_district || r.display_name.split(',')[0]),
+                        display: r.display_name.length > 60 ? r.display_name.substring(0, 60) + '…' : r.display_name,
+                        lat: parseFloat(r.lat),
+                        lng: parseFloat(r.lon),
+                    }));
+                // Deduplicate by name
+                const seen = new Set();
+                const unique = items.filter(i => {
+                    if (seen.has(i.name)) return false;
+                    seen.add(i.name);
+                    return true;
+                });
+                setSuggestions(unique);
+                setShowSuggestions(unique.length > 0);
+            } catch {
+                setSuggestions([]);
+                setShowSuggestions(false);
+            }
+        }, 350);
+    }, []);
+
+    const handleSuggestionClick = useCallback((s) => {
+        setLocation(s.name);
+        setClickedPlace(s.name);
+        setMarkerPos({ lat: s.lat, lng: s.lng });
+        setFlyTarget({ lat: s.lat, lng: s.lng });
+        setSuggestions([]);
+        setShowSuggestions(false);
+        fetchWeather(s.name);
+    }, []);
+
+    // Close suggestions on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (searchBoxRef.current && !searchBoxRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     useEffect(() => { fetchWeather(location); }, []);
 
@@ -174,6 +292,7 @@ function WeatherPage() {
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
                         <MapClickHandler onMapClick={handleMapClick} />
+                        {flyTarget && <MapFlyTo lat={flyTarget.lat} lng={flyTarget.lng} />}
                         <Marker position={[markerPos.lat, markerPos.lng]}>
                             <Popup>
                                 <strong>📍 {clickedPlace}</strong>
@@ -185,21 +304,38 @@ function WeatherPage() {
 
                 {/* Quick Cities + Search */}
                 <div className="weather-sidebar">
-                    {/* Search */}
-                    <div className="weather-search-box">
+                    {/* Search with autocomplete */}
+                    <div className="weather-search-box" ref={searchBoxRef} style={{ position: 'relative' }}>
                         <div className="search-bar" style={{ flex: 1 }}>
                             <span className="search-icon">🔍</span>
                             <input
                                 type="text"
                                 value={location}
-                                onChange={(e) => setLocation(e.target.value)}
+                                onChange={(e) => handleLocationInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                                 placeholder={t('weatherSearch')}
+                                autoComplete="off"
                             />
                         </div>
                         <button type="button" onClick={handleSearch} className="send-btn" style={{ borderRadius: '12px', padding: '0 20px', height: 'auto', alignSelf: 'stretch' }}>
                             {t('search')}
                         </button>
+                        {/* Autocomplete dropdown */}
+                        {showSuggestions && suggestions.length > 0 && (
+                            <div className="weather-autocomplete-dropdown">
+                                {suggestions.map((s, i) => (
+                                    <div
+                                        key={i}
+                                        className="weather-autocomplete-item"
+                                        onClick={() => handleSuggestionClick(s)}
+                                    >
+                                        <span className="autocomplete-name">📍 {s.name}</span>
+                                        <span className="autocomplete-detail">{s.display}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Quick city buttons */}

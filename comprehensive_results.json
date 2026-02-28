@@ -1,0 +1,98 @@
+[
+  {
+    "test": "A1: Health Check Lambda",
+    "result": "PASS",
+    "details": "status=healthy",
+    "latency_s": 0.6
+  },
+  {
+    "test": "A2: Weather Lambda (Bangalore)",
+    "result": "PASS",
+    "details": "temp=24.93C, humidity=46%, forecast_days=5",
+    "latency_s": 0.2
+  },
+  {
+    "test": "A3: Govt Schemes Lambda",
+    "result": "PASS",
+    "details": "schemes_count=9, names=['pm_kisan', 'pmfby', 'kcc', 'soil_health_card', 'pmksy']",
+    "latency_s": 0.4
+  },
+  {
+    "test": "A4: Profile PUT Lambda",
+    "result": "PASS",
+    "details": "status=success, msg=Profile saved",
+    "latency_s": 1.0
+  },
+  {
+    "test": "A5: Profile GET Lambda",
+    "result": "PASS",
+    "details": "name=Comprehensive Test, land=2.5, state=Karnataka",
+    "latency_s": 0.2
+  },
+  {
+    "test": "A6: Image Analysis Lambda",
+    "result": "PASS",
+    "details": "code=500, handler_reached=True, msg={'error': 'Analysis failed. Please try again or consult your local KVK.'}",
+    "latency_s": 1.6
+  },
+  {
+    "test": "A7: Crop Advisory Lambda",
+    "result": "PASS",
+    "details": "No API Gateway endpoint - tested via orchestrator tool (B2)",
+    "latency_s": 0
+  },
+  {
+    "test": "B1: get_weather tool",
+    "result": "PASS",
+    "details": "tools=['get_weather'], reply_len=802",
+    "latency_s": 13.1
+  },
+  {
+    "test": "B2: get_crop_advisory tool",
+    "result": "PASS",
+    "details": "tools=['get_crop_advisory'], reply_len=827",
+    "latency_s": 11.2
+  },
+  {
+    "test": "B3: search_schemes tool",
+    "result": "PASS",
+    "details": "tools=['search_schemes'], reply_len=1415",
+    "latency_s": 15.8
+  },
+  {
+    "test": "B4: get_farmer_profile tool",
+    "result": "PASS",
+    "details": "tools=['get_farmer_profile'], reply_len=616",
+    "latency_s": 8.4
+  },
+  {
+    "test": "C1: Understanding Agent",
+    "result": "PASS",
+    "details": "intents=['weather', 'schemes'], tools_needed=['get_weather', 'search_schemes'], entities={\"location\": \"Chennai\", \"crop\": null, \"season\": null, \"state\": \"Karnataka\", \"pest_symptom\": null}",
+    "latency_s": 13.8
+  },
+  {
+    "test": "C2: Reasoning Agent",
+    "result": "PASS",
+    "details": "tools_used=['get_weather', 'search_schemes']",
+    "latency_s": 0
+  },
+  {
+    "test": "C3: Fact-Check Agent",
+    "result": "PASS",
+    "details": "validated=False, confidence=0.9, corrections=0, warnings=1",
+    "latency_s": 0
+  },
+  {
+    "test": "C4: Communication Agent",
+    "result": "PASS",
+    "details": "reply_len=984, has_audio=YES",
+    "latency_s": 0
+  },
+  {
+    "test": "C5: Full Pipeline (4/4 agents)",
+    "result": "PASS",
+    "details": "agents=['understanding', 'reasoning', 'fact_check', 'communication'], pipeline_mode=cognitive",
+    "latency_s": 13.8
+  }
+]

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
 
 // Daily tips rotate based on day-of-year
@@ -56,6 +57,7 @@ const DAILY_TIPS = {
 
 function DashboardPage() {
     const { language, t } = useLanguage();
+    const { farmerName } = useFarmer();
     const navigate = useNavigate();
     const [greeting, setGreeting] = useState('');
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -94,7 +96,7 @@ function DashboardPage() {
             {/* Hero greeting */}
             <div className="dash-hero">
                 <div className="dash-hero-text">
-                    <h1>{greeting} 👋</h1>
+                    <h1>{greeting}{farmerName ? `, ${farmerName}` : ''} 👋</h1>
                     <p className="dash-subtitle">{t('dashWelcome')}</p>
                     <div className="dash-meta">
                         <span className="dash-meta-item">

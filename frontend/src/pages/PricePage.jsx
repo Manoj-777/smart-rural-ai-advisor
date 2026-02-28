@@ -194,7 +194,7 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPrices(crop.name, language);
             } else {
-                const query = `What is the current market price advisory for ${crop.name}? Include best time to sell, recommended mandis, and MSP details.`;
+                const query = `What is the current market price advisory for ${crop.name} in India? Include: current MSP (₹${crop.msp || 'N/A'}/quintal), best time to sell, recommended mandis, price trend analysis, storage tips, and market outlook for next 3 months.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -205,8 +205,8 @@ function PricePage() {
                 result = {
                     status: 'success',
                     data: {
-                        advisory: data.response || data.message || data.data?.response || 'No advisory available.',
-                        source: 'Bedrock Knowledge Base',
+                        advisory: data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.',
+                        source: 'AI Cognitive Pipeline + Knowledge Base',
                         lastUpdated: new Date().toISOString().split('T')[0],
                     }
                 };
@@ -248,8 +248,8 @@ function PricePage() {
                 result = {
                     status: 'success',
                     data: {
-                        advisory: data.response || data.message || data.data?.response || 'No advisory available.',
-                        source: 'Bedrock Knowledge Base',
+                        advisory: data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.',
+                        source: 'AI Cognitive Pipeline + Knowledge Base',
                         lastUpdated: new Date().toISOString().split('T')[0],
                     }
                 };
