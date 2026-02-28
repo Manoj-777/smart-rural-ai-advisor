@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
-import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
 
 function ProfilePage() {
     const { t, setLanguage } = useLanguage();
@@ -119,14 +119,18 @@ function ProfilePage() {
                     </div>
                     <div className="form-group">
                         <label>{t('profileDistrict')}</label>
-                        <input className="form-input" type="text" value={profile.district}
-                            onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}
-                            placeholder={t('profileDistrictPlaceholder')} />
+                        <select className="form-input" value={profile.district}
+                            onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}>
+                            <option value="">{t('profileDistrictPlaceholder')}</option>
+                            {(DISTRICT_MAP[profile.state] || []).map(d =>
+                                <option key={d} value={d}>{d}</option>
+                            )}
+                        </select>
                     </div>
                     <div className="form-group">
                         <label>{t('profileState')}</label>
                         <select className="form-input" value={profile.state}
-                            onChange={e => setProfile(p => ({ ...p, state: e.target.value }))}>
+                            onChange={e => setProfile(p => ({ ...p, state: e.target.value, district: '' }))}>
                             {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>

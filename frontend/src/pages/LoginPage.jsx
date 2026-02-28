@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
-import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
 
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
@@ -168,15 +168,19 @@ function LoginPage() {
                             <div className="login-form-group">
                                 <label>{t('profileState')}</label>
                                 <select className="form-input" value={regState}
-                                    onChange={(e) => setRegState(e.target.value)}>
+                                    onChange={(e) => { setRegState(e.target.value); setRegDistrict(''); }}>
                                     {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div className="login-form-group">
                                 <label>{t('profileDistrict')}</label>
-                                <input className="form-input" type="text" value={regDistrict}
-                                    onChange={(e) => setRegDistrict(e.target.value)}
-                                    placeholder={t('profileDistrictPlaceholder')} />
+                                <select className="form-input" value={regDistrict}
+                                    onChange={(e) => setRegDistrict(e.target.value)}>
+                                    <option value="">{t('profileDistrictPlaceholder')}</option>
+                                    {(DISTRICT_MAP[regState] || []).map(d =>
+                                        <option key={d} value={d}>{d}</option>
+                                    )}
+                                </select>
                             </div>
                         </div>
 
