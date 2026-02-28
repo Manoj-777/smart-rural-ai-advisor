@@ -376,6 +376,12 @@ body {
         width: 100%;
         justify-content: space-around;
     }
+    .navbar-user {
+        margin-left: 0;
+    }
+    .navbar-user-name {
+        display: none;
+    }
     .lang-bar {
         padding: 8px 16px 0;
     }
@@ -2368,32 +2374,36 @@ body {
 /* ── Navbar user / logout ── */
 .navbar-user {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 2px;
-    padding: 8px 12px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    margin-top: auto;
+    gap: 8px;
+    margin-left: 12px;
+    flex-shrink: 0;
 }
 .navbar-user-name {
     font-size: 12px;
-    color: var(--text);
-    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .navbar-user-phone {
     font-size: 11px;
-    color: var(--text-light);
+    color: rgba(255,255,255,0.5);
+    display: none; /* hidden in compact layout */
 }
 .navbar-logout-btn {
-    margin-top: 6px;
     background: rgba(220,38,38,0.15);
     border: 1px solid rgba(220,38,38,0.25);
     color: #fca5a5;
-    padding: 6px 16px;
-    border-radius: 8px;
-    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 .navbar-logout-btn:hover {
     background: rgba(220,38,38,0.3);

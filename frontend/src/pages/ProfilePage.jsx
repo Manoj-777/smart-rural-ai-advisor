@@ -7,7 +7,7 @@ import { useFarmer } from '../contexts/FarmerContext';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS } from '../i18n/translations';
 
 function ProfilePage() {
-    const { t } = useLanguage();
+    const { t, setLanguage } = useLanguage();
     const { farmerId, farmerPhone, updateProfile } = useFarmer();
     const [profile, setProfile] = useState({
         name: '', state: 'Tamil Nadu', district: '', crops: [],
@@ -133,7 +133,11 @@ function ProfilePage() {
                     <div className="form-group">
                         <label>{t('profileLanguage')}</label>
                         <select className="form-input" value={profile.language}
-                            onChange={e => setProfile(p => ({ ...p, language: e.target.value }))}>
+                            onChange={e => {
+                                const lang = e.target.value;
+                                setProfile(p => ({ ...p, language: lang }));
+                                setLanguage(lang); // instantly switch the app UI language
+                            }}>
                             {Object.entries(config.LANGUAGES).map(([code, lang]) =>
                                 <option key={code} value={code}>{lang.name}</option>
                             )}
@@ -178,10 +182,12 @@ function ProfilePage() {
             </div>
 
             {/* Save */}
-            <button onClick={handleSave} disabled={saving} className="send-btn"
-                style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px' }}>
-                {saving ? `⏳ ${t('saving')}` : `💾 ${t('profileSaveBtn')}`}
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+                <button onClick={handleSave} disabled={saving} className="send-btn"
+                    style={{ padding: '12px 48px', fontSize: '15px', borderRadius: '12px' }}>
+                    {saving ? `⏳ ${t('saving')}` : `💾 ${t('profileSaveBtn')}`}
+                </button>
+            </div>
 
             {/* Profile Summary */}
             {profile.name && (

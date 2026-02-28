@@ -47,7 +47,13 @@ function LoginPage() {
             }
             // Phone is registered — proceed with login
             const profile = await loginWithPhone(phone);
-            if (profile) setReturnedProfile(profile);
+            if (profile) {
+                setReturnedProfile(profile);
+                // Auto-switch to the farmer's saved language preference
+                if (profile.language && profile.language !== language) {
+                    setLanguage(profile.language);
+                }
+            }
         } catch {
             setError(t('loginError'));
         }
@@ -78,6 +84,10 @@ function LoginPage() {
                 language: regLanguage,
             };
             await loginWithPhone(phone, name.trim(), profileData);
+            // Auto-switch the app language to the farmer's chosen preference
+            if (regLanguage !== language) {
+                setLanguage(regLanguage);
+            }
         } catch {
             setError(t('loginError'));
         }

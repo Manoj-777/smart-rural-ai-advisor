@@ -69,10 +69,9 @@ function Sidebar() {
                     </select>
                 </div>
 
-                {/* User info + logout */}
+                {/* User info + logout — inline in navbar */}
                 <div className="navbar-user">
-                    {farmerName && <span className="navbar-user-name">👤 {farmerName}</span>}
-                    {farmerPhone && <span className="navbar-user-phone">📞 {farmerPhone}</span>}
+                    {farmerName && <span className="navbar-user-name">{farmerName}</span>}
                     <button className="navbar-logout-btn" onClick={logout} title={t('loginLogout')}>
                         🚪 {t('loginLogout')}
                     </button>
