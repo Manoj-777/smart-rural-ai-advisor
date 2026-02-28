@@ -18,6 +18,23 @@ logger.setLevel(logging.INFO)
 
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
 
+import re
+
+def clean_location(name):
+    """Strip administrative suffixes that confuse weather APIs."""
+    if not name:
+        return name
+    import urllib.parse
+    name = urllib.parse.unquote(name)  # decode %20 etc.
+    name = re.sub(
+        r'\b(Tahsil|Tehsil|Block|Mandal|Taluk[ua]?|Sub-?district|District|Division|'
+        r'Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|'
+        r'Circle|Range|Panchayat|Samiti|Gram|Assembly|Constituency|Revenue|Hobli|Firka|'
+        r'Community Development)\b',
+        '', name, flags=re.IGNORECASE
+    )
+    return re.sub(r'\s{2,}', ' ', name).strip()
+
 
 def lambda_handler(event, context):
     """
@@ -39,6 +56,10 @@ def lambda_handler(event, context):
         else:
             # Called via API Gateway
             location = event.get('pathParameters', {}).get('location', 'Chennai')
+
+        # Clean administrative suffixes (e.g. "Igatpuri Subdistrict" -> "Igatpuri")
+        location = clean_location(location)
+        logger.info(f"Cleaned location: {location}")
 
         if not OPENWEATHER_API_KEY:
             logger.error("OPENWEATHER_API_KEY not configured")
