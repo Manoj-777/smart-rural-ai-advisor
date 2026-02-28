@@ -194,7 +194,7 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPrices(crop.name, language);
             } else {
-                const query = `What is the current market price advisory for ${crop.name} in India? Include: current MSP (₹${crop.msp || 'N/A'}/quintal), best time to sell, recommended mandis, price trend analysis, storage tips, and market outlook for next 3 months.`;
+                const query = `You are an agricultural market analyst. Provide a detailed price advisory for ${crop.name} (${crop.season} crop) in India based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nInclude: best time to sell, recommended mandis across India, storage tips to get better prices, detailed price trend analysis, and market outlook for next 3 months. Give specific actionable advice.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -202,11 +202,14 @@ function PricePage() {
                 });
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
+                let rawAdvisory = data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.';
+                // Strip any leftover "Sources: ..." line from backend response
+                rawAdvisory = rawAdvisory.replace(/\n\s*Sources:\s*.+$/m, '').trim();
                 result = {
                     status: 'success',
                     data: {
-                        advisory: data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.',
-                        source: 'AI Cognitive Pipeline + Knowledge Base',
+                        advisory: rawAdvisory,
+                        source: data.data?.sources || 'AI Cognitive Pipeline + Knowledge Base',
                         lastUpdated: new Date().toISOString().split('T')[0],
                     }
                 };
@@ -245,11 +248,13 @@ function PricePage() {
                 });
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
+                let rawPestAdv = data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.';
+                rawPestAdv = rawPestAdv.replace(/\n\s*Sources:\s*.+$/m, '').trim();
                 result = {
                     status: 'success',
                     data: {
-                        advisory: data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.',
-                        source: 'AI Cognitive Pipeline + Knowledge Base',
+                        advisory: rawPestAdv,
+                        source: data.data?.sources || 'AI Cognitive Pipeline + Knowledge Base',
                         lastUpdated: new Date().toISOString().split('T')[0],
                     }
                 };

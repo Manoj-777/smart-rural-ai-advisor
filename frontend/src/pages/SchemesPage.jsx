@@ -52,7 +52,8 @@ function SchemesPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                const reply = data.data?.reply || data.response || data.message || '';
+                let reply = data.data?.reply || data.response || data.message || '';
+                reply = reply.replace(/\n\s*Sources:\s*.+$/m, '').trim();
                 setStateSchemes(reply);
             }
         } catch (err) {

@@ -195,9 +195,11 @@ function ChatPage() {
 
             let assistantMsg;
             if (data.status === 'success') {
+                // Strip any leftover "Sources: ..." from AI reply
+                let reply = (data.data.reply || '').replace(/\n\s*Sources:\s*.+$/m, '').trim();
                 assistantMsg = {
                     role: 'assistant',
-                    content: data.data.reply,
+                    content: reply,
                     audioUrl: data.data.audio_url,
                     timestamp: Date.now()
                 };

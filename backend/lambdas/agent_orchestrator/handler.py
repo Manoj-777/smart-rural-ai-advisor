@@ -1187,9 +1187,9 @@ def lambda_handler(event, context):
         else:
             translated_reply = text_for_translation
 
-        # Re-append sources in English AFTER translation (function names stay readable)
+        # Re-append sources in English AFTER translation only to reply_en (debug)
+        # Do NOT append sources to translated_reply — frontend shows sources separately
         if sources_line:
-            translated_reply = f"{translated_reply}\n\nSources: {sources_line}"
             result_text = f"{text_for_translation}\n\nSources: {sources_line}"
 
         # --- Step 5: Generate Polly audio ---
@@ -1219,6 +1219,7 @@ def lambda_handler(event, context):
             'reply_en': result_text,
             'detected_language': detected_lang,
             'tools_used': tools_used,
+            'sources': sources_line or None,
             'audio_url': audio_url,
             'polly_text_truncated': polly_text_truncated,
             'session_id': session_id,
