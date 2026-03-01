@@ -114,7 +114,7 @@ function CropDoctorPage() {
 
             <div className="cropdoctor-page-scroll">
 
-            <div style={{ maxWidth: '650px' }}>
+            <div>
                 {/* Image Upload */}
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div

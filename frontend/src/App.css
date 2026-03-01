@@ -1428,6 +1428,14 @@ body {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+.cropdoctor-page-scroll > div {
+    width: 100%;
+    max-width: 650px;
 }
 
 /* ── Profile Page Fixed Layout ─────────────────────────── */
