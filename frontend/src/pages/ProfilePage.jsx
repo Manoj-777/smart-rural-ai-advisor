@@ -5,9 +5,42 @@ import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
+import { getDistrictName } from '../i18n/districtTranslations';
+
+// State options with translation keys for localized display
+const STATE_OPTION_OBJECTS = [
+    { value: 'Andhra Pradesh', key: 'stateAP' },
+    { value: 'Arunachal Pradesh', key: 'stateAR' },
+    { value: 'Assam', key: 'stateAS' },
+    { value: 'Bihar', key: 'stateBR' },
+    { value: 'Chhattisgarh', key: 'stateCG' },
+    { value: 'Goa', key: 'stateGA' },
+    { value: 'Gujarat', key: 'stateGJ' },
+    { value: 'Haryana', key: 'stateHR' },
+    { value: 'Himachal Pradesh', key: 'stateHP' },
+    { value: 'Jharkhand', key: 'stateJH' },
+    { value: 'Karnataka', key: 'stateKA' },
+    { value: 'Kerala', key: 'stateKL' },
+    { value: 'Madhya Pradesh', key: 'stateMP' },
+    { value: 'Maharashtra', key: 'stateMH' },
+    { value: 'Manipur', key: 'stateMN' },
+    { value: 'Meghalaya', key: 'stateML' },
+    { value: 'Mizoram', key: 'stateMZ' },
+    { value: 'Nagaland', key: 'stateNL' },
+    { value: 'Odisha', key: 'stateOD' },
+    { value: 'Punjab', key: 'statePB' },
+    { value: 'Rajasthan', key: 'stateRJ' },
+    { value: 'Sikkim', key: 'stateSK' },
+    { value: 'Tamil Nadu', key: 'stateTN' },
+    { value: 'Telangana', key: 'stateTS' },
+    { value: 'Tripura', key: 'stateTR' },
+    { value: 'Uttar Pradesh', key: 'stateUP' },
+    { value: 'Uttarakhand', key: 'stateUK' },
+    { value: 'West Bengal', key: 'stateWB' },
+];
 
 function ProfilePage() {
-    const { t, setLanguage } = useLanguage();
+    const { t, language, setLanguage } = useLanguage();
     const { farmerId, farmerPhone, updateProfile } = useFarmer();
     const [profile, setProfile] = useState({
         name: '', state: 'Tamil Nadu', district: '', crops: [],
@@ -115,15 +148,16 @@ function ProfilePage() {
                         <label>{t('profileName')}</label>
                         <input className="form-input" type="text" value={profile.name}
                             onChange={e => setProfile(p => ({ ...p, name: e.target.value }))}
+                            onKeyDown={e => e.key === 'Enter' && handleSave()}
                             placeholder={t('profileNamePlaceholder')} />
                     </div>
                     <div className="form-group">
                         <label>{t('profileDistrict')}</label>
                         <select className="form-input" value={profile.district}
                             onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}>
-                            <option value="">{t('profileDistrictPlaceholder')}</option>
+                            <option value="" disabled>{t('loginSelectDistrict')}</option>
                             {(DISTRICT_MAP[profile.state] || []).map(d =>
-                                <option key={d} value={d}>{d}</option>
+                                <option key={d} value={d}>{getDistrictName(d, language)}</option>
                             )}
                         </select>
                     </div>
@@ -131,7 +165,7 @@ function ProfilePage() {
                         <label>{t('profileState')}</label>
                         <select className="form-input" value={profile.state}
                             onChange={e => setProfile(p => ({ ...p, state: e.target.value, district: '' }))}>
-                            {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                            {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="form-group">
@@ -180,7 +214,8 @@ function ProfilePage() {
                     <div className="form-group">
                         <label>{t('profileLandSize')}</label>
                         <input className="form-input" type="number" value={profile.land_size_acres} min="0" step="0.5"
-                            onChange={e => setProfile(p => ({ ...p, land_size_acres: parseFloat(e.target.value) || 0 }))} />
+                            onChange={e => setProfile(p => ({ ...p, land_size_acres: parseFloat(e.target.value) || 0 }))}
+                            onKeyDown={e => e.key === 'Enter' && handleSave()} />
                     </div>
                 </div>
             </div>
@@ -204,7 +239,7 @@ function ProfilePage() {
                         </div>
                         <div className="summary-item">
                             <span className="summary-label">{t('profileSumLocation')}</span>
-                            <span className="summary-value">{profile.district}, {profile.state}</span>
+                            <span className="summary-value">{getDistrictName(profile.district, language)}, {t(STATE_OPTION_OBJECTS.find(s => s.value === profile.state)?.key || 'selectState')}</span>
                         </div>
                         <div className="summary-item">
                             <span className="summary-label">{t('profileSumCrops')}</span>

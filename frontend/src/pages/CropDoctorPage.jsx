@@ -133,7 +133,7 @@ function CropDoctorPage() {
                                         borderRadius: '50%', width: 32, height: 32, cursor: 'pointer',
                                         fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}
-                                    title="Remove image"
+                                    title={t('cropDocRemoveImage')}
                                 >✕</button>
                             </>
                         ) : (

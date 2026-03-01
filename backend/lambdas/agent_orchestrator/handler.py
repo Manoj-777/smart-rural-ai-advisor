@@ -307,13 +307,17 @@ DIRECT_SYSTEM_PROMPT = """You are the Smart Rural AI Advisor — a cognitive agr
 You combine 5 cognitive roles: Understanding, Reasoning, Fact-Checking, Communication, and Memory.
 
 CRITICAL RULES:
-1. Use tools for EVERY weather, crop, pest, or scheme query — NEVER guess data
+1. Use tools for EVERY weather, crop, pest, irrigation, or scheme query — NEVER guess data
 2. Always ground answers in real tool outputs
 3. Keep advice practical, region-specific, and season-aware
 4. Be culturally sensitive to Indian farming practices
 5. If data is unavailable, say so honestly
+6. For irrigation/water queries, always call get_crop_advisory with query_type='irrigation' — the Knowledge Base has detailed water tables, drip/sprinkler guides, and crop water needs
+7. For pest/disease queries with symptoms (yellow leaves, spots, wilting), always call get_pest_alert — the KB has pesticide guides, dosages, and treatment protocols
+8. When farmer context is provided, use it to fill missing parameters (state, crop, soil_type) for better results
+9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
 
-You have access to tools for weather lookup, crop advisory, government schemes, and farmer profiles.
+You have access to tools for weather lookup, crop advisory (including irrigation), pest alerts, government schemes, and farmer profiles.
 Always call the relevant tool first, then synthesize the response from tool data."""
 
 DIRECT_TOOLS = [
@@ -336,7 +340,7 @@ DIRECT_TOOLS = [
     {
         "toolSpec": {
             "name": "get_crop_advisory",
-            "description": "Get crop recommendations, growing advice, pest alerts, and irrigation guidance for a given region, season, and crop.",
+            "description": "Get crop recommendations, growing advice, varieties, fertilizer schedules, and irrigation guidance from the Knowledge Base. Use query_type='irrigation' specifically for water requirements, irrigation scheduling, drip/sprinkler methods, and water management queries.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -344,7 +348,8 @@ DIRECT_TOOLS = [
                         "location": {"type": "string", "description": "Farmer's location (district/state)"},
                         "crop": {"type": "string", "description": "Crop name (e.g., 'Rice', 'Cotton')"},
                         "season": {"type": "string", "description": "Season: kharif, rabi, or summer"},
-                        "query_type": {"type": "string", "description": "One of: recommendation, pest, irrigation, general"}
+                        "soil_type": {"type": "string", "description": "Soil type (e.g., 'Clay', 'Loam', 'Red soil')"},
+                        "query_type": {"type": "string", "description": "One of: recommendation, pest, irrigation, general. Use 'irrigation' for water/watering queries."}
                     },
                     "required": ["location"]
                 }
@@ -386,15 +391,16 @@ DIRECT_TOOLS = [
     {
         "toolSpec": {
             "name": "get_pest_alert",
-            "description": "Get pesticide product guides, pest alerts, disease identification, and treatment recommendations from the Knowledge Base. Use this for queries about specific pesticides, bio-pesticides, fungicides, herbicides, dosage, safety, and pest/disease management.",
+            "description": "Get pesticide product guides, pest alerts, disease identification, and treatment recommendations from the Knowledge Base. Use this for: yellow leaves, brown spots, wilting, rotting, insect damage, fungal infections, and any crop health problems. Returns specific pesticide names, dosages, organic alternatives, and prevention methods.",
             "inputSchema": {
                 "json": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "Pest/disease/pesticide query text"},
-                        "crop": {"type": "string", "description": "Crop name if relevant"},
-                        "symptoms": {"type": "string", "description": "Observed symptoms or pest name"},
-                        "location": {"type": "string", "description": "Farmer location"}
+                        "query": {"type": "string", "description": "Detailed pest/disease/pesticide query describing symptoms and crop"},
+                        "crop": {"type": "string", "description": "Crop name (e.g., Rice, Wheat, Cotton)"},
+                        "symptoms": {"type": "string", "description": "Visible symptoms: yellow leaves, brown spots, wilting, holes, etc."},
+                        "location": {"type": "string", "description": "Farmer location (state/district)"},
+                        "season": {"type": "string", "description": "Current season: kharif, rabi, summer"}
                     },
                     "required": ["query"]
                 }
@@ -599,7 +605,7 @@ Do NOT answer the question. Do NOT give advice. ONLY analyze.
 
 Output STRICT JSON (no markdown, no ```):
 {
-  "intents": ["weather", "crop", "pest", "schemes", "profile", "general"],
+  "intents": ["weather", "crop", "pest", "schemes", "profile", "irrigation", "general"],
   "entities": {
     "location": "extracted city/village/district or null",
     "crop": "extracted crop name or null",
@@ -618,9 +624,11 @@ Rules:
 - Extract entities even if implicit (e.g., "my paddy has yellow spots" → crop=paddy, pest_symptom=yellow spots)
 - If location is missing but needed, note it in summary
 - For weather queries, get_weather is always needed
-- For crop/pest queries, get_crop_advisory is always needed
+- For crop/variety/fertilizer queries, get_crop_advisory is always needed
+- For irrigation/water/watering queries, get_crop_advisory with query_type='irrigation' is always needed — add "irrigation" to intents
 - For pest/disease/pesticide queries, get_pest_alert is always needed (queries Knowledge Base for pesticide guides, dosage, safety, treatment)
-- For scheme queries, search_schemes is always needed"""
+- For scheme queries, search_schemes is always needed
+- ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data"""
 
 # ── Agent 3: Fact-Checking Agent ──
 FACTCHECK_SYSTEM_PROMPT = """You are the Fact-Checking Agent in a multi-agent agricultural advisory system for Indian farmers.
@@ -667,6 +675,8 @@ Rules:
 8. For pest/disease, always include: identify → treat → prevent
 9. For schemes, include: eligibility → how to apply → deadline if known
 10. End with a brief, helpful closing line
+11. ALWAYS write your response in English — translation to the farmer's language is handled separately
+12. For irrigation queries, include specific water amounts (mm/day, litres/acre) and scheduling
 
 Do NOT add information that wasn't in the original advisory.
 Do NOT use technical jargon unless explaining it.
@@ -857,9 +867,18 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     # ══════════════════════════════════════════════════════════
     logger.info("Pipeline Step 4/4: Communication Agent")
 
+    # Map language codes to language names for better LLM understanding
+    LANG_NAMES = {
+        'en': 'English', 'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu',
+        'kn': 'Kannada', 'ml': 'Malayalam', 'mr': 'Marathi', 'bn': 'Bengali',
+        'gu': 'Gujarati', 'pa': 'Punjabi', 'or': 'Odia', 'as': 'Assamese', 'ur': 'Urdu',
+    }
+    lang_name = LANG_NAMES.get(detected_lang, 'English')
+
     comm_input = (
-        f"Rewrite this fact-checked advisory for an Indian farmer:\n\n"
-        f"{fact_checked_text}"
+        f"Rewrite this fact-checked advisory for an Indian farmer.\n"
+        f"Write in clear, simple English. Translation will be handled separately.\n"
+        f"\n{fact_checked_text}"
     )
     if farmer_context:
         comm_input += f"\n\nFarmer profile: {json.dumps(farmer_context)}"
@@ -903,8 +922,17 @@ def _classify_intents(message_en, original_message=None):
                # Telugu crop words
                'పంట', 'విత్తనం', 'నేల', 'ఎరువు', 'వ్యవసాయ']
     pest_kw = ['pest', 'disease', 'fungus', 'insect', 'blight', 'spot', 'rot', 'spray', 'infestation',
-               # Tamil/Hindi/Telugu pest words
-               'பூச்சி', 'நோய்', 'கीடம்', 'कीट', 'रोग', 'పురుగు', 'వ్యాధి']
+               'yellow', 'brown', 'wilt', 'curling', 'dying', 'damage', 'attack', 'infection',
+               'fungicide', 'pesticide', 'medicine', 'treatment', 'cure', 'leaves turning',
+               # Tamil pest/symptom words
+               'பூச்சி', 'நோய்', 'கீடம்', 'மஞ்சள்', 'மருந்து', 'தெளிக்க', 'தெளி',
+               'பழுப்பு', 'வாடி', 'அழுகல்', 'இலைகள்',
+               # Hindi pest/symptom words
+               'कीट', 'रोग', 'पीला', 'पीले', 'दवा', 'छिड़काव', 'फफूंद', 'कीटनाशक',
+               'भूरा', 'मुरझा', 'सड़',
+               # Telugu pest/symptom words
+               'పురుగు', 'వ్యాధి', 'పసుపు', 'మందు', 'స్ప్రే', 'ఆకులు',
+               'గోధుమ', 'వాడి', 'కుళ్ళు']
     schemes_kw = ['scheme', 'subsidy', 'loan', 'insurance', 'pm-kisan', 'government', 'yojana', 'benefit',
                   # Tamil/Hindi/Telugu scheme words
                   'திட்டம்', 'மானியம்', 'கடன்', 'योजना', 'सब्सिडी', 'ऋण',
@@ -942,14 +970,20 @@ def _build_tool_first_prompt(message_en, intents, farmer_context=None):
     if not text:
         return text
 
-    intent_order = ['pest', 'weather', 'crop', 'schemes', 'profile']
+    intent_order = ['pest', 'weather', 'irrigation', 'crop', 'schemes', 'profile']
     selected = [i for i in intent_order if i in (intents or [])]
     if not selected:
         return text
 
+    # Limit to 3 intents max to avoid API Gateway timeout (29s)
+    if len(selected) > 3:
+        logger.warning(f"Too many intents ({len(selected)}), trimming to top 3: {selected[:3]}")
+        selected = selected[:3]
+
     tool_map = {
         'pest': 'get_pest_alert',
         'weather': 'get_weather',
+        'irrigation': 'get_crop_advisory',
         'crop': 'get_crop_advisory',
         'schemes': 'search_schemes',
         'profile': 'get_farmer_profile',
@@ -971,6 +1005,16 @@ def _build_tool_first_prompt(message_en, intents, farmer_context=None):
         if known:
             context_hint = f"Known farmer context: {'; '.join(known)}."
 
+    # For irrigation intent, add specific instruction
+    irrigation_hint = ""
+    if 'irrigation' in selected:
+        irrigation_hint = (
+            "For the irrigation query, call get_crop_advisory with query_type='irrigation' "
+            "and include the crop name, location, and soil_type in the parameters. "
+            "The Knowledge Base has detailed irrigation schedules, water requirements, "
+            "drip/sprinkler/flood methods, and crop water need tables.\n"
+        )
+
     routing = (
         "[ROUTING POLICY - STRICT]\n"
         f"Detected intents: {', '.join(selected)}.\n"
@@ -979,6 +1023,7 @@ def _build_tool_first_prompt(message_en, intents, farmer_context=None):
         "Do not answer with generic text before at least one tool call.\n"
         "If required parameters are missing, make a best-effort call with available context first, "
         "then ask only the minimum missing fields.\n"
+        f"{irrigation_hint}"
         f"{context_hint}\n"
         "[/ROUTING POLICY]\n\n"
     )

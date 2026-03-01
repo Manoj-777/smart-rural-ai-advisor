@@ -6,6 +6,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
+import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 
 // Fix Leaflet default marker icon issue with bundlers
@@ -103,12 +105,18 @@ function cleanLocationName(name) {
 
 function WeatherPage() {
     const { language, t } = useLanguage();
-    const [location, setLocation] = useState('Chennai');
+    const { farmerProfile } = useFarmer();
+
+    // Determine initial location from profile
+    const profileLocation = farmerProfile?.district || farmerProfile?.state || 'Chennai';
+
+    const [locationEn, setLocationEn] = useState(profileLocation); // English name for API
+    const [locationDisplay, setLocationDisplay] = useState(getDistrictName(profileLocation, language)); // translated for UI
     const [weather, setWeather] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [markerPos, setMarkerPos] = useState({ lat: 13.0827, lng: 80.2707 });
-    const [clickedPlace, setClickedPlace] = useState('Chennai');
+    const [clickedPlace, setClickedPlace] = useState(profileLocation); // English internally
     const [flyTarget, setFlyTarget] = useState(null);
 
     // Autocomplete state
@@ -116,6 +124,12 @@ function WeatherPage() {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const debounceRef = useRef(null);
     const searchBoxRef = useRef(null);
+
+    // Helper: set both English + display name together
+    const setLocationBoth = useCallback((engName) => {
+        setLocationEn(engName);
+        setLocationDisplay(getDistrictName(engName, language));
+    }, [language]);
 
     const fetchWeather = async (loc, coords) => {
         if (!loc || loc === 'Loading...') return;
@@ -181,30 +195,32 @@ function WeatherPage() {
         setMarkerPos({ lat, lng });
         setFlyTarget(null); // don't fly on click — user already clicked the spot
         setClickedPlace('Loading...');
+        setLocationDisplay('...');
         const placeName = await reverseGeocode(lat, lng);
         setClickedPlace(placeName);
-        setLocation(placeName);
+        setLocationBoth(placeName);
         fetchWeather(placeName, { lat, lng });
-    }, [reverseGeocode]);
+    }, [reverseGeocode, setLocationBoth]);
 
     const handleCityClick = useCallback((city) => {
         setMarkerPos({ lat: city.lat, lng: city.lng });
         setFlyTarget({ lat: city.lat, lng: city.lng });
         setClickedPlace(city.name);
-        setLocation(city.name);
+        setLocationBoth(city.name);
         fetchWeather(city.name, { lat: city.lat, lng: city.lng });
-    }, []);
+    }, [setLocationBoth]);
 
     const handleSearch = () => {
-        if (!location.trim()) return;
-        const cleaned = cleanLocationName(location.trim());
+        if (!locationDisplay.trim()) return;
+        // Use English name if available, else use what user typed
+        const searchTerm = locationEn || cleanLocationName(locationDisplay.trim());
         setShowSuggestions(false);
         setSuggestions([]);
-        setClickedPlace(cleaned);
-        setLocation(cleaned);
+        setClickedPlace(searchTerm);
+        setLocationBoth(searchTerm);
         // Forward geocode to also move the map pin
-        forwardGeocode(cleaned);
-        fetchWeather(cleaned);
+        forwardGeocode(searchTerm);
+        fetchWeather(searchTerm);
     };
 
     // Forward geocode: get lat/lng and fly map there
@@ -227,7 +243,8 @@ function WeatherPage() {
 
     // Autocomplete: debounced forward geocode search as user types
     const handleLocationInput = useCallback((value) => {
-        setLocation(value);
+        setLocationDisplay(value);
+        setLocationEn(''); // user is typing freely, clear English mapping
         if (debounceRef.current) clearTimeout(debounceRef.current);
         if (!value.trim() || value.trim().length < 2) {
             setSuggestions([]);
@@ -266,14 +283,14 @@ function WeatherPage() {
     }, []);
 
     const handleSuggestionClick = useCallback((s) => {
-        setLocation(s.name);
         setClickedPlace(s.name);
+        setLocationBoth(s.name);
         setMarkerPos({ lat: s.lat, lng: s.lng });
         setFlyTarget({ lat: s.lat, lng: s.lng });
         setSuggestions([]);
         setShowSuggestions(false);
         fetchWeather(s.name, { lat: s.lat, lng: s.lng });
-    }, []);
+    }, [setLocationBoth]);
 
     // Close suggestions on outside click
     useEffect(() => {
@@ -286,7 +303,11 @@ function WeatherPage() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    useEffect(() => { fetchWeather(location); }, []);
+    useEffect(() => {
+        // On mount, forward-geocode the profile location to position the map, then fetch weather
+        forwardGeocode(profileLocation);
+        fetchWeather(profileLocation);
+    }, []);
 
     return (
         <div className="weather-page">
@@ -315,7 +336,7 @@ function WeatherPage() {
                         {flyTarget && <MapFlyTo lat={flyTarget.lat} lng={flyTarget.lng} />}
                         <Marker position={[markerPos.lat, markerPos.lng]}>
                             <Popup>
-                                <strong>📍 {clickedPlace}</strong>
+                                <strong>📍 {getDistrictName(clickedPlace, language)}</strong>
                             </Popup>
                         </Marker>
                     </MapContainer>
@@ -330,7 +351,7 @@ function WeatherPage() {
                             <span className="search-icon">🔍</span>
                             <input
                                 type="text"
-                                value={location}
+                                value={locationDisplay}
                                 onChange={(e) => handleLocationInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
@@ -350,7 +371,7 @@ function WeatherPage() {
                                         className="weather-autocomplete-item"
                                         onClick={() => handleSuggestionClick(s)}
                                     >
-                                        <span className="autocomplete-name">📍 {s.name}</span>
+                                        <span className="autocomplete-name">📍 {getDistrictName(s.name, language)}</span>
                                         <span className="autocomplete-detail">{s.display}</span>
                                     </div>
                                 ))}
@@ -367,7 +388,7 @@ function WeatherPage() {
                                 className={`weather-city-btn ${clickedPlace === city.name ? 'active' : ''}`}
                                 onClick={() => handleCityClick(city)}
                             >
-                                {city.name}
+                                {getDistrictName(city.name, language)}
                             </button>
                         ))}
                     </div>
@@ -377,7 +398,7 @@ function WeatherPage() {
             {/* Selected location */}
             {clickedPlace && !loading && (
                 <div className="weather-location-badge">
-                    📍 {t('weatherShowingFor')}: <strong>{clickedPlace}</strong>
+                    📍 {t('weatherShowingFor')}: <strong>{getDistrictName(clickedPlace, language)}</strong>
                 </div>
             )}
 

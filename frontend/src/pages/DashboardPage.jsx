@@ -82,6 +82,9 @@ function DashboardPage() {
         { icon: '📋', title: t('dashActionSchemes'), desc: t('dashActionSchemesDesc'), path: '/schemes', color: '#d97706' },
         { icon: '📸', title: t('dashActionCropDoc'), desc: t('dashActionCropDocDesc'), path: '/crop-doctor', color: '#7c3aed' },
         { icon: '💰', title: t('dashActionMarket'), desc: t('dashActionMarketDesc'), path: '/prices', color: '#dc2626' },
+        { icon: '🌱', title: t('dashActionCropRec'), desc: t('dashActionCropRecDesc'), path: '/crop-recommend', color: '#059669' },
+        { icon: '📅', title: t('dashActionFarmCal'), desc: t('dashActionFarmCalDesc'), path: '/farm-calendar', color: '#7c3aed' },
+        { icon: '🧪', title: t('dashActionSoil'), desc: t('dashActionSoilDesc'), path: '/soil-analysis', color: '#b45309' },
     ];
 
     const seasonInfo = (() => {

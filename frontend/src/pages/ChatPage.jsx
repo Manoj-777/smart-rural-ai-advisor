@@ -317,7 +317,7 @@ function ChatPage() {
                 {messages.length === 0 && (
                     <div className="chat-welcome">
                         <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px 40px 10px' }}>
-                            🌾 Ask me about crops, weather, pests, or government schemes!
+                            🌾 {t('chatWelcomeHint')}
                         </div>
                         <div className="suggestions">
                             {suggestions.map((s, i) => (
@@ -337,7 +337,7 @@ function ChatPage() {
                 ))}
                 {loading && (
                     <div className="message assistant">
-                        <span className="typing-dots">🌾 Thinking...</span>
+                        <span className="typing-dots">🌾 {t('chatThinking')}</span>
                     </div>
                 )}
                 <div ref={chatEndRef} />

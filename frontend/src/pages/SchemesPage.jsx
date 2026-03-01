@@ -102,19 +102,19 @@ function SchemesPage() {
             {farmerState && (
                 <div className="state-schemes-section" style={{ marginBottom: '24px' }}>
                     <div className="state-schemes-header">
-                        <h3>🏛️ {language === 'hi-IN' ? `${farmerState} के लिए योजनाएं` : language === 'ta-IN' ? `${farmerState} திட்டங்கள்` : `Schemes for ${farmerState}`}</h3>
+                        <h3>🏛️ {t('schemesForState')} {farmerState}</h3>
                         <button
                             className="send-btn"
                             style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '8px' }}
                             onClick={() => fetchStateSchemes(farmerState)}
                             disabled={stateLoading}
                         >
-                            🔄 {stateLoading ? '...' : (language === 'hi-IN' ? 'रिफ्रेश' : language === 'ta-IN' ? 'புதுப்பி' : 'Refresh')}
+                            🔄 {stateLoading ? '...' : t('schemesRefresh')}
                         </button>
                     </div>
                     {stateLoading ? (
                         <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-light)' }}>
-                            ⏳ {language === 'hi-IN' ? 'AI जानकारी ला रहा है...' : language === 'ta-IN' ? 'AI தகவல் பெறுகிறது...' : 'AI is fetching scheme information...'}
+                            ⏳ {t('schemesFetchingAI')}
                         </div>
                     ) : stateSchemes ? (
                         <div className="card" style={{ borderLeft: '4px solid var(--primary)', lineHeight: 1.7 }}>
@@ -131,7 +131,7 @@ function SchemesPage() {
             )}
 
             <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>
-                📋 {language === 'hi-IN' ? 'केंद्र सरकार की योजनाएं' : language === 'ta-IN' ? 'மத்திய அரசு திட்டங்கள்' : 'Central Government Schemes'}
+                📋 {t('schemesCentral')}
             </h3>
 
             <div className="search-bar">

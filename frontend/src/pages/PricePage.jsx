@@ -129,6 +129,8 @@ function PricePage() {
     const pestUsage = (en, fallback) => pt.pestUsage?.[en] || fallback;
     /* translate pest name */
     const pestName = (en) => pt.pestNames?.[en] || en;
+    /* translate unit */
+    const unitName = (en) => pt.units?.[en] || en;
 
     const filteredCrops = useMemo(() => {
         let result = CROP_PRICES.filter(c => {
@@ -218,9 +220,7 @@ function PricePage() {
         } catch (err) {
             console.error('AI price advisory error:', err);
             setAiAdvisory({
-                advisory: language === 'ta-IN' ? 'AI ஆலோசனை தற்போது கிடைக்கவில்லை. மீண்டும் முயற்சிக்கவும்.'
-                         : language === 'hi-IN' ? 'AI सलाह अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।'
-                         : 'AI advisory unavailable right now. Please try again later.',
+                advisory: t('priceAiUnavailable'),
                 source: 'Error',
                 lastUpdated: '',
             });
@@ -263,9 +263,7 @@ function PricePage() {
         } catch (err) {
             console.error('AI pest advisory error:', err);
             setAiAdvisory({
-                advisory: language === 'ta-IN' ? 'AI ஆலோசனை தற்போது கிடைக்கவில்லை. மீண்டும் முயற்சிக்கவும்.'
-                         : language === 'hi-IN' ? 'AI सलाह अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।'
-                         : 'AI advisory unavailable right now. Please try again later.',
+                advisory: t('priceAiUnavailable'),
                 source: 'Error',
                 lastUpdated: '',
             });
@@ -359,7 +357,7 @@ function PricePage() {
                                     <td className="price-msp">{c.msp ? `₹${c.msp.toLocaleString()}` : '—'}</td>
                                     <td className="price-range">
                                         ₹{c.marketMin.toLocaleString()} – ₹{c.marketMax.toLocaleString()}
-                                        <span className="price-unit">{c.unit}</span>
+                                        <span className="price-unit">{unitName(c.unit)}</span>
                                     </td>
                                     <td><TrendBadge trend={c.trend} pt={pt} /></td>
                                     <td>
@@ -403,7 +401,7 @@ function PricePage() {
                                 <tr key={i} className={aiCrop === p.name && aiType === 'pest' ? 'ai-active-row' : ''}>
                                     <td className="price-crop-name">🧴 {pestName(p.name)}</td>
                                     <td><span className={`pest-cat-badge cat-${p.category.toLowerCase().replace(/[^a-z]/g, '')}`}>{catName(p.category)}</span></td>
-                                    <td className="price-msp">₹{p.price} <span className="price-unit">{p.unit}</span></td>
+                                    <td className="price-msp">₹{p.price} <span className="price-unit">{unitName(p.unit)}</span></td>
                                     <td className="price-usage">{pestUsage(p.name, p.usage)}</td>
                                     <td>
                                         <button

@@ -1,0 +1,117 @@
+{
+  "results": [
+    {
+      "name": "1. WEATHER (Weather Page)",
+      "status": "success",
+      "time": 14.0,
+      "tools_used": [
+        "get_weather",
+        "get_crop_advisory"
+      ],
+      "reply_length": 875,
+      "detected_language": "en",
+      "has_audio": true,
+      "success": true
+    },
+    {
+      "name": "2. CROP ADVISORY (Crop Recommend Page)",
+      "status": "success",
+      "time": 13.6,
+      "tools_used": [
+        "get_crop_advisory"
+      ],
+      "reply_length": 1103,
+      "detected_language": "en",
+      "has_audio": true,
+      "success": true
+    },
+    {
+      "name": "3. SOIL & PEST (Soil Analysis Page)",
+      "status": "success",
+      "time": 12.2,
+      "tools_used": [
+        "get_pest_alert"
+      ],
+      "reply_length": 944,
+      "detected_language": "en",
+      "has_audio": true,
+      "success": true
+    },
+    {
+      "name": "4. IRRIGATION (Farm Calendar context)",
+      "status": "success",
+      "time": 9.7,
+      "tools_used": [
+        "get_crop_advisory"
+      ],
+      "reply_length": 635,
+      "detected_language": "en",
+      "has_audio": true,
+      "success": true
+    },
+    {
+      "name": "5. GOVT SCHEMES (Schemes Page)",
+      "status": "success",
+      "time": 18.2,
+      "tools_used": [
+        "search_schemes"
+      ],
+      "reply_length": 1284,
+      "detected_language": "en",
+      "has_audio": true,
+      "success": true
+    },
+    {
+      "name": "6. COMBINED QUERY (Multi-intent)",
+      "status": "unknown",
+      "time": 29.7,
+      "tools_used": [],
+      "reply_length": 8,
+      "detected_language": "?",
+      "has_audio": false,
+      "success": false
+    },
+    {
+      "name": "7. REGIONAL LANGUAGE (Tamil)",
+      "status": "success",
+      "time": 18.7,
+      "tools_used": [
+        "get_weather",
+        "get_crop_advisory"
+      ],
+      "reply_length": 1744,
+      "detected_language": "ta",
+      "has_audio": false,
+      "success": true
+    },
+    {
+      "name": "8. REGIONAL LANGUAGE (Hindi)",
+      "status": "success",
+      "time": 17.1,
+      "tools_used": [
+        "get_crop_advisory",
+        "get_pest_alert",
+        "get_farmer_profile"
+      ],
+      "reply_length": 1413,
+      "detected_language": "hi",
+      "has_audio": true,
+      "success": true
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "avg_time": 16.650000000000002,
+    "total_time": 147.21808767318726,
+    "capabilities": {
+      "Weather Info (Weather Page)": true,
+      "Crop Advisory (Crop Page)": true,
+      "Pest/Disease (Soil Page)": true,
+      "Irrigation (Calendar Page)": true,
+      "Govt Schemes (Schemes Page)": true,
+      "Regional Language Support": true,
+      "Audio Response (TTS)": true
+    }
+  }
+}

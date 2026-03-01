@@ -38,34 +38,66 @@ def lambda_handler(event, context):
         soil_type = params.get('soil_type', '')
         symptoms = params.get('symptoms', '')
         location = params.get('location', '')
+        query_type = params.get('query_type', '')
 
-        # Build a rich search query from all available params
-        parts = [query] if query else []
-        if crop:
-            parts.append(f"crop: {crop}")
-        if state:
-            parts.append(f"state: {state}")
-        if season:
-            parts.append(f"season: {season}")
-        if soil_type:
-            parts.append(f"soil: {soil_type}")
-        if symptoms:
-            parts.append(f"symptoms: {symptoms}")
-        if location:
-            parts.append(f"location: {location}")
-        search_query = " | ".join(parts) if parts else "general crop advisory India"
+        # Build a natural language search query for better KB vector retrieval
+        # Natural language queries work much better than pipe-separated keywords
+        if query_type == 'irrigation' or 'irrigation' in (query or '').lower() or 'water' in (query or '').lower():
+            # Irrigation-specific query
+            nl_parts = []
+            if crop:
+                nl_parts.append(f"{crop} irrigation water requirement schedule")
+            if location or state:
+                nl_parts.append(f"in {location or state}")
+            if soil_type:
+                nl_parts.append(f"for {soil_type} soil")
+            if season:
+                nl_parts.append(f"during {season} season")
+            nl_parts.append("drip sprinkler flood irrigation method water need per day")
+            if query:
+                nl_parts.append(query)
+            search_query = " ".join(nl_parts)
+        elif symptoms or 'pest' in (query_type or '').lower():
+            # Pest/disease query
+            nl_parts = []
+            if crop:
+                nl_parts.append(f"{crop}")
+            if symptoms:
+                nl_parts.append(f"showing {symptoms}")
+            if state or location:
+                nl_parts.append(f"in {state or location}")
+            if season:
+                nl_parts.append(f"during {season}")
+            nl_parts.append("pest disease treatment pesticide spray prevention")
+            if query:
+                nl_parts.append(query)
+            search_query = " ".join(nl_parts)
+        else:
+            # General crop advisory — use natural language format
+            nl_parts = []
+            if query:
+                nl_parts.append(query)
+            if crop:
+                nl_parts.append(f"{crop} crop advisory varieties fertilizer yield")
+            if state or location:
+                nl_parts.append(f"in {state or location}")
+            if season:
+                nl_parts.append(f"during {season} season")
+            if soil_type:
+                nl_parts.append(f"for {soil_type} soil")
+            search_query = " ".join(nl_parts) if nl_parts else "crop advisory recommendations India farming"
 
         if not KB_ID:
             msg = 'Bedrock Knowledge Base ID not configured'
             return bedrock_error_response(msg, event) if from_bedrock else error_response(msg, 500)
 
-        # Query Knowledge Base
+        # Query Knowledge Base with natural language query
         response = bedrock_agent.retrieve(
             knowledgeBaseId=KB_ID,
             retrievalQuery={'text': search_query},
             retrievalConfiguration={
                 'vectorSearchConfiguration': {
-                    'numberOfResults': 5
+                    'numberOfResults': 8
                 }
             }
         )

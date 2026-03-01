@@ -17,6 +17,16 @@ export function LanguageProvider({ children }) {
         if (translations[lang]) {
             setLanguageState(lang);
             localStorage.setItem('app_language', lang);
+
+            // Sync language preference to DynamoDB profile (fire-and-forget)
+            const farmerId = localStorage.getItem('farmer_id');
+            if (farmerId) {
+                fetch(`${config.API_URL}/profile/${farmerId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ language: lang })
+                }).catch(() => {}); // background sync — don't block UI
+            }
         }
     }, []);
 

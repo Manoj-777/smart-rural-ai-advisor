@@ -44,17 +44,20 @@ def put_farmer_profile(farmer_id, profile_data):
         return False
 
 
-def save_chat_message(session_id, role, message, language='en'):
+def save_chat_message(session_id, role, message, language='en', farmer_id=None):
     """Save a single chat message to session history."""
     try:
         timestamp = datetime.utcnow().isoformat()
-        sessions_table.put_item(Item={
+        item = {
             'session_id': session_id,
             'timestamp': timestamp,
             'role': role,  # 'user' or 'assistant'
             'message': message,
             'language': language
-        })
+        }
+        if farmer_id:
+            item['farmer_id'] = farmer_id
+        sessions_table.put_item(Item=item)
         return True
     except Exception as e:
         logger.error(f"DynamoDB save chat error: {e}")

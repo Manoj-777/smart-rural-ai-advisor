@@ -1,6 +1,7 @@
 // src/components/ChatMessage.jsx
 
 import { useState, useCallback } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 function formatMessage(text) {
     if (!text) return '';
@@ -55,9 +56,28 @@ const SPEECH_LANG_MAP = {
 
 function ChatMessage({ message }) {
     const isUser = message.role === 'user';
+    const { t } = useLanguage();
     const [speaking, setSpeaking] = useState(false);
+    const [playingAudio, setPlayingAudio] = useState(false);
+    const audioRef = useCallback(node => {
+        if (node) {
+            node.onended = () => setPlayingAudio(false);
+            node.onpause = () => setPlayingAudio(false);
+            node.onplay = () => setPlayingAudio(true);
+        }
+    }, []);
 
     const handleSpeak = useCallback(() => {
+        // If there's an audio_url from Polly, use that
+        if (message.audioUrl) {
+            const existing = document.getElementById('tts-audio-' + message.timestamp);
+            if (existing) {
+                if (playingAudio) { existing.pause(); existing.currentTime = 0; setPlayingAudio(false); }
+                else { existing.play().catch(() => {}); }
+                return;
+            }
+        }
+
         if (!window.speechSynthesis) return;
 
         // If already speaking, stop
@@ -107,7 +127,7 @@ function ChatMessage({ message }) {
             window.speechSynthesis.speak(utter);
         }
         speakNext();
-    }, [message, speaking]);
+    }, [message, speaking, playingAudio]);
 
     // Simple script detection for speech lang
     function detectSpeechLang(text) {
@@ -123,6 +143,8 @@ function ChatMessage({ message }) {
         return 'en-IN';
     }
 
+    const isSpeakingOrPlaying = speaking || playingAudio;
+
     return (
         <div className={`message ${message.role}`}>
             <div className="message-avatar">
@@ -133,13 +155,36 @@ function ChatMessage({ message }) {
                     className="message-text"
                     dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }} 
                 />
-                {/* Audio player if API returned audio URL */}
+                {/* Hidden audio element for Polly audio URL */}
                 {message.audioUrl && (
-                    <audio controls src={message.audioUrl} className="message-audio" />
+                    <audio
+                        id={'tts-audio-' + message.timestamp}
+                        ref={audioRef}
+                        src={message.audioUrl}
+                        className="message-audio-hidden"
+                        preload="none"
+                    />
                 )}
-                {message.timestamp && (
-                    <span className="message-time">{formatTimestamp(message.timestamp)}</span>
-                )}
+                <div className="message-footer">
+                    {/* Read Aloud button for assistant messages */}
+                    {!isUser && message.content && (
+                        <button
+                            className={`tts-btn ${isSpeakingOrPlaying ? 'tts-active' : ''}`}
+                            onClick={handleSpeak}
+                            title={isSpeakingOrPlaying ? t('ttsStopReading') : t('ttsReadAloud')}
+                        >
+                            {isSpeakingOrPlaying ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                            ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                            )}
+                            <span className="tts-label">{isSpeakingOrPlaying ? t('ttsStop') : t('ttsListen')}</span>
+                        </button>
+                    )}
+                    {message.timestamp && (
+                        <span className="message-time">{formatTimestamp(message.timestamp)}</span>
+                    )}
+                </div>
             </div>
         </div>
     );
