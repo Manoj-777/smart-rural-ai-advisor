@@ -26,7 +26,7 @@ TTS_TIME_BUDGET_SEC = 18  # skip TTS if elapsed > this
 
 # Feature-page session prefixes: pre-structured prompts that
 # don't need the 4-agent cognitive pipeline.
-FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-')
+FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'price-advisory')
 
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
