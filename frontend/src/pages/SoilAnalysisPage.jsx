@@ -179,21 +179,6 @@ Keep advice practical for Indian farmers. Use bullet points.`;
         setLoading(false);
     };
 
-    // TTS
-    const [speaking, setSpeaking] = useState(false);
-    const handleSpeak = () => {
-        if (!result?.text) return;
-        if (speaking) { window.speechSynthesis?.cancel(); setSpeaking(false); return; }
-        const text = result.text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\n/g, '. ');
-        const utter = new SpeechSynthesisUtterance(text.slice(0, 3000));
-        utter.lang = language.replace('_', '-');
-        utter.rate = 0.9;
-        utter.onend = () => setSpeaking(false);
-        utter.onerror = () => setSpeaking(false);
-        setSpeaking(true);
-        window.speechSynthesis.speak(utter);
-    };
-
     function formatText(text) {
         if (!text) return '';
         return text
@@ -300,15 +285,6 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                 <div className="ai-result-card" ref={resultRef}>
                     <div className="ai-result-header">
                         <h3>🧪 {t('soilResultTitle') || 'Soil Health Analysis Report'}</h3>
-                        <button className={`tts-btn ${speaking ? 'tts-active' : ''}`} onClick={handleSpeak}
-                            title={speaking ? t('ttsStopReading') : t('ttsReadAloud')}>
-                            {speaking ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-                            ) : (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                            )}
-                            <span className="tts-label">{speaking ? t('ttsStop') : t('ttsListen')}</span>
-                        </button>
                     </div>
                     {result.audioUrl && (
                         <audio controls src={result.audioUrl} className="ai-result-audio"

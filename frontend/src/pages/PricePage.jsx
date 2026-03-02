@@ -130,7 +130,6 @@ function PricePage() {
     const [aiAudioUrl, setAiAudioUrl] = useState(null);
     const [aiAudioKey, setAiAudioKey] = useState(null);
     const [aiAudioLoading, setAiAudioLoading] = useState(false);
-    const [speaking, setSpeaking] = useState(false);
     const advisoryRef = useRef(null);
 
     const aiLabel = AI_LABELS[language] || AI_LABELS['en-IN'];
@@ -168,21 +167,6 @@ function PricePage() {
             .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
             .replace(/\n/g, '<br/>');
     }
-
-    /* ── TTS: browser speech synthesis fallback ─────── */
-    const handleSpeak = () => {
-        const text = aiAdvisory?.advisory;
-        if (!text) return;
-        if (speaking) { window.speechSynthesis?.cancel(); setSpeaking(false); return; }
-        const cleaned = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/###/g, '').replace(/\n/g, '. ');
-        const utter = new SpeechSynthesisUtterance(cleaned.slice(0, 3000));
-        utter.lang = language.replace('_', '-');
-        utter.rate = 0.9;
-        utter.onend = () => setSpeaking(false);
-        utter.onerror = () => setSpeaking(false);
-        setSpeaking(true);
-        window.speechSynthesis.speak(utter);
-    };
 
     /* translate a crop name for display */
     const cropName = (en) => pt.crops?.[en] || en;
@@ -402,18 +386,7 @@ function PricePage() {
                 <div className={`ai-advisory-panel${aiType === 'pest' ? ' pest-panel' : ''}`} ref={advisoryRef}>
                     <div className="ai-advisory-header">
                         <h3>🤖 {aiType === 'pest' ? aiLabel.titlePest : aiLabel.titleCrop} — {aiType === 'pest' ? (pestName(aiCrop) || aiCrop) : (cropName(aiCrop) || aiCrop)}</h3>
-                        <div className="ai-advisory-actions">
-                            <button className={`tts-btn${speaking ? ' tts-active' : ''}`} onClick={handleSpeak}
-                                title={speaking ? (t('ttsStopReading') || 'Stop') : (t('ttsReadAloud') || 'Listen')}>
-                                {speaking ? (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-                                ) : (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                                )}
-                                <span className="tts-label">{speaking ? (t('ttsStop') || 'Stop') : (t('ttsListen') || '🔊 Listen')}</span>
-                            </button>
-                            <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); setAiAudioUrl(null); setAiAudioKey(null); setSpeaking(false); window.speechSynthesis?.cancel(); }}>{aiLabel.close}</button>
-                        </div>
+                        <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); setAiAudioUrl(null); setAiAudioKey(null); }}>{aiLabel.close}</button>
                     </div>
                     {aiAudioUrl && (
                         <audio controls src={aiAudioUrl} className="ai-result-audio"
