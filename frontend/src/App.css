@@ -2739,6 +2739,31 @@ body {
     color: #15803d;
 }
 
+/* ── Account Not Found Screen ── */
+.login-not-found-card {
+    text-align: center;
+    padding: 20px 0;
+}
+.login-not-found-icon {
+    font-size: 56px;
+    margin-bottom: 8px;
+}
+.login-not-found-card h2 {
+    color: var(--text-primary);
+    font-size: 20px;
+    margin: 0 0 12px 0;
+}
+.login-not-found-msg {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0 0 24px 0;
+    padding: 12px 16px;
+    background: #fef3c7;
+    border-radius: 10px;
+    border-left: 4px solid #f59e0b;
+}
+
 /* ── OTP Verification Screen ── */
 .otp-form {
     text-align: center;

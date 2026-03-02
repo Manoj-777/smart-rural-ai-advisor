@@ -15,7 +15,7 @@ function LoginPage() {
     const [phone, setPhone] = useState('');
     const [pin, setPin] = useState('');
     const [name, setName] = useState('');
-    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning'
+    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning' | 'not-found'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -83,7 +83,8 @@ function LoginPage() {
         } catch (err) {
             const msg = err?.message || '';
             if (msg.includes('UserNotFoundException') || msg.includes('does not exist')) {
-                setError(t('loginNotRegistered'));
+                setMode('not-found');
+                setError('');
             } else if (msg.includes('NotAuthorizedException') || msg.includes('Incorrect')) {
                 setError(t('loginWrongPin'));
             } else {
@@ -316,6 +317,33 @@ function LoginPage() {
                         <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
                             ← {t('loginBack')}
                         </button>
+                    </div>
+                )}
+
+                {mode === 'not-found' && (
+                    <div className="login-form">
+                        <div className="login-not-found-card">
+                            <div className="login-not-found-icon">🔍</div>
+                            <h2>{t('loginNotFoundTitle')}</h2>
+                            <p className="login-not-found-msg">
+                                {t('loginNotFoundMsg').replace('{phone}', phone || '...')}
+                            </p>
+                            <button
+                                className="login-btn login-btn-primary"
+                                onClick={() => { setMode('new'); setError(''); setPin(''); }}
+                            >
+                                🚀 {t('loginNotFoundCreate')}
+                            </button>
+                            <button
+                                className="login-btn login-btn-secondary"
+                                onClick={() => { setMode('returning'); setError(''); setPin(''); }}
+                            >
+                                🔄 {t('loginNotFoundRetry')}
+                            </button>
+                            <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); setPhone(''); setPin(''); }}>
+                                ← {t('loginBack')}
+                            </button>
+                        </div>
                     </div>
                 )}
 
