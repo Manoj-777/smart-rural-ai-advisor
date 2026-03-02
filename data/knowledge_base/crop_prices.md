@@ -47,6 +47,22 @@
 | Coconut (Copra — Milling) | 10,860 | Perennial |
 | Coconut (Copra — Ball) | 11,750 | Perennial |
 
+### Vegetables — Price Stabilization Reference Prices (Operation Greens / NAFED)
+
+> **Note:** Tomato, Onion, and Potato (TOP) do **not** have a formal MSP declared by CACP. Instead, the Government of India supports these crops through the **Operation Greens (TOP to TOTAL)** scheme and the **Price Stabilization Fund (PSF)** managed by NAFED. The reference prices below are government intervention trigger prices for 2025-26.
+
+| Crop | Reference Price (₹/quintal) | Intervention Mechanism | Season |
+|------|----------------------------|----------------------|--------|
+| Tomato | 524 | Operation Greens — NAFED procurement triggered when farm-gate price falls below reference | Kharif / Year-round |
+| Onion | 929 | Price Stabilization Fund — NAFED buffer stock procurement at reference price | Rabi (main), Kharif (late) |
+| Potato | 535 | Operation Greens — cold storage subsidy & transport subsidy when price falls below reference | Rabi |
+
+**How farmers benefit:**
+- When market prices crash below the reference price, NAFED procures directly from farmers at or near the reference price.
+- Transport subsidy of 50% on freight for moving TOP crops from surplus to deficit areas.
+- Storage subsidy of 50% for cold storage of potatoes and onions.
+- Register with NAFED / state cooperative for procurement benefits: `nafed.in`
+
 ---
 
 ## 4. Market Price Ranges (Mandi Averages)
