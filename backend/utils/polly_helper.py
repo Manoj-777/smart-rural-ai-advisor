@@ -24,15 +24,6 @@ LANGUAGE_ALIASES = {
     'kn-in': 'kn',
 }
 
-LANGUAGE_ALIASES = {
-    'en-in': 'en',
-    'en-us': 'en',
-    'hi-in': 'hi',
-    'ta-in': 'ta',
-    'te-in': 'te',
-    'kn-in': 'kn',
-}
-
 # Language → Polly voice mapping
 # Polly has Hindi + English (Indian) neural voices.
 # Tamil/Telugu fall back to Hindi voice (Kajal).
@@ -62,19 +53,25 @@ def normalize_language_code(language_code, default='en'):
     return LANGUAGE_ALIASES.get(normalized, normalized)
 
 MAX_POLLY_TEXT_LENGTH = 2800
+# gTTS is ~10× slower than Polly (HTTP calls to Google Translate per chunk).
+# Keep gTTS text short to finish within API Gateway's 29-second window.
+MAX_GTTS_TEXT_LENGTH = 800
+
+
+def _truncate_text(text, max_length):
+    """Truncate text to max_length, breaking at a word boundary."""
+    normalized = (text or '').strip()
+    if len(normalized) <= max_length:
+        return normalized
+    truncated = normalized[:max_length]
+    last_space = truncated.rfind(' ')
+    if last_space > int(max_length * 0.7):
+        truncated = truncated[:last_space]
+    return f"{truncated}..."
 
 
 def _prepare_text_for_polly(text):
-    normalized = (text or '').strip()
-    if len(normalized) <= MAX_POLLY_TEXT_LENGTH:
-        return normalized
-
-    truncated = normalized[:MAX_POLLY_TEXT_LENGTH]
-    last_space = truncated.rfind(' ')
-    if last_space > int(MAX_POLLY_TEXT_LENGTH * 0.7):
-        truncated = truncated[:last_space]
-
-    return f"{truncated}..."
+    return _truncate_text(text, MAX_POLLY_TEXT_LENGTH)
 
 
 def _upload_audio_bytes(audio_bytes):
@@ -130,7 +127,10 @@ def _gtts_tts(safe_text, language_code):
         print('gTTS not installed, skipping free TTS path')
         return None
 
-    tts = gTTS(text=safe_text, lang=language_code, slow=False)
+    # Aggressively truncate for gTTS — it's much slower than Polly.
+    gtts_text = _truncate_text(safe_text, MAX_GTTS_TEXT_LENGTH)
+    print(f'gTTS: {len(safe_text)} chars → {len(gtts_text)} chars for lang={language_code}')
+    tts = gTTS(text=gtts_text, lang=language_code, slow=False)
     buf = io.BytesIO()
     tts.write_to_fp(buf)
     buf.seek(0)

@@ -23,6 +23,7 @@ logger.setLevel(logging.INFO)
 # API Gateway hard timeout is 29s. We must return before that.
 API_GW_TIMEOUT_SEC = 29
 TTS_TIME_BUDGET_SEC = 18  # skip TTS if elapsed > this
+GTTS_MIN_REMAINING_SEC = 15  # gTTS needs ~8-12s; skip if less than this remains
 
 # Feature-page session prefixes: pre-structured prompts that
 # don't need the 4-agent cognitive pipeline.
@@ -1444,11 +1445,21 @@ def lambda_handler(event, context):
 
         # --- Step 5: Generate TTS audio ---
         _elapsed = _time.time() - _t_start
+        _remaining = API_GW_TIMEOUT_SEC - _elapsed - 2  # 2s safety margin
         audio_url = None
         audio_key = None
         polly_text_truncated = False
+
+        _lang = detected_lang or 'en'
+        _needs_gtts = _lang not in ('en', 'hi')  # gTTS for non-Polly languages
+
         if _elapsed > TTS_TIME_BUDGET_SEC:
             logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
+        elif _needs_gtts and _remaining < GTTS_MIN_REMAINING_SEC:
+            logger.warning(
+                f'Skipping gTTS({_lang}) - only {_remaining:.1f}s remaining '
+                f'(need {GTTS_MIN_REMAINING_SEC}s)'
+            )
         else:
             try:
                 polly_result = text_to_speech(
