@@ -286,7 +286,10 @@ def create_agent_lambda_role():
                 'Sid': 'BedrockInvoke',
                 'Effect': 'Allow',
                 'Action': ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-                'Resource': f'arn:aws:bedrock:{REGION}::foundation-model/*',
+                'Resource': [
+                    'arn:aws:bedrock:*::foundation-model/*',
+                    f'arn:aws:bedrock:*:{ACCOUNT}:inference-profile/*',
+                ],
             },
             {   # Reasoning agent needs to invoke tool Lambdas
                 'Sid': 'InvokeToolLambdas',
