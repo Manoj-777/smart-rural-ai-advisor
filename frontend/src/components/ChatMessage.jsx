@@ -113,7 +113,7 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
                         controls
                         src={currentAudioUrl}
                         className="ai-result-audio"
-                        preload="none"
+                        preload="metadata"
                     />
                 )}
                 {audioLoading && (

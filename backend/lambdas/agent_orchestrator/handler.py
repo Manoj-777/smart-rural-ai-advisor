@@ -221,7 +221,7 @@ def _append_sources(reply_en, tools_used):
     return text
 
 
-def _apply_code_policy(user_query_en, intents, result_text, tools_used, original_query=None):
+def _apply_code_policy(user_query_en, intents, result_text, tools_used, original_query=None, farmer_context=None):
     policy_meta = {
         'code_policy_enforced': ENFORCE_CODE_POLICY,
         'off_topic_blocked': False,
@@ -258,11 +258,26 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
         logger.warning(f"Runtime message detected (passing through): {text[:200]}")
         return text, cleaned_tools, policy_meta
 
+    # Check if farmer_context provides enough grounding data already
+    # (profile has state/crops — no need to ask user again)
+    _has_profile_context = (
+        farmer_context
+        and (farmer_context.get('state') or farmer_context.get('district'))
+    )
+
     if policy_meta['grounding_required'] and not cleaned_tools:
-        # If the AI already generated a substantive response (>200 chars),
-        # allow it through — the query itself contained enough data
-        if len(text) > 200:
-            logger.info("Grounding: no tools but response is substantive — passing through")
+        # If the AI already generated a substantive response (>100 chars when
+        # profile context exists, >200 chars otherwise), allow it through —
+        # the query + profile context already had enough data.
+        substantive_threshold = 100 if _has_profile_context else 200
+        if len(text) > substantive_threshold:
+            logger.info(f"Grounding: no tools but response is substantive ({len(text)} chars, "
+                        f"threshold={substantive_threshold}, has_profile={_has_profile_context}) — passing through")
+            policy_meta['grounding_satisfied'] = True
+        elif _has_profile_context and len(text) > 40:
+            # Profile context gives us location/crops — even shorter responses
+            # are likely grounded in the context prefix the model received
+            logger.info(f"Grounding: farmer profile context available, response {len(text)} chars — passing through")
             policy_meta['grounding_satisfied'] = True
         else:
             policy_meta['grounding_satisfied'] = False
@@ -345,8 +360,9 @@ CRITICAL RULES:
 5. If data is unavailable, say so honestly
 6. For irrigation/water queries, always call get_crop_advisory with query_type='irrigation' — the Knowledge Base has detailed water tables, drip/sprinkler guides, and crop water needs
 7. For pest/disease queries with symptoms (yellow leaves, spots, wilting), always call get_pest_alert — the KB has pesticide guides, dosages, and treatment protocols
-8. When farmer context is provided, use it to fill missing parameters (state, crop, soil_type) for better results
+8. When farmer context is provided, ALWAYS use it to fill missing parameters (state, crop, soil_type) for tool calls — DO NOT ask the farmer for information that is already in their profile context
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
+10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context.
 
 You have access to tools for weather lookup, crop advisory (including irrigation), pest alerts, government schemes, and farmer profiles.
 Always call the relevant tool first, then synthesize the response from tool data."""
@@ -667,7 +683,9 @@ Rules:
 - For irrigation/water/watering queries, get_crop_advisory with query_type='irrigation' is always needed — add "irrigation" to intents
 - For pest/disease/pesticide queries, get_pest_alert is always needed (queries Knowledge Base for pesticide guides, dosage, safety, treatment)
 - For scheme queries, search_schemes is always needed
-- ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data"""
+- ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data
+- CRITICAL: When farmer context is provided (state, crops, district, soil_type), use those values to fill NULL entities. For example, if the farmer asks 'what crops should I plant this kharif?' and context has state=Tamil Nadu, set location='Tamil Nadu', season='kharif', and ALWAYS include get_crop_advisory in tools_needed.
+- NEVER leave entities as null when the farmer context provides those values."""
 
 # ── Agent 3: Fact-Checking Agent ──
 FACTCHECK_SYSTEM_PROMPT = """You are the Fact-Checking Agent in a multi-agent agricultural advisory system for Indian farmers.
@@ -1430,6 +1448,7 @@ def lambda_handler(event, context):
                 result_text,
                 tools_used,
                 original_query=user_message,
+                farmer_context=farmer_context,
             )
 
         # Gap #6: Audit policy decision
