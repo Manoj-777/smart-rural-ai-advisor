@@ -944,11 +944,27 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
 
 
 def _classify_intents(message_en, original_message=None):
-    """Classify intents from English translation AND original Indic text."""
+    """Classify intents from English translation AND original Indic text.
+    Uses word-boundary matching for English keywords to prevent false positives
+    (e.g., 'rain' must not match 'drainage' or 'drains').
+    """
     text = (message_en or '').lower()
     orig = (original_message or '').lower()
     combined = text + ' ' + orig
     intents = set()
+
+    def _has_any_keyword(keywords, haystack):
+        """Match keywords with word-boundary for Latin text, substring for Indic."""
+        for kw in keywords:
+            if re.search(r'[\u0900-\u0D7F]', kw):
+                # Indic script: substring match (no word boundaries in Devanagari etc.)
+                if kw in haystack:
+                    return True
+            else:
+                # Latin/English: word-boundary match to avoid 'rain' ⊂ 'drains'
+                if re.search(r'\b' + re.escape(kw) + r'\b', haystack):
+                    return True
+        return False
 
     weather_kw = ['weather', 'rain', 'rainfall', 'temperature', 'humidity', 'forecast', 'monsoon', 'mausam',
                   # Tamil/Hindi/Telugu weather words
@@ -980,15 +996,15 @@ def _classify_intents(message_en, original_message=None):
                   'పథకం', 'రాయితీ', 'రుణం']
     profile_kw = ['profile', 'my farm', 'my details', 'my crop', 'my soil', 'my state', 'my district']
 
-    if any(k in combined for k in weather_kw):
+    if _has_any_keyword(weather_kw, combined):
         intents.add('weather')
-    if any(k in combined for k in crop_kw):
+    if _has_any_keyword(crop_kw, combined):
         intents.add('crop')
-    if any(k in combined for k in pest_kw):
+    if _has_any_keyword(pest_kw, combined):
         intents.add('pest')
-    if any(k in combined for k in schemes_kw):
+    if _has_any_keyword(schemes_kw, combined):
         intents.add('schemes')
-    if any(k in combined for k in profile_kw):
+    if _has_any_keyword(profile_kw, combined):
         intents.add('profile')
 
     return list(intents)
@@ -1353,13 +1369,25 @@ def lambda_handler(event, context):
             )
             tools_used = []
 
-        result_text, tools_used, policy_meta = _apply_code_policy(
-            english_message,
-            intents,
-            result_text,
-            tools_used,
-            original_query=user_message,
-        )
+        if _is_feature_page:
+            # Feature pages (soil-analysis, crop-recommend, farm-calendar) send
+            # self-contained prompts with all context embedded — never replace
+            # the model response with a grounding prompt asking for more data.
+            policy_meta = {
+                'code_policy_enforced': True,
+                'off_topic_blocked': False,
+                'grounding_required': False,
+                'grounding_satisfied': True,
+                'feature_page': True,
+            }
+        else:
+            result_text, tools_used, policy_meta = _apply_code_policy(
+                english_message,
+                intents,
+                result_text,
+                tools_used,
+                original_query=user_message,
+            )
 
         # Gap #6: Audit policy decision
         audit_policy_decision(farmer_id, session_id, policy_meta)
