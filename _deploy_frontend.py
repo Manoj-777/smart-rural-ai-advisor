@@ -56,8 +56,16 @@ s3.put_bucket_website(
     }
 )
 
-# Step 5: Upload dist/ files
-print("Step 5: Uploading files...")
+# Step 5: Clean old assets from S3 (remove stale hashed bundles)
+print("Step 5: Cleaning old assets...")
+paginator = s3.get_paginator('list_objects_v2')
+for page in paginator.paginate(Bucket=bucket_name, Prefix='assets/'):
+    for obj in page.get('Contents', []):
+        s3.delete_object(Bucket=bucket_name, Key=obj['Key'])
+print("  Old assets removed")
+
+# Step 6: Upload dist/ files
+print("Step 6: Uploading files...")
 uploaded = 0
 for root, dirs, files in os.walk(dist_dir):
     for f in files:
@@ -69,8 +77,8 @@ for root, dirs, files in os.walk(dist_dir):
         if not content_type:
             content_type = 'application/octet-stream'
         
-        # Set cache headers
-        cache = 'max-age=31536000, public' if '/assets/' in s3_key else 'max-age=60, public'
+        # Set cache headers - assets have content hashes (long cache), index.html must always revalidate
+        cache = 'max-age=31536000, public' if '/assets/' in s3_key else 'no-cache, no-store, must-revalidate'
         
         s3.upload_file(
             local_path, bucket_name, s3_key,
