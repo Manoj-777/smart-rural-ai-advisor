@@ -2,9 +2,18 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useFarmer } from '../contexts/FarmerContext';
 import { getPriceT } from '../i18n/priceTranslations';
 import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import config from '../config';
+
+/* ── Season helper based on current month ─────── */
+function getCurrentSeason() {
+    const month = new Date().getMonth() + 1; // 1-12
+    if (month >= 6 && month <= 10) return 'Kharif';
+    if (month >= 11 || month <= 3) return 'Rabi';
+    return 'Zaid (Summer)';
+}
 
 /* ── Sort helper ─────── */
 function SortArrow({ column, sortCol, sortDir }) {
@@ -93,6 +102,7 @@ function TrendBadge({ trend, pt }) {
 function PricePage() {
     const { language, t } = useLanguage();
     const pt = getPriceT(language);
+    const { farmerProfile } = useFarmer();
     const [tab, setTab] = useState('crops');
     const [search, setSearch] = useState('');
     const [seasonFilter, setSeasonFilter] = useState('All');
@@ -196,7 +206,12 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPrices(crop.name, language);
             } else {
-                const query = `You are an agricultural market analyst. Provide a detailed price advisory for ${crop.name} (${crop.season} crop) in India based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nInclude: best time to sell, recommended mandis across India, storage tips to get better prices, detailed price trend analysis, and market outlook for next 3 months. Give specific actionable advice.`;
+                const farmerState = farmerProfile?.state || '';
+                const farmerDistrict = farmerProfile?.district || '';
+                const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
+                const currentSeason = getCurrentSeason();
+                const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+                const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -227,7 +242,7 @@ function PricePage() {
         } finally {
             setAiLoading(false);
         }
-    }, [language]);
+    }, [language, farmerProfile]);
 
     /* ── Ask AI for pesticide advisory ─────── */
     const askPestAI = useCallback(async (pest) => {
@@ -240,7 +255,12 @@ function PricePage() {
             if (config.MOCK_AI) {
                 result = await mockPestAdvice(pest.name, pest.category, pest.usage, language);
             } else {
-                const query = `Pesticide product guide for ${pest.name} (${pest.category}). Product details: ${pest.name}, Category: ${pest.category}, Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}. Provide comprehensive usage guide including: exact dosage per litre/acre, target pests and diseases it controls, crops it is commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice for Indian farmers.`;
+                const farmerState = farmerProfile?.state || '';
+                const farmerDistrict = farmerProfile?.district || '';
+                const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
+                const currentSeason = getCurrentSeason();
+                const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+                const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -270,7 +290,7 @@ function PricePage() {
         } finally {
             setAiLoading(false);
         }
-    }, [language]);
+    }, [language, farmerProfile]);
 
     return (
         <div className="price-page">
@@ -309,8 +329,6 @@ function PricePage() {
                         })}
                     </div>
                     <div className="ai-advisory-footer">
-                        {aiAdvisory.source && <span>📂 {aiLabel.source}: {aiAdvisory.source}</span>}
-                        {aiAdvisory.lastUpdated && <span>📅 {aiAdvisory.lastUpdated}</span>}
                     </div>
                 </div>
             )}
