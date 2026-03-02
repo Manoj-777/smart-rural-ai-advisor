@@ -4,6 +4,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
+import { apiFetch } from '../utils/apiFetch';
 
 export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult) {
     const [isListening, setIsListening] = useState(false);
@@ -51,7 +52,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             try {
-                const res = await fetch(`${config.API_URL}/transcribe`, {
+                const res = await apiFetch(`/transcribe`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ audio: base64, language, format: mimeType })

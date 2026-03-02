@@ -7,6 +7,7 @@ import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';
 import { SchemesSkeleton } from '../components/SkeletonLoader';
 import schemeTranslations from '../i18n/schemeTranslations';
+import { apiFetch } from '../utils/apiFetch';
 
 // Map English state name → translation key (same as ProfilePage)
 const STATE_KEY_MAP = {
@@ -38,7 +39,7 @@ function SchemesPage() {
     useEffect(() => {
         const fetchSchemes = async () => {
             try {
-                const res = await fetch(`${config.API_URL}/schemes`);
+                const res = await apiFetch(`/schemes`);
                 const data = await res.json();
                 const schemesObj = data.data?.schemes || data.schemes || {};
                 const schemesArray = Array.isArray(schemesObj)
@@ -60,7 +61,7 @@ function SchemesPage() {
         setStateSchemes('');
         try {
             const query = `List all government schemes and subsidies available specifically for farmers in ${state} state, India. Include central government schemes applicable in ${state} and state-specific schemes. For each scheme mention: scheme name, benefit amount, eligibility, and how to apply.`;
-            const res = await fetch(`${config.API_URL}/chat`, {
+            const res = await apiFetch(`/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: query, language, session_id: 'schemes-state' }),

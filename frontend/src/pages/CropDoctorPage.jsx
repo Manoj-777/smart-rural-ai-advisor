@@ -5,6 +5,7 @@ import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeHtml } from '../utils/sanitize';
 import { mockImageAnalyze } from '../services/mockApi';
+import { apiFetch } from '../utils/apiFetch';
 
 function CropDoctorPage() {
     const { language, t } = useLanguage();
@@ -96,7 +97,7 @@ function CropDoctorPage() {
             reader.onloadend = async () => {
                 const base64 = reader.result.split(',')[1];
                 try {
-                    const res = await fetch(`${config.API_URL}/image-analyze`, {
+                    const res = await apiFetch(`/image-analyze`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

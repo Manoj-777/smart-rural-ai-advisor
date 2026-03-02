@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import translations from '../i18n/translations';
 import config from '../config';
+import { apiFetch } from '../utils/apiFetch';
 
 const LanguageContext = createContext();
 
@@ -21,7 +22,7 @@ export function LanguageProvider({ children }) {
             // Sync language preference to DynamoDB profile (fire-and-forget)
             const farmerId = localStorage.getItem('farmer_id');
             if (farmerId) {
-                fetch(`${config.API_URL}/profile/${farmerId}`, {
+                apiFetch(`/profile/${farmerId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ language: lang })

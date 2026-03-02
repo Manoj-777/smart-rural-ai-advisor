@@ -9,6 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
+import { apiFetch } from '../utils/apiFetch';
 
 // Inline SVG map pin — zero network requests, resolution-independent
 const MARKER_SVG = encodeURIComponent(
@@ -149,7 +150,7 @@ function WeatherPage() {
             // Pass lat/lon as query params so backend can fallback to coordinates
             const latlon = coords || markerPos;
             const qs = latlon ? `?lat=${latlon.lat}&lon=${latlon.lng || latlon.lon}` : '';
-            const res = await fetch(`${config.API_URL}/weather/${encodeURIComponent(loc)}${qs}`);
+            const res = await apiFetch(`/weather/${encodeURIComponent(loc)}${qs}`);
             const data = await res.json();
             
             if (!res.ok) {

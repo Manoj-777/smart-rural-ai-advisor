@@ -9,6 +9,7 @@ import { DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
 import config from '../config';
 import { generateAsyncTts } from '../utils/asyncTts';
+import { apiFetch } from '../utils/apiFetch';
 
 const CROP_OPTIONS = [
     { value: 'Rice', key: 'cropRice' },
@@ -110,7 +111,7 @@ function FarmCalendarPage() {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 55000);
         try {
-            const res = await fetch(`${config.API_URL}/chat`, {
+            const res = await apiFetch(`/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -304,7 +305,7 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                             onError={async (e) => {
                                 if (result.audioKey) {
                                     try {
-                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                        const res = await apiFetch(`/chat`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ refresh_audio_key: result.audioKey })

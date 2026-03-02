@@ -2648,6 +2648,13 @@ body {
     margin: 0 0 28px;
     line-height: 1.5;
 }
+.login-form-hint-small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 11px;
+    margin-top: 6px;
+    opacity: 0.8;
+}
 .login-form-group {
     margin-bottom: 20px;
 }

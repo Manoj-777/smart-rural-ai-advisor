@@ -1,10 +1,12 @@
 // src/contexts/FarmerContext.jsx
-// Shared farmer identity — single source of truth for farmer_id across all pages
-// Phone-number based identity (natural for rural India — no passwords needed)
+// Shared farmer identity — Cognito-authenticated, single source of truth
+// Phone + PIN auth via AWS Cognito, JWT tokens on every API call
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import config from '../config';
 import { useGeolocation } from '../hooks/useGeolocation';
+import * as cognitoAuth from '../services/cognitoAuth';
+import { apiFetch } from '../utils/apiFetch';
 
 const FarmerContext = createContext();
 
@@ -18,6 +20,7 @@ export function FarmerProvider({ children }) {
     const [farmerName, setFarmerNameState] = useState(() => localStorage.getItem(FARMER_NAME_KEY) || '');
     const [farmerProfile, setFarmerProfile] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem(FARMER_ID_KEY));
+    const [authReady, setAuthReady] = useState(false); // true once Cognito session checked
 
     // GPS geolocation
     const {
@@ -25,12 +28,46 @@ export function FarmerProvider({ children }) {
         requestGps, refreshGps, clearGps,
     } = useGeolocation();
 
-    // Load profile from DynamoDB when logged in
+    // On mount: restore Cognito session if it exists
     useEffect(() => {
-        if (!farmerId) return;
+        const restoreSession = async () => {
+            try {
+                const session = await cognitoAuth.getSession();
+                if (session && session.idToken) {
+                    // Cognito session is valid — restore login state
+                    const phone = session.phone?.replace('+91', '') || '';
+                    const id = `ph_${phone}`;
+                    localStorage.setItem(FARMER_ID_KEY, id);
+                    localStorage.setItem(FARMER_PHONE_KEY, phone);
+                    setFarmerIdState(id);
+                    setFarmerPhoneState(phone);
+                    setIsLoggedIn(true);
+                    if (session.name) {
+                        setFarmerNameState(session.name);
+                        localStorage.setItem(FARMER_NAME_KEY, session.name);
+                    }
+                } else if (localStorage.getItem(FARMER_ID_KEY)) {
+                    // No valid Cognito session but local storage has login — clear it
+                    localStorage.removeItem(FARMER_ID_KEY);
+                    localStorage.removeItem(FARMER_PHONE_KEY);
+                    localStorage.removeItem(FARMER_NAME_KEY);
+                    setFarmerIdState(null);
+                    setFarmerPhoneState('');
+                    setFarmerNameState('');
+                    setIsLoggedIn(false);
+                }
+            } catch { /* no session */ }
+            setAuthReady(true);
+        };
+        restoreSession();
+    }, []);
+
+    // Load profile from DynamoDB when logged in (uses auth headers)
+    useEffect(() => {
+        if (!farmerId || !authReady) return;
         const loadProfile = async () => {
             try {
-                const res = await fetch(`${config.API_URL}/profile/${farmerId}`);
+                const res = await apiFetch(`/profile/${farmerId}`);
                 const data = await res.json();
                 if (data.data && data.data.name) {
                     setFarmerProfile(data.data);
@@ -40,7 +77,7 @@ export function FarmerProvider({ children }) {
             } catch { /* offline — use cached name */ }
         };
         loadProfile();
-    }, [farmerId]);
+    }, [farmerId, authReady]);
 
     /**
      * Check if a phone number is already registered (has a profile with a name).
@@ -50,7 +87,7 @@ export function FarmerProvider({ children }) {
         const cleanPhone = phone.replace(/\D/g, '').slice(-10);
         const id = `ph_${cleanPhone}`;
         try {
-            const res = await fetch(`${config.API_URL}/profile/${id}`);
+            const res = await apiFetch(`/profile/${id}`);
             const data = await res.json();
             if (data.data && data.data.name) {
                 return data.data; // registered user
@@ -60,54 +97,82 @@ export function FarmerProvider({ children }) {
     }, []);
 
     /**
-     * Login with phone number.
-     * Phone number becomes the farmer_id (prefixed with 'ph_' to distinguish from legacy UUIDs).
-     * For new users, pass a full profileData object.
-     * For returning users, pass no profileData — profile will be loaded from DB.
-     * Returns the profile if it exists in DynamoDB (returning user), or the new profile.
+     * Sign up a new farmer via Cognito + create DynamoDB profile.
+     * @param {string} phone - 10-digit phone
+     * @param {string} pin - 6+ char PIN
+     * @param {string} name - Farmer name
+     * @param {object} profileData - Full profile data
+     * @returns {Promise<object>} tokens
      */
-    const loginWithPhone = useCallback(async (phone, name = '', profileData = null) => {
-        const cleanPhone = phone.replace(/\D/g, '').slice(-10); // last 10 digits
+    const signUpAndLogin = useCallback(async (phone, pin, name, profileData) => {
+        const cleanPhone = phone.replace(/\D/g, '').slice(-10);
         const id = `ph_${cleanPhone}`;
 
+        // 1. Sign up in Cognito (auto-confirmed via Pre-SignUp trigger)
+        await cognitoAuth.signUp(cleanPhone, pin, name);
+
+        // 2. Sign in to get JWT tokens
+        const tokens = await cognitoAuth.signIn(cleanPhone, pin);
+
+        // 3. Set local state
+        localStorage.setItem(FARMER_ID_KEY, id);
+        localStorage.setItem(FARMER_PHONE_KEY, cleanPhone);
+        localStorage.setItem(FARMER_NAME_KEY, name);
+        setFarmerIdState(id);
+        setFarmerPhoneState(cleanPhone);
+        setFarmerNameState(name);
+        setIsLoggedIn(true);
+
+        // 4. Create DynamoDB profile (now with auth token)
+        const newProfile = profileData || {
+            name, language: 'en-IN', state: '', district: '',
+            crops: [], soil_type: '', land_size_acres: 0
+        };
+        if (!newProfile.name) newProfile.name = name;
+        try {
+            await apiFetch(`/profile/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newProfile),
+            });
+        } catch { /* will save later */ }
+        setFarmerProfile(newProfile);
+
+        return tokens;
+    }, []);
+
+    /**
+     * Sign in an existing farmer via Cognito.
+     * @param {string} phone - 10-digit phone
+     * @param {string} pin - PIN/password
+     * @returns {Promise<object>} tokens
+     */
+    const signInWithPin = useCallback(async (phone, pin) => {
+        const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+        const id = `ph_${cleanPhone}`;
+
+        // 1. Cognito sign-in
+        const tokens = await cognitoAuth.signIn(cleanPhone, pin);
+
+        // 2. Set local state
         localStorage.setItem(FARMER_ID_KEY, id);
         localStorage.setItem(FARMER_PHONE_KEY, cleanPhone);
         setFarmerIdState(id);
         setFarmerPhoneState(cleanPhone);
         setIsLoggedIn(true);
 
-        // Try to load existing profile from DynamoDB
+        // 3. Load profile from DynamoDB
         try {
-            const res = await fetch(`${config.API_URL}/profile/${id}`);
+            const res = await apiFetch(`/profile/${id}`);
             const data = await res.json();
             if (data.data && data.data.name) {
-                // Returning user — profile exists
                 setFarmerProfile(data.data);
                 setFarmerNameState(data.data.name);
                 localStorage.setItem(FARMER_NAME_KEY, data.data.name);
-                return data.data;
             }
         } catch { /* offline */ }
 
-        // New user — create full profile
-        const newProfile = profileData || {
-            name, language: 'en-IN', state: '', district: '',
-            crops: [], soil_type: '', land_size_acres: 0
-        };
-        if (newProfile.name || name) {
-            if (!newProfile.name) newProfile.name = name;
-            try {
-                await fetch(`${config.API_URL}/profile/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newProfile)
-                });
-            } catch { /* will save later */ }
-            setFarmerProfile(newProfile);
-            setFarmerNameState(newProfile.name);
-            localStorage.setItem(FARMER_NAME_KEY, newProfile.name);
-        }
-        return null;
+        return tokens;
     }, []);
 
     // Resolved location: GPS (primary) → Profile district/state (secondary)
@@ -126,6 +191,7 @@ export function FarmerProvider({ children }) {
     }, [isLoggedIn, gpsStatus, requestGps]);
 
     const logout = useCallback(() => {
+        cognitoAuth.signOut();
         localStorage.removeItem(FARMER_ID_KEY);
         localStorage.removeItem(FARMER_PHONE_KEY);
         localStorage.removeItem(FARMER_NAME_KEY);
@@ -152,8 +218,10 @@ export function FarmerProvider({ children }) {
             farmerName,
             farmerProfile,
             isLoggedIn,
+            authReady,
             checkPhoneExists,
-            loginWithPhone,
+            signUpAndLogin,
+            signInWithPin,
             logout,
             updateProfile,
             // GPS location

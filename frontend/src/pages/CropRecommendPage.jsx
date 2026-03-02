@@ -9,6 +9,7 @@ import { DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
 import config from '../config';
 import { generateAsyncTts } from '../utils/asyncTts';
+import { apiFetch } from '../utils/apiFetch';
 
 const SOIL_TYPES = [
     { value: 'Alluvial', key: 'soilAlluvial' },
@@ -122,7 +123,7 @@ Format clearly with numbered recommendations. Include practical advice specific 
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 55000);
             try {
-                const res = await fetch(`${config.API_URL}/chat`, {
+                const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -275,7 +276,7 @@ Format clearly with numbered recommendations. Include practical advice specific 
                             onError={async (e) => {
                                 if (result.audioKey) {
                                     try {
-                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                        const res = await apiFetch(`/chat`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ refresh_audio_key: result.audioKey })

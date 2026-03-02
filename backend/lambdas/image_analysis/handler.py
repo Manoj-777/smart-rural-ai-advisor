@@ -20,7 +20,7 @@ translate_client = boto3.client('translate')
 CORS_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 

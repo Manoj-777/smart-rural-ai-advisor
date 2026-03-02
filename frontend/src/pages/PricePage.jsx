@@ -8,6 +8,7 @@ import { getPriceT } from '../i18n/priceTranslations';
 import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import { generateAsyncTts } from '../utils/asyncTts';
 import config from '../config';
+import { apiFetch } from '../utils/apiFetch';
 
 /* ── Season helper based on current month ─────── */
 function getCurrentSeason() {
@@ -253,7 +254,7 @@ function PricePage() {
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
                 const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice. IMPORTANT: This is a one-way advisory panel, NOT a conversation. Do NOT include any closing lines like "feel free to ask", "if you have any questions", "if you need more information", "I hope this helps", or any invitation to continue a dialogue. End with your last piece of actionable advice.`;
-                const res = await fetch(`${config.API_URL}/chat`, {
+                const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: query, language, session_id: 'price-advisory' }),
@@ -318,7 +319,7 @@ function PricePage() {
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
                 const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice. IMPORTANT: This is a one-way advisory panel, NOT a conversation. Do NOT include any closing lines like "feel free to ask", "if you have any questions", "if you need more information", "I hope this helps", or any invitation to continue a dialogue. End with your last piece of actionable advice.`;
-                const res = await fetch(`${config.API_URL}/chat`, {
+                const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: query, language, session_id: 'pest-advisory' }),
@@ -395,7 +396,7 @@ function PricePage() {
                             onError={async (e) => {
                                 if (aiAudioKey) {
                                     try {
-                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                        const res = await apiFetch(`/chat`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ refresh_audio_key: aiAudioKey })

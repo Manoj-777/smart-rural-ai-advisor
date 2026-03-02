@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import config from '../config';
 import { formatAndSanitize } from '../utils/sanitize';
+import { apiFetch } from '../utils/apiFetch';
 
 function formatMessage(text) {
     return formatAndSanitize(text);
@@ -32,7 +33,7 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
         ttsRequestedRef.current = true;
         setAudioLoading(true);
         try {
-            const res = await fetch(`${config.API_URL}/chat`, {
+            const res = await apiFetch(`/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -66,7 +67,7 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
                 if (message.audioKey && !refreshingRef.current) {
                     refreshingRef.current = true;
                     try {
-                        const res = await fetch(`${config.API_URL}/chat`, {
+                        const res = await apiFetch(`/chat`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ refresh_audio_key: message.audioKey })

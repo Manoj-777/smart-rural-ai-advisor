@@ -7,6 +7,7 @@ import { useFarmer } from '../contexts/FarmerContext';
 import VoiceInput from '../components/VoiceInput';
 import ChatMessage from '../components/ChatMessage';
 import { mockChat } from '../services/mockApi';
+import { apiFetch } from '../utils/apiFetch';
 
 const STORAGE_KEY = 'sra_chat_history';
 const SESSIONS_KEY = 'sra_chat_sessions';
@@ -188,7 +189,7 @@ function ChatPage() {
                     const controller = new AbortController();
                     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
                     try {
-                        const res = await fetch(`${config.API_URL}/chat`, {
+                        const res = await apiFetch(`/chat`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({

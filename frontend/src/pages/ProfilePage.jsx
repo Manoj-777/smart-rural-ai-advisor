@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
+import { apiFetch } from '../utils/apiFetch';
 
 // State options with translation keys for localized display
 const STATE_OPTION_OBJECTS = [
@@ -54,7 +55,7 @@ function ProfilePage() {
     useEffect(() => {
         const loadProfile = async () => {
             try {
-                const res = await fetch(`${config.API_URL}/profile/${farmerId}`);
+                const res = await apiFetch(`/profile/${farmerId}`);
                 const data = await res.json();
                 if (data.data) setProfile(prev => ({ ...prev, ...data.data }));
             } catch { /* New user — use defaults */ }
@@ -78,7 +79,7 @@ function ProfilePage() {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             try {
-                await fetch(`${config.API_URL}/profile/${farmerId}`, {
+                await apiFetch(`/profile/${farmerId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedProfile)
@@ -102,7 +103,7 @@ function ProfilePage() {
         setSaving(true);
         setMessage(null);
         try {
-            await fetch(`${config.API_URL}/profile/${farmerId}`, {
+            await apiFetch(`/profile/${farmerId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile)

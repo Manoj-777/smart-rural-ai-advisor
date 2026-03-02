@@ -2,6 +2,7 @@
 // Shared utility for generating TTS audio asynchronously (for gTTS languages)
 
 import config from '../config';
+import { apiFetch } from './apiFetch';
 
 /**
  * Generate TTS audio via a separate API call.
@@ -14,7 +15,7 @@ import config from '../config';
 export async function generateAsyncTts(text, language) {
     if (!text) return null;
     try {
-        const res = await fetch(`${config.API_URL}/chat`, {
+        const res = await apiFetch(`/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

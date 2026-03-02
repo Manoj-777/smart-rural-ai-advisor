@@ -1,8 +1,9 @@
 // src/pages/LoginPage.jsx
-// Simple phone-number based identity for rural farmers
-// OTP verification for returning users
+// Cognito-authenticated login — phone + PIN for rural farmers
+// Sign-up: phone + name + profile + PIN → auto-confirmed → JWT tokens
+// Sign-in: phone + PIN → JWT tokens
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
@@ -10,22 +11,13 @@ import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DI
 
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
-    const { loginWithPhone, checkPhoneExists } = useFarmer();
+    const { signUpAndLogin, signInWithPin, checkPhoneExists } = useFarmer();
     const [phone, setPhone] = useState('');
+    const [pin, setPin] = useState('');
     const [name, setName] = useState('');
-    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning' | 'otp'
+    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [returnedProfile, setReturnedProfile] = useState(null);
-
-    // OTP state
-    const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-    const [otpTimer, setOtpTimer] = useState(0);
-    const [demoOtp, setDemoOtp] = useState('');
-    const [otpSmsSent, setOtpSmsSent] = useState(false);
-    const [maskedPhone, setMaskedPhone] = useState('');
-    const [isRegistration, setIsRegistration] = useState(false); // true = new user OTP, false = returning user OTP
-    const otpRefs = useRef([]);
 
     // Registration form fields
     const [regState, setRegState] = useState('Tamil Nadu');
@@ -36,18 +28,7 @@ function LoginPage() {
     const [regLanguage, setRegLanguage] = useState(language);
 
     const isValidPhone = phone.replace(/\D/g, '').length >= 10;
-
-    // OTP countdown timer
-    useEffect(() => {
-        if (otpTimer <= 0) return;
-        const interval = setInterval(() => {
-            setOtpTimer(prev => {
-                if (prev <= 1) { clearInterval(interval); return 0; }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [otpTimer]);
+    const isValidPin = pin.length >= 6;
 
     const handleCropToggle = (crop) => {
         setRegCrops(prev =>
@@ -55,173 +36,11 @@ function LoginPage() {
         );
     };
 
-    // ── Send OTP (shared helper — callers manage loading state) ──
-    const sendOtpToPhone = async () => {
-        const res = await fetch(`${config.API_URL}/otp/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone.replace(/\D/g, '') })
-        });
-        const data = await res.json();
-
-        if (data.status === 'success') {
-            setMode('otp');
-            setOtpDigits(['', '', '', '', '', '']);
-            setOtpTimer(300); // 5 minutes
-            setOtpSmsSent(data.sms_sent || data.sandbox_verification || false);
-            setMaskedPhone(data.phone_masked || `+91 ${phone.slice(0,3)}***${phone.slice(-2)}`);
-            if (data.demo_otp) {
-                setDemoOtp(data.demo_otp);
-            } else {
-                setDemoOtp('');
-            }
-            // Focus first OTP input
-            setTimeout(() => otpRefs.current[0]?.focus(), 100);
-        } else {
-            setError(data.error || data.message || t('otpSendFailed'));
-        }
-    };
-
-    // ── Send OTP for returning user ──
-    const handleSendOtp = async () => {
-        if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
-        setLoading(true);
-        setError('');
-        try {
-            // First check if user exists
-            const existing = await checkPhoneExists(phone);
-            if (!existing) {
-                setError(t('loginNotRegistered'));
-                setLoading(false);
-                return;
-            }
-            setReturnedProfile(existing);
-            setIsRegistration(false);
-            await sendOtpToPhone();
-        } catch {
-            setError(t('loginError'));
-        }
-        setLoading(false);
-    };
-
-    // ── Verify OTP ──
-    const handleVerifyOtp = async () => {
-        const otpCode = otpDigits.join('');
-        if (otpCode.length !== 6) { setError(t('otpIncomplete')); return; }
-        setLoading(true);
-        setError('');
-        try {
-            const res = await fetch(`${config.API_URL}/otp/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: phone.replace(/\D/g, ''),
-                    otp: otpCode
-                })
-            });
-            const data = await res.json();
-
-            if (data.status === 'success' && data.verified) {
-                if (isRegistration) {
-                    // OTP verified for new user — create profile and login
-                    const profileData = {
-                        name: name.trim(),
-                        state: regState,
-                        district: regDistrict.trim(),
-                        crops: regCrops,
-                        soil_type: regSoilType,
-                        land_size_acres: parseFloat(regLandSize) || 0,
-                        language: regLanguage,
-                    };
-                    await loginWithPhone(phone, name.trim(), profileData);
-                    if (regLanguage !== language) {
-                        setLanguage(regLanguage);
-                    }
-                } else {
-                    // OTP verified for returning user — just login
-                    await loginWithPhone(phone);
-                }
-            } else {
-                setError(data.message || t('loginError'));
-            }
-        } catch {
-            setError(t('loginError'));
-        }
-        setLoading(false);
-    };
-
-    // ── Resend OTP ──
-    const handleResendOtp = async () => {
-        if (otpTimer > 240) return; // prevent spam — wait at least 60s
-        setLoading(true);
-        setError('');
-        try {
-            const res = await fetch(`${config.API_URL}/otp/send`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: phone.replace(/\D/g, '') })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                setOtpDigits(['', '', '', '', '', '']);
-                setOtpTimer(300);
-                setOtpSmsSent(data.sms_sent || data.sandbox_verification || false);
-                if (data.demo_otp) setDemoOtp(data.demo_otp);
-                setError('');
-                setTimeout(() => otpRefs.current[0]?.focus(), 100);
-            }
-        } catch { /* ignore */ }
-        setLoading(false);
-    };
-
-    // ── OTP input handling ──
-    const handleOtpChange = (index, value) => {
-        if (!/^\d*$/.test(value)) return; // digits only
-        const newDigits = [...otpDigits];
-        newDigits[index] = value.slice(-1); // single digit
-        setOtpDigits(newDigits);
-
-        // Auto-advance to next input
-        if (value && index < 5) {
-            otpRefs.current[index + 1]?.focus();
-        }
-
-        // Auto-submit when all 6 entered
-        if (value && index === 5 && newDigits.every(d => d !== '')) {
-            setTimeout(() => handleVerifyOtp(), 200);
-        }
-    };
-
-    const handleOtpKeyDown = (index, e) => {
-        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
-        if (e.key === 'Enter') {
-            const otpCode = otpDigits.join('');
-            if (otpCode.length === 6) handleVerifyOtp();
-        }
-    };
-
-    const handleOtpPaste = (e) => {
-        e.preventDefault();
-        const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-        if (paste.length === 6) {
-            const newDigits = paste.split('');
-            setOtpDigits(newDigits);
-            otpRefs.current[5]?.focus();
-            setTimeout(() => handleVerifyOtp(), 200);
-        }
-    };
-
-    const formatTimer = (seconds) => {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    };
-
+    // ── Sign up new farmer ──
     const handleNewSignup = async () => {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         if (!name.trim()) { setError(t('loginNameRequired')); return; }
+        if (!isValidPin) { setError(t('loginPinRequired')); return; }
         if (!regState) { setError(t('loginSelectState')); return; }
         if (!regDistrict) { setError(t('loginSelectDistrict')); return; }
         if (regCrops.length === 0) { setError(t('loginSelectCrop')); return; }
@@ -229,18 +48,47 @@ function LoginPage() {
         setLoading(true);
         setError('');
         try {
-            // Check if already registered
-            const existing = await checkPhoneExists(phone);
-            if (existing) {
-                setError(t('loginAlreadyRegistered'));
-                setLoading(false);
-                return;
+            const profileData = {
+                name: name.trim(),
+                state: regState,
+                district: regDistrict.trim(),
+                crops: regCrops,
+                soil_type: regSoilType,
+                land_size_acres: parseFloat(regLandSize) || 0,
+                language: regLanguage,
+            };
+            await signUpAndLogin(phone, pin, name.trim(), profileData);
+            if (regLanguage !== language) {
+                setLanguage(regLanguage);
             }
-            // Send OTP for verification before creating profile
-            setIsRegistration(true);
-            await sendOtpToPhone();
-        } catch {
-            setError(t('loginError'));
+        } catch (err) {
+            const msg = err?.message || '';
+            if (msg.includes('UsernameExistsException') || msg.includes('already exists')) {
+                setError(t('loginAlreadyRegistered'));
+            } else {
+                setError(msg || t('loginError'));
+            }
+        }
+        setLoading(false);
+    };
+
+    // ── Sign in returning farmer ──
+    const handleSignIn = async () => {
+        if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
+        if (!isValidPin) { setError(t('loginPinRequired')); return; }
+        setLoading(true);
+        setError('');
+        try {
+            await signInWithPin(phone, pin);
+        } catch (err) {
+            const msg = err?.message || '';
+            if (msg.includes('UserNotFoundException') || msg.includes('does not exist')) {
+                setError(t('loginNotRegistered'));
+            } else if (msg.includes('NotAuthorizedException') || msg.includes('Incorrect')) {
+                setError(t('loginWrongPin'));
+            } else {
+                setError(msg || t('loginError'));
+            }
         }
         setLoading(false);
     };
@@ -298,7 +146,6 @@ function LoginPage() {
                                     maxLength={10}
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleNewSignup()}
                                     placeholder={t('loginPhonePlaceholder')}
                                     autoFocus
                                 />
@@ -313,9 +160,22 @@ function LoginPage() {
                                 className="form-input"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleNewSignup()}
                                 placeholder={t('profileNamePlaceholder')}
                             />
+                        </div>
+
+                        {/* PIN */}
+                        <div className="login-form-group">
+                            <label>{t('loginPinLabel')} <span className="required-star">*</span></label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                maxLength={20}
+                                value={pin}
+                                onChange={(e) => setPin(e.target.value)}
+                                placeholder={t('loginPinPlaceholder')}
+                            />
+                            <span className="login-form-hint-small">{t('loginPinHint')}</span>
                         </div>
 
                         {/* State & District */}
@@ -372,7 +232,6 @@ function LoginPage() {
                                 <input className="form-input" type="number" value={regLandSize}
                                     min="0" step="0.5"
                                     onChange={(e) => setRegLandSize(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleNewSignup()}
                                     placeholder="0" />
                             </div>
                             <div className="login-form-group">
@@ -390,7 +249,7 @@ function LoginPage() {
                         <button
                             className="login-btn login-btn-primary"
                             onClick={handleNewSignup}
-                            disabled={loading || !isValidPhone || !name.trim() || !regDistrict || regCrops.length === 0 || !regLandSize}
+                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regDistrict || regCrops.length === 0 || !regLandSize}
                         >
                             {loading ? '⏳ ...' : `✅ ${t('loginStart')}`}
                         </button>
@@ -403,7 +262,7 @@ function LoginPage() {
                 {mode === 'returning' && (
                     <div className="login-form">
                         <h2>{t('loginWelcomeBack')}</h2>
-                        <p className="login-form-hint">{t('loginEnterPhone')}</p>
+                        <p className="login-form-hint">{t('loginEnterPhonePin')}</p>
                         <div className="login-form-group">
                             <label>{t('loginPhoneLabel')}</label>
                             <div className="login-phone-input">
@@ -415,13 +274,24 @@ function LoginPage() {
                                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                                     placeholder={t('loginPhonePlaceholder')}
                                     autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && isValidPhone && !loading) {
-                                            handleSendOtp();
-                                        }
-                                    }}
                                 />
                             </div>
+                        </div>
+                        <div className="login-form-group">
+                            <label>{t('loginPinLabel')}</label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                maxLength={20}
+                                value={pin}
+                                onChange={(e) => setPin(e.target.value)}
+                                placeholder={t('loginPinPlaceholder')}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && isValidPhone && isValidPin && !loading) {
+                                        handleSignIn();
+                                    }
+                                }}
+                            />
                         </div>
                         {error && (
                             <div className="login-error">
@@ -438,89 +308,14 @@ function LoginPage() {
                         )}
                         <button
                             className="login-btn login-btn-primary"
-                            onClick={handleSendOtp}
-                            disabled={loading || !isValidPhone}
+                            onClick={handleSignIn}
+                            disabled={loading || !isValidPhone || !isValidPin}
                         >
-                            {loading ? `⏳ ${t('otpSending')}` : `📩 ${t('otpSendCode')}`}
+                            {loading ? '⏳ ...' : `🔓 ${t('loginSignIn')}`}
                         </button>
                         <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
                             ← {t('loginBack')}
                         </button>
-                    </div>
-                )}
-
-                {mode === 'otp' && (
-                    <div className="login-form otp-form">
-                        <div className="otp-icon">🔐</div>
-                        <h2>{t('otpVerifyTitle')}</h2>
-                        <p className="login-form-hint">
-                            {otpSmsSent
-                                ? `${t('otpSentToPhone')} ${maskedPhone}`
-                                : `${t('otpEnterCode')} ${maskedPhone}`
-                            }
-                        </p>
-
-                        {/* OTP code banner — always shown as backup in case SMS doesn't arrive */}
-                        {demoOtp && (
-                            <div className="otp-demo-banner">
-                                <span className="otp-demo-label">🔑 {t('otpDemoLabel')}</span>
-                                <span className="otp-demo-code">{demoOtp}</span>
-                                <span className="otp-demo-hint">{otpSmsSent ? t('otpSmsFallback') : t('otpDemoHint')}</span>
-                            </div>
-                        )}
-
-                        {/* OTP digit inputs */}
-                        <div className="otp-inputs" onPaste={handleOtpPaste}>
-                            {otpDigits.map((digit, i) => (
-                                <input
-                                    key={i}
-                                    ref={el => otpRefs.current[i] = el}
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={1}
-                                    value={digit}
-                                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                    className={`otp-digit ${digit ? 'filled' : ''}`}
-                                    autoFocus={i === 0}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Timer */}
-                        <div className="otp-timer">
-                            {otpTimer > 0 ? (
-                                <span>{t('otpExpiresIn')} <strong>{formatTimer(otpTimer)}</strong></span>
-                            ) : (
-                                <span className="otp-expired">{t('otpExpired')}</span>
-                            )}
-                        </div>
-
-                        {error && <div className="login-error">{error}</div>}
-
-                        <button
-                            className="login-btn login-btn-primary"
-                            onClick={handleVerifyOtp}
-                            disabled={loading || otpDigits.join('').length !== 6 || otpTimer === 0}
-                        >
-                            {loading ? `⏳ ${t('otpVerifying')}` : `✅ ${isRegistration ? t('otpVerifyRegister') : t('otpVerifyBtn')}`}
-                        </button>
-
-                        <div className="otp-actions">
-                            <button
-                                className="otp-resend-btn"
-                                onClick={handleResendOtp}
-                                disabled={loading || otpTimer > 240}
-                            >
-                                🔄 {t('otpResend')} {otpTimer > 240 ? `(${otpTimer - 240}s)` : ''}
-                            </button>
-                            <button
-                                className="otp-change-btn"
-                                onClick={() => { setMode(isRegistration ? 'new' : 'returning'); setError(''); setOtpDigits(['', '', '', '', '', '']); setDemoOtp(''); }}
-                            >
-                                ✏️ {t('otpChangeNumber')}
-                            </button>
-                        </div>
                     </div>
                 )}
 

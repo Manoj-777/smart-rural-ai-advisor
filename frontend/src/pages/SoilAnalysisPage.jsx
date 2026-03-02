@@ -7,6 +7,7 @@ import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
 import { generateAsyncTts } from '../utils/asyncTts';
+import { apiFetch } from '../utils/apiFetch';
 
 const PH_RANGES = [
     { value: 'Below 4.5 (Very Acidic)', key: 'phVeryAcidic' },
@@ -124,7 +125,7 @@ Keep advice practical for Indian farmers. Use bullet points.`;
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 55000);
             try {
-                const res = await fetch(`${config.API_URL}/chat`, {
+                const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -285,7 +286,7 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                             onError={async (e) => {
                                 if (result.audioKey) {
                                     try {
-                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                        const res = await apiFetch(`/chat`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ refresh_audio_key: result.audioKey })
