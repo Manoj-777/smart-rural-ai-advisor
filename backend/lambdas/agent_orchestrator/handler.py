@@ -33,6 +33,15 @@ from utils.translate_helper import detect_and_translate, translate_response, nor
 from utils.polly_helper import text_to_speech
 from utils.dynamodb_helper import save_chat_message, get_farmer_profile
 
+# Enterprise Guardrails (Gaps #1-#4, #6-#7)
+from utils.guardrails import run_all_guardrails, mask_pii_in_log
+from utils.rate_limiter import check_rate_limit
+from utils.audit_logger import (
+    audit_request_start, audit_guardrail_block, audit_pii_detected,
+    audit_tool_invocation, audit_policy_decision, audit_request_complete,
+    audit_bedrock_guardrail,
+)
+
 # ── AgentCore Runtime mode (preferred) ──
 # Legacy domain-specialist ARNs (backward compatible)
 AGENTCORE_RUNTIME_ARN = os.environ.get('AGENTCORE_RUNTIME_ARN', '')
@@ -53,6 +62,19 @@ AGENTCORE_MEMORY_ARN = os.environ.get('AGENTCORE_MEMORY_RUNTIME_ARN', '')
 PIPELINE_MODE = os.environ.get('PIPELINE_MODE', 'cognitive')
 ENABLE_SPECIALIST_FANOUT = os.environ.get('ENABLE_SPECIALIST_FANOUT', 'true').lower() == 'true'
 ENFORCE_CODE_POLICY = os.environ.get('ENFORCE_CODE_POLICY', 'true').lower() == 'true'
+
+# ── Bedrock Guardrail (Gap #5: AWS-native content/PII/topic filtering) ──
+BEDROCK_GUARDRAIL_ID = os.environ.get('BEDROCK_GUARDRAIL_ID', '')
+BEDROCK_GUARDRAIL_VERSION = os.environ.get('BEDROCK_GUARDRAIL_VERSION', '')
+
+def _guardrail_config():
+    """Return guardrailConfig dict for Bedrock converse() if guardrail is set up."""
+    if BEDROCK_GUARDRAIL_ID and BEDROCK_GUARDRAIL_VERSION:
+        return {
+            'guardrailIdentifier': BEDROCK_GUARDRAIL_ID,
+            'guardrailVersion': BEDROCK_GUARDRAIL_VERSION,
+        }
+    return None
 
 # ── Bedrock Agents mode (fallback) ──
 AGENT_ID = os.environ.get('BEDROCK_AGENT_ID', '')
@@ -499,6 +521,10 @@ def _invoke_bedrock_direct(prompt, farmer_context=None):
                 "toolConfig": {"tools": DIRECT_TOOLS},
                 "inferenceConfig": {"maxTokens": 2048, "temperature": 0.3},
             }
+            # Gap #5: Attach Bedrock native guardrail if configured
+            gc = _guardrail_config()
+            if gc:
+                converse_kwargs['guardrailConfig'] = gc
 
             response = bedrock_rt.converse(**converse_kwargs)
             output = response.get("output", {})
@@ -698,12 +724,18 @@ def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_to
     No tools — just system prompt + user prompt → text response.
     """
     try:
-        response = bedrock_rt.converse(
-            modelId=FOUNDATION_MODEL,
-            messages=[{"role": "user", "content": [{"text": user_prompt}]}],
-            system=[{"text": system_prompt}],
-            inferenceConfig={"maxTokens": max_tokens, "temperature": temperature},
-        )
+        converse_kwargs = {
+            "modelId": FOUNDATION_MODEL,
+            "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
+            "system": [{"text": system_prompt}],
+            "inferenceConfig": {"maxTokens": max_tokens, "temperature": temperature},
+        }
+        # Gap #5: Attach Bedrock native guardrail if configured
+        gc = _guardrail_config()
+        if gc:
+            converse_kwargs['guardrailConfig'] = gc
+
+        response = bedrock_rt.converse(**converse_kwargs)
         output = response.get("output", {})
         message = output.get("message", {})
         result_text = ""
@@ -1126,8 +1158,69 @@ def lambda_handler(event, context):
         if not user_message:
             return error_response('Message is required', 400)
 
-        user_message = _sanitize_user_message(user_message)
-        logger.info(f"Query from farmer {farmer_id}: {user_message}")
+        # ══════ ENTERPRISE GUARDRAILS (Pre-processing) ══════
+        # Gap #1 (PII), #2 (Injection), #4 (Input Length), #7 (Toxicity)
+        guardrail_result = run_all_guardrails(user_message)
+        pii_safe_msg = guardrail_result.get('pii_masked_message', user_message[:200])
+
+        if not guardrail_result['passed']:
+            block_type = guardrail_result['blocked_reason']
+            block_response = guardrail_result['blocked_response']
+            audit_guardrail_block(
+                block_type=block_type,
+                farmer_id=farmer_id,
+                session_id=session_id,
+                pii_safe_message=pii_safe_msg,
+                threat_details=guardrail_result.get('threat_details'),
+            )
+            return success_response({
+                'reply': block_response,
+                'reply_en': block_response,
+                'detected_language': 'en',
+                'tools_used': [],
+                'audio_url': None,
+                'session_id': session_id,
+                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'policy': {
+                    'code_policy_enforced': True,
+                    'guardrail_blocked': True,
+                    'block_type': block_type,
+                },
+            }, message='Guardrail blocked', language='en')
+
+        # Log PII detection (types only, never raw data)
+        if guardrail_result['pii_detected']:
+            audit_pii_detected(farmer_id, session_id, guardrail_result['pii_detected'])
+
+        # Gap #3: Rate limiting
+        rate_result = check_rate_limit(session_id, farmer_id)
+        if not rate_result['allowed']:
+            audit_guardrail_block(
+                block_type='rate_limit',
+                farmer_id=farmer_id,
+                session_id=session_id,
+                pii_safe_message=pii_safe_msg,
+                threat_details={'reason': rate_result['reason']},
+            )
+            return success_response({
+                'reply': rate_result['reason'],
+                'reply_en': rate_result['reason'],
+                'detected_language': 'en',
+                'tools_used': [],
+                'audio_url': None,
+                'session_id': session_id,
+                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'policy': {
+                    'code_policy_enforced': True,
+                    'rate_limited': True,
+                    'retry_after_seconds': rate_result.get('retry_after_seconds'),
+                },
+            }, message='Rate limited', language='en')
+
+        user_message = _sanitize_user_message(guardrail_result['sanitized_message'])
+        # Gap #6: Audit log — request start (PII-safe)
+        audit_request_start(farmer_id, session_id, pii_safe_msg)
+        logger.info(f"Query from farmer {farmer_id}: {pii_safe_msg}")
 
         # --- Step 1: Detect language & translate to English ---
         detection = detect_and_translate(user_message, target_language='en')
@@ -1268,7 +1361,9 @@ def lambda_handler(event, context):
             original_query=user_message,
         )
 
-        logger.info(f"Agent response: {result_text[:200]}... tools={tools_used}")
+        # Gap #6: Audit policy decision
+        audit_policy_decision(farmer_id, session_id, policy_meta)
+        logger.info(f"Agent response: {mask_pii_in_log(result_text[:200])}... tools={tools_used}")
 
         # --- Step 4: Translate response to farmer's language ---
         # Strip sources line BEFORE translation so function names don't get garbled
@@ -1314,7 +1409,20 @@ def lambda_handler(event, context):
         save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
 
         # --- Step 7: Return response (matches API contract) ---
-        logger.info(f'Total handler time: {_time.time()-_t_start:.1f}s | feature_page={_is_feature_page} | audio={bool(audio_url)}')
+        _total_elapsed = _time.time() - _t_start
+        logger.info(f'Total handler time: {_total_elapsed:.1f}s | feature_page={_is_feature_page} | audio={bool(audio_url)}')
+
+        # Gap #6: Audit request completion
+        audit_request_complete(
+            farmer_id=farmer_id,
+            session_id=session_id,
+            tools_used=tools_used,
+            pipeline_mode=PIPELINE_MODE if not _is_feature_page else 'fast_path',
+            response_length=len(translated_reply or ''),
+            elapsed_seconds=_total_elapsed,
+            bedrock_guardrail_triggered=False,
+        )
+
         return success_response({
             'reply': translated_reply,
             'reply_en': result_text,

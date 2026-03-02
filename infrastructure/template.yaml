@@ -31,6 +31,11 @@ Globals:
         PIPELINE_MODE: !Ref PipelineMode
         ENABLE_SPECIALIST_FANOUT: !Ref EnableSpecialistFanout
         ENFORCE_CODE_POLICY: !Ref EnforceCodePolicy
+        # Enterprise Guardrails
+        BEDROCK_GUARDRAIL_ID: !Ref BedrockGuardrailId
+        BEDROCK_GUARDRAIL_VERSION: !Ref BedrockGuardrailVersion
+        ENABLE_RATE_LIMITING: 'true'
+        DYNAMODB_RATE_LIMIT_TABLE: rate_limits
 
 Parameters:
   BedrockAgentId:
@@ -131,6 +136,7 @@ Resources:
                 - bedrock:InvokeModel
                 - bedrock:Converse
                 - bedrock:ConverseStream
+                - bedrock:ApplyGuardrail
               Resource: '*'
             - Effect: Allow
               Action:
@@ -161,9 +167,11 @@ Resources:
                 - dynamodb:PutItem
                 - dynamodb:GetItem
                 - dynamodb:Query
+                - dynamodb:UpdateItem
               Resource:
                 - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/chat_sessions'
                 - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/farmer_profiles'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/rate_limits'
       Events:
         ChatApi:
           Type: Api
