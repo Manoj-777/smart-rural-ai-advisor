@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
+import { generateAsyncTts } from '../utils/asyncTts';
 
 const PH_RANGES = [
     { value: 'Below 4.5 (Very Acidic)', key: 'phVeryAcidic' },
@@ -146,13 +147,25 @@ Keep advice practical for Indian farmers. Use bullet points.`;
             try {
                 const data = await callAPI();
                 if (data.status === 'success') {
-                    setResult({
+                    const newResult = {
                         text: data.data.reply,
                         audioUrl: data.data.audio_url,
-                        audioKey: data.data.audio_key
-                    });
+                        audioKey: data.data.audio_key,
+                        audioLoading: !!data.data.audio_pending
+                    };
+                    setResult(newResult);
                     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
                     setLoading(false);
+                    // Fire async TTS if audio is pending (gTTS languages)
+                    if (data.data.audio_pending && data.data.reply) {
+                        generateAsyncTts(data.data.reply, data.data.detected_language).then(tts => {
+                            if (tts) {
+                                setResult(prev => ({ ...prev, audioUrl: tts.audioUrl, audioKey: tts.audioKey, audioLoading: false }));
+                            } else {
+                                setResult(prev => ({ ...prev, audioLoading: false }));
+                            }
+                        });
+                    }
                     return;
                 } else if (attempt === maxRetries) {
                     setError(data.message || t('connectionError'));
@@ -316,6 +329,11 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                                 }
                             }}
                         />
+                    )}
+                    {result.audioLoading && (
+                        <div className="audio-loading-indicator">
+                            <span className="spinner-sm"></span> {t('ttsGenerating') || 'Generating audio...'}
+                        </div>
                     )}
                     <div className="ai-result-body"
                         dangerouslySetInnerHTML={{ __html: formatText(result.text) }} />

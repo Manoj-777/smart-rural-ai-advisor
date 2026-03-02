@@ -7,6 +7,7 @@ import { useFarmer } from '../contexts/FarmerContext';
 import { DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
 import config from '../config';
+import { generateAsyncTts } from '../utils/asyncTts';
 
 const CROP_OPTIONS = [
     { value: 'Rice', key: 'cropRice' },
@@ -150,13 +151,24 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
             try {
                 const data = await callChatAPI(prompt, 'farm-calendar');
                 if (data.status === 'success') {
-                    setResult({
+                    const newResult = {
                         text: data.data.reply,
                         audioUrl: data.data.audio_url,
-                        audioKey: data.data.audio_key
-                    });
+                        audioKey: data.data.audio_key,
+                        audioLoading: !!data.data.audio_pending
+                    };
+                    setResult(newResult);
                     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
                     setLoading(false);
+                    if (data.data.audio_pending && data.data.reply) {
+                        generateAsyncTts(data.data.reply, data.data.detected_language).then(tts => {
+                            if (tts) {
+                                setResult(prev => ({ ...prev, audioUrl: tts.audioUrl, audioKey: tts.audioKey, audioLoading: false }));
+                            } else {
+                                setResult(prev => ({ ...prev, audioLoading: false }));
+                            }
+                        });
+                    }
                     return;
                 } else if (attempt === maxRetries) {
                     setError(data.message || t('connectionError'));
@@ -328,6 +340,11 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                                 }
                             }}
                         />
+                    )}
+                    {result.audioLoading && (
+                        <div className="audio-loading-indicator">
+                            <span className="spinner-sm"></span> {t('ttsGenerating') || 'Generating audio...'}
+                        </div>
                     )}
                     <div className="ai-result-body"
                         dangerouslySetInnerHTML={{ __html: formatText(result.text) }} />

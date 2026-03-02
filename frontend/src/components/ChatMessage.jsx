@@ -1,6 +1,6 @@
 // src/components/ChatMessage.jsx
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import config from '../config';
 
@@ -61,9 +61,45 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
     const [speaking, setSpeaking] = useState(false);
     const [playingAudio, setPlayingAudio] = useState(false);
     const [refreshedUrl, setRefreshedUrl] = useState(null);
+    const [audioLoading, setAudioLoading] = useState(false);
     const refreshingRef = useRef(false);
+    const ttsRequestedRef = useRef(false);
 
     const currentAudioUrl = refreshedUrl || message.audioUrl;
+
+    // Fire async TTS generation for pending audio (gTTS languages)
+    const generateAsyncTts = useCallback(async () => {
+        if (ttsRequestedRef.current || currentAudioUrl) return;
+        if (!message.audioPending || !message.content) return;
+        ttsRequestedRef.current = true;
+        setAudioLoading(true);
+        try {
+            const res = await fetch(`${config.API_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    generate_tts: true,
+                    tts_text: message.content,
+                    tts_language: message.detected_language || 'en'
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'success' && data.data?.audio_url) {
+                setRefreshedUrl(data.data.audio_url);
+                if (onUpdateAudioUrl) {
+                    onUpdateAudioUrl(message.timestamp, data.data.audio_url, data.data.audio_key);
+                }
+            }
+        } catch { /* silent */ }
+        setAudioLoading(false);
+    }, [message.audioPending, message.content, message.detected_language, message.timestamp, currentAudioUrl, onUpdateAudioUrl]);
+
+    // Auto-trigger async TTS when message has audio_pending
+    useEffect(() => {
+        if (message.audioPending && !currentAudioUrl && !ttsRequestedRef.current) {
+            generateAsyncTts();
+        }
+    }, [message.audioPending, currentAudioUrl, generateAsyncTts]);
 
     const audioRef = useCallback(node => {
         if (node) {
@@ -193,6 +229,11 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
                         className="message-audio-hidden"
                         preload="none"
                     />
+                )}
+                {audioLoading && (
+                    <div className="audio-loading-indicator">
+                        <span className="spinner-sm"></span> {t('ttsGenerating') || 'Generating audio...'}
+                    </div>
                 )}
                 <div className="message-footer">
                     {/* Read Aloud button for assistant messages */}

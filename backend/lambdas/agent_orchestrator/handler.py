@@ -22,8 +22,7 @@ logger.setLevel(logging.INFO)
 
 # API Gateway hard timeout is 29s. We must return before that.
 API_GW_TIMEOUT_SEC = 29
-TTS_TIME_BUDGET_SEC = 18  # skip TTS if elapsed > this
-GTTS_MIN_REMAINING_SEC = 15  # gTTS needs ~8-12s; skip if less than this remains
+TTS_TIME_BUDGET_SEC = 18  # skip Polly TTS if elapsed > this
 
 # Feature-page session prefixes: pre-structured prompts that
 # don't need the 4-agent cognitive pipeline.
@@ -1173,6 +1172,26 @@ def lambda_handler(event, context):
                                         message='Audio URL refreshed')
             return error_response('Audio file not found', 404)
 
+        # ── Fast path: Async TTS generation (called separately by frontend) ──
+        generate_tts = body.get('generate_tts')
+        if generate_tts:
+            tts_text = body.get('tts_text', '')
+            tts_lang = body.get('tts_language', 'en')
+            if not tts_text:
+                return error_response('tts_text is required', 400)
+            try:
+                polly_result = text_to_speech(tts_text, tts_lang, return_metadata=True)
+                if isinstance(polly_result, dict):
+                    return success_response({
+                        'audio_url': polly_result.get('audio_url'),
+                        'audio_key': polly_result.get('audio_key'),
+                        'truncated': polly_result.get('truncated', False),
+                    }, message='TTS generated')
+                return success_response({'audio_url': polly_result}, message='TTS generated')
+            except Exception as tts_err:
+                logger.warning(f'Async TTS failed: {tts_err}')
+                return error_response('TTS generation failed', 500)
+
         user_message = body.get('message', '')
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
@@ -1444,27 +1463,28 @@ def lambda_handler(event, context):
             )
 
         # --- Step 5: Generate TTS audio ---
+        # Polly (en/hi) is fast (~1-2s) → generate inline.
+        # gTTS (ta/te/kn/...) is slow (~15-25s) → defer to async call from frontend.
         _elapsed = _time.time() - _t_start
-        _remaining = API_GW_TIMEOUT_SEC - _elapsed - 2  # 2s safety margin
         audio_url = None
         audio_key = None
+        audio_pending = False
         polly_text_truncated = False
 
         _lang = detected_lang or 'en'
-        _needs_gtts = _lang not in ('en', 'hi')  # gTTS for non-Polly languages
+        _needs_gtts = _lang not in ('en', 'hi')
 
-        if _elapsed > TTS_TIME_BUDGET_SEC:
-            logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
-        elif _needs_gtts and _remaining < GTTS_MIN_REMAINING_SEC:
-            logger.warning(
-                f'Skipping gTTS({_lang}) - only {_remaining:.1f}s remaining '
-                f'(need {GTTS_MIN_REMAINING_SEC}s)'
-            )
+        if _needs_gtts:
+            # Defer gTTS to a separate frontend call — return text immediately
+            audio_pending = True
+            logger.info(f'Deferring gTTS({_lang}) to async call — elapsed {_elapsed:.1f}s')
+        elif _elapsed > TTS_TIME_BUDGET_SEC:
+            logger.warning(f'Skipping Polly TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
         else:
             try:
                 polly_result = text_to_speech(
                     translated_reply,
-                    detected_lang or 'en',
+                    _lang,
                     return_metadata=True,
                 )
                 if isinstance(polly_result, dict):
@@ -1473,7 +1493,7 @@ def lambda_handler(event, context):
                     polly_text_truncated = bool(polly_result.get('truncated', False))
                 else:
                     audio_url = polly_result
-                logger.info(f'TTS completed in {_time.time()-_t_start-_elapsed:.1f}s, audio={bool(audio_url)}')
+                logger.info(f'Polly TTS completed in {_time.time()-_t_start-_elapsed:.1f}s, audio={bool(audio_url)}')
             except Exception as polly_err:
                 logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
@@ -1505,6 +1525,7 @@ def lambda_handler(event, context):
             'sources': sources_line or None,
             'audio_url': audio_url,
             'audio_key': audio_key,
+            'audio_pending': audio_pending,
             'polly_text_truncated': polly_text_truncated,
             'session_id': session_id,
             'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',

@@ -202,6 +202,8 @@ function ChatPage() {
                     content: reply,
                     audioUrl: data.data.audio_url,
                     audioKey: data.data.audio_key,
+                    audioPending: data.data.audio_pending || false,
+                    detected_language: data.data.detected_language,
                     timestamp: Date.now()
                 };
             } else {
@@ -263,11 +265,13 @@ function ChatPage() {
         t('chatSuggestion4'),
     ];
 
-    // Persist refreshed audio URL for a message (when expired URL is re-signed)
-    const handleUpdateAudioUrl = useCallback((timestamp, newUrl) => {
+    // Persist refreshed audio URL for a message (when expired URL is re-signed or async TTS completes)
+    const handleUpdateAudioUrl = useCallback((timestamp, newUrl, newKey) => {
         setMessages(prev => {
             const updated = prev.map(m =>
-                m.timestamp === timestamp ? { ...m, audioUrl: newUrl } : m
+                m.timestamp === timestamp
+                    ? { ...m, audioUrl: newUrl, ...(newKey ? { audioKey: newKey, audioPending: false } : {}) }
+                    : m
             );
             saveSessionMessages(activeIdRef.current, updated);
             return updated;

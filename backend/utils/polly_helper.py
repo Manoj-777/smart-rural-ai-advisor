@@ -7,6 +7,7 @@ import boto3
 import os
 import uuid
 import io
+import re
 
 polly = boto3.client('polly')
 s3 = boto3.client('s3')
@@ -53,9 +54,34 @@ def normalize_language_code(language_code, default='en'):
     return LANGUAGE_ALIASES.get(normalized, normalized)
 
 MAX_POLLY_TEXT_LENGTH = 2800
-# gTTS is ~10× slower than Polly (HTTP calls to Google Translate per chunk).
-# Keep gTTS text short to finish within API Gateway's 29-second window.
-MAX_GTTS_TEXT_LENGTH = 800
+
+
+def _strip_markdown_for_tts(text):
+    """Remove markdown formatting, emojis, and special chars that TTS reads aloud."""
+    if not text:
+        return text
+    s = text
+    # Remove markdown headings: ### heading → heading
+    s = re.sub(r'^#{1,6}\s*', '', s, flags=re.MULTILINE)
+    # Remove bold: **text** → text
+    s = re.sub(r'\*\*(.+?)\*\*', r'\1', s)
+    # Remove italic: *text* → text
+    s = re.sub(r'\*(.+?)\*', r'\1', s)
+    # Remove bullet markers at start of line: - item or • item → item
+    s = re.sub(r'^[\s]*[\-•]\s+', '', s, flags=re.MULTILINE)
+    # Remove numbered list prefixes that look odd in speech: "1. " → ""
+    # Keep the text after the number
+    s = re.sub(r'^\d+\.\s+', '', s, flags=re.MULTILINE)
+    # Remove common emojis (Unicode blocks for emoji)
+    s = re.sub(r'[\U0001F300-\U0001F9FF\U00002600-\U000027BF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF]', '', s)
+    # Remove other special chars: |, ~, `, >, ===
+    s = re.sub(r'[\|~`>]', '', s)
+    s = re.sub(r'={3,}', '', s)
+    s = re.sub(r'-{3,}', '', s)
+    # Collapse multiple newlines/spaces
+    s = re.sub(r'\n{3,}', '\n\n', s)
+    s = re.sub(r'  +', ' ', s)
+    return s.strip()
 
 
 def _truncate_text(text, max_length):
@@ -70,8 +96,10 @@ def _truncate_text(text, max_length):
     return f"{truncated}..."
 
 
-def _prepare_text_for_polly(text):
-    return _truncate_text(text, MAX_POLLY_TEXT_LENGTH)
+def _prepare_text_for_tts(text, max_length=MAX_POLLY_TEXT_LENGTH):
+    """Strip markdown and truncate for TTS."""
+    cleaned = _strip_markdown_for_tts(text)
+    return _truncate_text(cleaned, max_length)
 
 
 def _upload_audio_bytes(audio_bytes):
@@ -127,10 +155,8 @@ def _gtts_tts(safe_text, language_code):
         print('gTTS not installed, skipping free TTS path')
         return None
 
-    # Aggressively truncate for gTTS — it's much slower than Polly.
-    gtts_text = _truncate_text(safe_text, MAX_GTTS_TEXT_LENGTH)
-    print(f'gTTS: {len(safe_text)} chars → {len(gtts_text)} chars for lang={language_code}')
-    tts = gTTS(text=gtts_text, lang=language_code, slow=False)
+    print(f'gTTS: {len(safe_text)} chars for lang={language_code}')
+    tts = gTTS(text=safe_text, lang=language_code, slow=False)
     buf = io.BytesIO()
     tts.write_to_fp(buf)
     buf.seek(0)
@@ -152,7 +178,7 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
     """
     language_code = normalize_language_code(language_code, default='en')
 
-    safe_text = _prepare_text_for_polly(text)
+    safe_text = _prepare_text_for_tts(text)
     was_truncated = (text or '').strip() != safe_text
     if not safe_text:
         if return_metadata:
