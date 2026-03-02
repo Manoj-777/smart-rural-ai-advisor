@@ -7,13 +7,15 @@ import boto3
 
 translate = boto3.client('translate')
 
-# Supported languages
-SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn"]
+# Supported languages (must match frontend config.js)
+SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]
 
 # Language code reference:
 # Tamil: 'ta'    | Telugu: 'te'   | Hindi: 'hi'
 # English: 'en'  | Kannada: 'kn'  | Malayalam: 'ml'
-# Marathi: 'mr'  | Bengali: 'bn'
+# Marathi: 'mr'  | Bengali: 'bn'  | Gujarati: 'gu'
+# Punjabi: 'pa'  | Odia: 'or'     | Assamese: 'as'
+# Urdu: 'ur'
 
 
 def detect_and_translate(text, target_language='en'):

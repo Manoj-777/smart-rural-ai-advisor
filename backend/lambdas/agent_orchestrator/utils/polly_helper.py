@@ -23,6 +23,14 @@ LANGUAGE_ALIASES = {
     'ta-in': 'ta',
     'te-in': 'te',
     'kn-in': 'kn',
+    'ml-in': 'ml',
+    'mr-in': 'mr',
+    'bn-in': 'bn',
+    'gu-in': 'gu',
+    'pa-in': 'pa',
+    'or-in': 'or',
+    'as-in': 'as',
+    'ur-in': 'ur',
 }
 
 # Language → Polly voice mapping

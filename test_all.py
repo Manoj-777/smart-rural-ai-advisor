@@ -370,11 +370,16 @@ header("10. translate_helper")
 
 from utils.translate_helper import detect_and_translate, translate_response, SUPPORTED_LANGUAGES
 
-test("SUPPORTED_LANGUAGES has 8 entries", len(SUPPORTED_LANGUAGES) == 8)
+test("SUPPORTED_LANGUAGES has 13 entries", len(SUPPORTED_LANGUAGES) == 13)
 test("Tamil in supported", "ta" in SUPPORTED_LANGUAGES)
 test("English in supported", "en" in SUPPORTED_LANGUAGES)
 test("Hindi in supported", "hi" in SUPPORTED_LANGUAGES)
 test("Telugu in supported", "te" in SUPPORTED_LANGUAGES)
+test("Gujarati in supported", "gu" in SUPPORTED_LANGUAGES)
+test("Punjabi in supported", "pa" in SUPPORTED_LANGUAGES)
+test("Odia in supported", "or" in SUPPORTED_LANGUAGES)
+test("Assamese in supported", "as" in SUPPORTED_LANGUAGES)
+test("Urdu in supported", "ur" in SUPPORTED_LANGUAGES)
 
 # Test translate_response same-language shortcut
 result = translate_response("Hello", source_language="en", target_language="en")

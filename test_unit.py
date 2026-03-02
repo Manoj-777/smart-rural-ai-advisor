@@ -1103,8 +1103,8 @@ class TestTranslateHelper(unittest.TestCase):
 
     def test_supported_languages_list(self):
         from utils.translate_helper import SUPPORTED_LANGUAGES
-        self.assertEqual(len(SUPPORTED_LANGUAGES), 8)
-        for lang in ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn"]:
+        self.assertEqual(len(SUPPORTED_LANGUAGES), 13)
+        for lang in ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]:
             self.assertIn(lang, SUPPORTED_LANGUAGES)
 
     def test_same_language_no_api_call(self):

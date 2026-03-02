@@ -7,8 +7,8 @@ import boto3
 
 translate = boto3.client('translate')
 
-# Supported languages
-SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn"]
+# Supported languages (must match frontend config.js)
+SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]
 
 LANGUAGE_ALIASES = {
     'en-in': 'en',
@@ -20,12 +20,19 @@ LANGUAGE_ALIASES = {
     'ml-in': 'ml',
     'mr-in': 'mr',
     'bn-in': 'bn',
+    'gu-in': 'gu',
+    'pa-in': 'pa',
+    'or-in': 'or',
+    'as-in': 'as',
+    'ur-in': 'ur',
 }
 
 # Language code reference:
 # Tamil: 'ta'    | Telugu: 'te'   | Hindi: 'hi'
 # English: 'en'  | Kannada: 'kn'  | Malayalam: 'ml'
-# Marathi: 'mr'  | Bengali: 'bn'
+# Marathi: 'mr'  | Bengali: 'bn'  | Gujarati: 'gu'
+# Punjabi: 'pa'  | Odia: 'or'     | Assamese: 'as'
+# Urdu: 'ur'
 
 
 def normalize_language_code(language_code, default='en'):
