@@ -6,6 +6,7 @@
 
 import json
 import logging
+import re
 from utils.response_helper import (
     success_response, error_response,
     is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
@@ -13,6 +14,17 @@ from utils.response_helper import (
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# ── Security: Input validation ──
+MAX_SEARCH_LENGTH = 200
+
+def _sanitize_input(value, max_len=MAX_SEARCH_LENGTH):
+    """Sanitize user input: strip, truncate, remove dangerous chars."""
+    if not value:
+        return ''
+    value = str(value).strip()[:max_len]
+    value = re.sub(r'[<>{}\[\]|;`$\\]', '', value)
+    return value
 
 # Curated scheme data (could also be in DynamoDB)
 SCHEMES = {
@@ -111,23 +123,23 @@ def lambda_handler(event, context):
 
         if from_bedrock:
             params = parse_bedrock_params(event)
-            scheme_name = params.get('scheme_name', params.get('query', 'all')).lower()
-            farmer_state = params.get('farmer_state', '')
+            scheme_name = _sanitize_input(params.get('scheme_name', params.get('query', 'all'))).lower()
+            farmer_state = _sanitize_input(params.get('farmer_state', ''))
         elif 'parameters' in event:
             # Legacy Bedrock format (fallback)
             params = {p['name']: p['value'] for p in event['parameters']}
-            scheme_name = params.get('scheme_name', 'all').lower()
-            farmer_state = params.get('farmer_state', '')
+            scheme_name = _sanitize_input(params.get('scheme_name', 'all')).lower()
+            farmer_state = _sanitize_input(params.get('farmer_state', ''))
         else:
             # API Gateway GET: read from query string; POST: read from body
             qs = event.get('queryStringParameters') or {}
             if qs:
-                scheme_name = qs.get('name', qs.get('search', 'all')).lower()
-                farmer_state = qs.get('state', '')
+                scheme_name = _sanitize_input(qs.get('name', qs.get('search', 'all'))).lower()
+                farmer_state = _sanitize_input(qs.get('state', ''))
             else:
                 body = json.loads(event.get('body', '{}')) if event.get('body') else {}
-                scheme_name = body.get('scheme_name', 'all').lower()
-                farmer_state = body.get('farmer_state', '')
+                scheme_name = _sanitize_input(body.get('scheme_name', 'all')).lower()
+                farmer_state = _sanitize_input(body.get('farmer_state', ''))
 
         if scheme_name == 'all':
             result = SCHEMES
@@ -151,6 +163,8 @@ def lambda_handler(event, context):
 
     except Exception as e:
         logger.error(f"Schemes error: {str(e)}")
+        # Security: never expose internal error details
+        safe_msg = "Government schemes service is temporarily unavailable. Please try again."
         if is_bedrock_event(event):
-            return bedrock_error_response(str(e), event)
-        return error_response(str(e), 500)
+            return bedrock_error_response(safe_msg, event)
+        return error_response(safe_msg, 500)

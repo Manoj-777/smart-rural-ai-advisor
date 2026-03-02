@@ -175,22 +175,52 @@ function ChatPage() {
         setInput('');
         setLoading(true);
 
+        const MAX_RETRIES = 1; // 1 original + 1 retry
+        const FETCH_TIMEOUT_MS = 35000; // 35s (API GW is 29s + margin)
+
         try {
             let data;
             if (config.MOCK_AI) {
                 data = await mockChat(text, targetSessionId, language);
             } else {
-                const res = await fetch(`${config.API_URL}/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: text,
-                        session_id: targetSessionId,
-                        farmer_id: farmerId || 'anonymous',
-                        language: language
-                    })
-                });
-                data = await res.json();
+                let lastError;
+                for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+                    try {
+                        const res = await fetch(`${config.API_URL}/chat`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                message: text,
+                                session_id: targetSessionId,
+                                farmer_id: farmerId || 'anonymous',
+                                language: language
+                            }),
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeout);
+                        if (res.status >= 500 && attempt < MAX_RETRIES) {
+                            lastError = new Error(`Server error ${res.status}`);
+                            await new Promise(r => setTimeout(r, 1500)); // wait before retry
+                            continue;
+                        }
+                        data = await res.json();
+                        break;
+                    } catch (fetchErr) {
+                        clearTimeout(timeout);
+                        lastError = fetchErr;
+                        if (fetchErr.name === 'AbortError') {
+                            lastError = new Error('Request timed out. Please try again.');
+                        }
+                        if (attempt < MAX_RETRIES) {
+                            await new Promise(r => setTimeout(r, 1500));
+                            continue;
+                        }
+                        throw lastError;
+                    }
+                }
+                if (!data) throw lastError || new Error('No response');
             }
 
             let assistantMsg;
@@ -353,7 +383,7 @@ function ChatPage() {
                 ))}
                 {loading && (
                     <div className="message assistant">
-                        <span className="typing-dots">🌾 {t('chatThinking')}</span>
+                        <span className="typing-dots">🤖 {t('chatThinking')}</span>
                     </div>
                 )}
                 <div ref={chatEndRef} />

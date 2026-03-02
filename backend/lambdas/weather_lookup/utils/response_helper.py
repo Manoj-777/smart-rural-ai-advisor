@@ -4,9 +4,23 @@
 # See: Detailed_Implementation_Guide.md Section 6C (Integration Contracts)
 
 import json
+import os
+
+# Security: Restrict CORS to known origins
+ALLOWED_ORIGINS = [
+    'https://d80ytlzsrax1n.cloudfront.net',
+    'http://localhost:5173',
+    'http://localhost:3000',
+]
+
+def _get_cors_origin(origin=None):
+    """Return the allowed origin or the CloudFront domain as default."""
+    if origin and origin in ALLOWED_ORIGINS:
+        return origin
+    return ALLOWED_ORIGINS[0]  # Default to CloudFront
 
 
-def success_response(data, message="Success", language="en", status_code=200):
+def success_response(data, message="Success", language="en", status_code=200, origin=None):
     """
     Standard success response envelope for API Gateway.
     {
@@ -20,7 +34,7 @@ def success_response(data, message="Success", language="en", status_code=200):
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": _get_cors_origin(origin),
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
             "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
         },
@@ -33,7 +47,7 @@ def success_response(data, message="Success", language="en", status_code=200):
     }
 
 
-def error_response(message, status_code=500, language="en"):
+def error_response(message, status_code=500, language="en", origin=None):
     """
     Standard error response envelope for API Gateway.
     """
@@ -41,7 +55,7 @@ def error_response(message, status_code=500, language="en"):
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": _get_cors_origin(origin),
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
             "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
         },

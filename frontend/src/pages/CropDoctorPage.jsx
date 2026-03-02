@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { sanitizeHtml } from '../utils/sanitize';
 import { mockImageAnalyze } from '../services/mockApi';
 
 function CropDoctorPage() {
@@ -239,8 +240,8 @@ function CropDoctorPage() {
                     <div
                         style={{ lineHeight: 1.7, color: 'var(--text-secondary)' }}
                         dangerouslySetInnerHTML={{
-                            __html: analysis.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                             .replace(/\n/g, '<br/>')
+                            __html: sanitizeHtml(analysis.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                             .replace(/\n/g, '<br/>'))
                         }}
                     />
                     <div className="alert alert-warning" style={{ marginTop: '16px', marginBottom: 0 }}>

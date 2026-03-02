@@ -7,6 +7,7 @@ import json
 import boto3
 import os
 import logging
+import re
 from utils.response_helper import (
     success_response, error_response,
     is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
@@ -17,6 +18,41 @@ logger.setLevel(logging.INFO)
 
 bedrock_agent = boto3.client('bedrock-agent-runtime')
 KB_ID = os.environ.get('BEDROCK_KB_ID', '')
+
+# ── Security: Input validation ──
+MAX_FIELD_LENGTH = 200
+MAX_QUERY_LENGTH = 500
+
+def _sanitize_field(value, max_len=MAX_FIELD_LENGTH):
+    """Sanitize a text field: strip, truncate, remove dangerous chars."""
+    if not value:
+        return ''
+    value = str(value).strip()[:max_len]
+    # Remove characters that could be used for injection
+    value = re.sub(r'[<>{}\[\]|;`$\\]', '', value)
+    return value
+
+def _check_injection(text):
+    """Check for prompt injection patterns in user input."""
+    if not text:
+        return False
+    lower = text.lower()
+    INJECTION_PATTERNS = [
+        r'ignore\s+(all\s+)?previous\s+instructions',
+        r'you\s+are\s+now\s+a',
+        r'system\s*prompt',
+        r'act\s+as\s+(a\s+)?',
+        r'new\s+instructions?\s*:',
+        r'forget\s+(your|all)\s+',
+        r'override\s+',
+        r'repeat\s+the\s+above',
+        r'what\s+(is|are)\s+your\s+(instructions|rules|prompt)',
+    ]
+    for pattern in INJECTION_PATTERNS:
+        if re.search(pattern, lower):
+            logger.warning(f"Injection pattern detected: {pattern}")
+            return True
+    return False
 
 
 def lambda_handler(event, context):
@@ -31,14 +67,22 @@ def lambda_handler(event, context):
             p['name']: p['value'] for p in event.get('parameters', [])
         }
 
-        query = params.get('query', '')
-        crop = params.get('crop', '')
-        state = params.get('state', '')
-        season = params.get('season', '')
-        soil_type = params.get('soil_type', '')
-        symptoms = params.get('symptoms', '')
-        location = params.get('location', '')
-        query_type = params.get('query_type', '')
+        query = _sanitize_field(params.get('query', ''), MAX_QUERY_LENGTH)
+        crop = _sanitize_field(params.get('crop', ''))
+        state = _sanitize_field(params.get('state', ''))
+        season = _sanitize_field(params.get('season', ''))
+        soil_type = _sanitize_field(params.get('soil_type', ''))
+        symptoms = _sanitize_field(params.get('symptoms', ''))
+        location = _sanitize_field(params.get('location', ''))
+        query_type = _sanitize_field(params.get('query_type', ''))
+
+        # Security: check for prompt injection
+        combined_input = f"{query} {crop} {state} {symptoms} {location}"
+        if _check_injection(combined_input):
+            safe_msg = "I can only help with agriculture-related queries. Please rephrase your question."
+            if from_bedrock:
+                return bedrock_error_response(safe_msg, event)
+            return error_response(safe_msg, 400)
 
         # Build a natural language search query for better KB vector retrieval
         # Natural language queries work much better than pipe-separated keywords
@@ -102,11 +146,14 @@ def lambda_handler(event, context):
             }
         )
 
-        # Extract relevant chunks
+        # Extract relevant chunks — sanitize content
         results = []
         for item in response.get('retrievalResults', []):
+            content = item['content']['text']
+            # Security: strip any HTML/script from KB content
+            content = re.sub(r'<[^>]+>', '', content)
             results.append({
-                'content': item['content']['text'],
+                'content': content[:2000],  # Cap individual chunk size
                 'score': item.get('score', 0),
                 'source': item.get('location', {}).get('s3Location', {}).get('uri', '')
             })
@@ -125,6 +172,8 @@ def lambda_handler(event, context):
 
     except Exception as e:
         logger.error(f"Crop advisory error: {str(e)}")
+        # Security: never expose internal error details
+        safe_msg = "Crop advisory service is temporarily unavailable. Please try again."
         if is_bedrock_event(event):
-            return bedrock_error_response(str(e), event)
-        return error_response(str(e), 500)
+            return bedrock_error_response(safe_msg, event)
+        return error_response(safe_msg, 500)

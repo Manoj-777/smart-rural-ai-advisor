@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';
 import { SchemesSkeleton } from '../components/SkeletonLoader';
 import schemeTranslations from '../i18n/schemeTranslations';
@@ -134,9 +135,9 @@ function SchemesPage() {
                         <div className="card" style={{ borderLeft: '4px solid var(--primary)', lineHeight: 1.7 }}>
                             <div
                                 dangerouslySetInnerHTML={{
-                                    __html: stateSchemes
+                                    __html: sanitizeHtml(stateSchemes
                                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                        .replace(/\n/g, '<br/>')
+                                        .replace(/\n/g, '<br/>'))
                                 }}
                             />
                         </div>
