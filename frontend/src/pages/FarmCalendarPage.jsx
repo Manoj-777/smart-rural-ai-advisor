@@ -187,10 +187,13 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
     function formatText(text) {
         if (!text) return '';
         return text
+            .replace(/^###\s*(.+)$/gm, '<div class="ai-section-title">$1</div>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/^(\d+)\.\s/gm, '<span class="list-num">$1.</span> ')
-            .replace(/^-\s(.+)/gm, '<span class="list-bullet">•</span> $1')
+            .replace(/^(\d+)\.\s+(.+)/gm, '<div class="ai-list-item"><span class="list-num">$1.</span> $2</div>')
+            .replace(/^[•\-]\s+(.+)/gm, '<div class="ai-list-item"><span class="list-bullet">•</span> $1</div>')
+            .replace(/^\s{2,}[\-•]\s+(.+)/gm, '<div class="ai-list-item ai-sub-item"><span class="list-bullet">◦</span> $1</div>')
+            .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
             .replace(/\n/g, '<br/>');
     }
 

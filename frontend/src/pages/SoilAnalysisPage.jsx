@@ -183,10 +183,21 @@ Keep advice practical for Indian farmers. Use bullet points.`;
     function formatText(text) {
         if (!text) return '';
         return text
+            // ### headings → styled section headers
+            .replace(/^###\s*(.+)$/gm, '<div class="ai-section-title">$1</div>')
+            // **bold** → <strong>
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // *italic* → <em>
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/^(\d+)\.\s/gm, '<span class="list-num">$1.</span> ')
-            .replace(/^-\s(.+)/gm, '<span class="list-bullet">•</span> $1')
+            // Numbered items: 1. text
+            .replace(/^(\d+)\.\s+(.+)/gm, '<div class="ai-list-item"><span class="list-num">$1.</span> $2</div>')
+            // Bullet: • or - at start of line
+            .replace(/^[•\-]\s+(.+)/gm, '<div class="ai-list-item"><span class="list-bullet">•</span> $1</div>')
+            // Sub-bullets (indented -)
+            .replace(/^\s{2,}[\-•]\s+(.+)/gm, '<div class="ai-list-item ai-sub-item"><span class="list-bullet">◦</span> $1</div>')
+            // Blank lines → spacing div
+            .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
+            // Single newlines → <br/>
             .replace(/\n/g, '<br/>');
     }
 

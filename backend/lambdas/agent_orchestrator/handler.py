@@ -1431,9 +1431,8 @@ def lambda_handler(event, context):
         _elapsed = _time.time() - _t_start
         audio_url = None
         polly_text_truncated = False
-        if _is_feature_page:
-            logger.info(f'Feature page - skipping TTS for speed (elapsed {_elapsed:.1f}s)')
-        elif _elapsed > TTS_TIME_BUDGET_SEC:
+        if _elapsed > TTS_TIME_BUDGET_SEC:
+            logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
             logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
         else:
             try:

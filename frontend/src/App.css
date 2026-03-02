@@ -3597,6 +3597,35 @@ body {
     color: var(--text);
 }
 
+.ai-result-body .ai-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 18px 0 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(22,163,74,0.08), rgba(22,163,74,0.02));
+    border-left: 3px solid var(--primary);
+    border-radius: 0 8px 8px 0;
+}
+
+.ai-result-body .ai-section-title:first-child {
+    margin-top: 0;
+}
+
+.ai-result-body .ai-list-item {
+    padding: 3px 0 3px 4px;
+}
+
+.ai-result-body .ai-sub-item {
+    padding-left: 24px;
+    font-size: 14px;
+    color: var(--text-secondary, #555);
+}
+
+.ai-result-body .ai-section-gap {
+    height: 10px;
+}
+
 .ai-result-body .list-num {
     font-weight: 700;
     color: var(--primary);
