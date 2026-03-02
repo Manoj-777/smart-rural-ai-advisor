@@ -31,7 +31,7 @@ FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'pr
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
 from utils.polly_helper import text_to_speech, refresh_audio_url
-from utils.dynamodb_helper import save_chat_message, get_farmer_profile
+from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_chat_history
 
 # Enterprise Guardrails (Gaps #1-#4, #6-#7)
 from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_guardrails
@@ -390,6 +390,8 @@ CRITICAL RULES:
 8. When farmer context is provided, ALWAYS use it to fill missing parameters (state, crop, soil_type) for tool calls — DO NOT ask the farmer for information that is already in their profile context
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
 10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context.
+11. ANSWER ONLY WHAT THE FARMER ASKED. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. Be concise and focused.
+12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 
 You have access to tools for weather lookup, crop advisory (including irrigation), pest alerts, government schemes, and farmer profiles.
 Always call the relevant tool first, then synthesize the response from tool data."""
@@ -538,12 +540,42 @@ def _execute_tool(tool_name, tool_input):
         return {"error": str(e)}
 
 
-def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False):
+def _build_conversation_history_context(session_id, limit=6):
+    """Retrieve recent chat history from DynamoDB and format for the model.
+    Returns a list of Bedrock converse() message dicts (role/content pairs).
+    Retrieves up to `limit` recent messages (user+assistant pairs)."""
+    if not session_id:
+        return []
+    try:
+        history = get_chat_history(session_id, limit=limit)
+        if not history:
+            return []
+        converse_messages = []
+        for item in history:
+            role = item.get('role', 'user')
+            text = item.get('message', '')
+            if not text or not text.strip():
+                continue
+            # Truncate long previous messages to save tokens
+            if len(text) > 500:
+                text = text[:500] + '...'
+            # Remove sources line from previous assistant messages
+            text = re.sub(r'\n\s*Sources:\s*.+$', '', text, flags=re.MULTILINE).strip()
+            if role in ('user', 'assistant') and text:
+                converse_messages.append({"role": role, "content": [{"text": text}]})
+        return converse_messages
+    except Exception as e:
+        logger.warning(f"Failed to retrieve chat history: {e}")
+        return []
+
+
+def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None):
     """
     Call Bedrock model directly with tool use (converse API).
     Fallback when AgentCore runtimes are cold-starting.
     skip_native_guardrail: True for feature-page fast paths (internal prompts
     are code-generated, already screened by application-level guardrails).
+    chat_history: list of previous converse() message dicts for conversation memory.
     Returns: (result_text, tools_used, tool_data_log)
     """
     tools_used = []
@@ -554,7 +586,24 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
     if farmer_context:
         system_prompt += f"\n\nFarmer context: {json.dumps(farmer_context)}"
 
-    messages = [{"role": "user", "content": [{"text": prompt}]}]
+    # Prepend conversation history for follow-up context
+    # Bedrock converse() requires alternating user/assistant roles
+    messages = []
+    if chat_history:
+        prev_role = None
+        for msg in chat_history:
+            role = msg.get('role', 'user')
+            # Skip consecutive same-role messages to maintain alternation
+            if role == prev_role:
+                continue
+            messages.append(msg)
+            prev_role = role
+        # Ensure history ends with assistant so new user message is valid
+        if messages and messages[-1].get('role') == 'user':
+            messages.pop()
+        if messages:
+            logger.info(f"Conversation memory: {len(messages)} prior messages")
+    messages.append({"role": "user", "content": [{"text": prompt}]})
 
     try:
         # Multi-turn tool use loop (max 5 turns)
@@ -714,7 +763,8 @@ Rules:
 - For scheme queries, search_schemes is always needed
 - ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data
 - CRITICAL: When farmer context is provided (state, crops, district, soil_type), use those values to fill NULL entities. For example, if the farmer asks 'what crops should I plant this kharif?' and context has state=Tamil Nadu, set location='Tamil Nadu', season='kharif', and ALWAYS include get_crop_advisory in tools_needed.
-- NEVER leave entities as null when the farmer context provides those values."""
+- NEVER leave entities as null when the farmer context provides those values.
+- When conversation history is provided, use it to resolve follow-up references. For example, if the farmer previously asked about rice and now asks 'what about pest control?', set crop=rice and add get_pest_alert to tools_needed."""
 
 # ── Agent 3: Fact-Checking Agent ──
 FACTCHECK_SYSTEM_PROMPT = """You are the Fact-Checking Agent in a multi-agent agricultural advisory system for Indian farmers.
@@ -753,16 +803,16 @@ You receive a fact-checked agricultural advisory. Your job is to rewrite it for 
 Rules:
 1. Keep ALL factual data (numbers, temperatures, dates, scheme names) EXACTLY as given
 2. Use simple, practical language a rural farmer would understand
-3. Organize with clear sections if the response covers multiple topics
-4. Add actionable next steps where appropriate (e.g., "Apply urea at 2 bags/acre before next rainfall")
-5. Be respectful and encouraging — farming is hard work
-6. Keep response concise (under 300 words) — farmers need quick answers
-7. If weather data is included, highlight what matters for farming (rainfall, temperature extremes)
-8. For pest/disease, always include: identify → treat → prevent
-9. For schemes, include: eligibility → how to apply → deadline if known
-10. End with a brief, helpful closing line
-11. ALWAYS write your response in English — translation to the farmer's language is handled separately
-12. For irrigation queries, include specific water amounts (mm/day, litres/acre) and scheduling
+3. ANSWER ONLY WHAT WAS ASKED — do NOT add unsolicited topics. If the farmer asked 'which crop to grow', give ONLY the crop recommendation, not pest/irrigation/fertilizer advice unless it was in the original advisory
+4. Be respectful and encouraging — farming is hard work
+5. Keep response concise (under 200 words for simple questions, up to 300 for multi-topic queries)
+6. If weather data is included, highlight what matters for farming (rainfall, temperature extremes)
+7. For pest/disease, include: identify → treat → prevent
+8. For schemes, include: eligibility → how to apply → deadline if known
+9. End with a brief, helpful closing line
+10. ALWAYS write your response in English — translation to the farmer's language is handled separately
+11. For irrigation queries, include specific water amounts (mm/day, litres/acre) and scheduling
+12. Do NOT pad the response with generic tips, encouraging words, or sections that were not requested
 
 Do NOT add information that wasn't in the original advisory.
 Do NOT use technical jargon unless explaining it.
@@ -809,7 +859,8 @@ def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_to
 
 
 def _run_cognitive_pipeline(user_message, english_message, session_id,
-                            farmer_id, farmer_context, detected_lang):
+                            farmer_id, farmer_context, detected_lang,
+                            chat_history=None):
     """
     4-Agent Cognitive Pipeline using Bedrock converse() API.
 
@@ -836,6 +887,14 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     understanding_input = f"Farmer query: {english_message}"
     if farmer_context:
         understanding_input += f"\nFarmer context: {json.dumps(farmer_context)}"
+    # Add conversation history summary for follow-up context
+    if chat_history:
+        history_lines = []
+        for msg in chat_history[-4:]:  # last 2 exchanges
+            role = msg.get('role', 'user')
+            text = msg.get('content', [{}])[0].get('text', '')[:200]
+            history_lines.append(f"{role}: {text}")
+        understanding_input += f"\nRecent conversation:\n" + "\n".join(history_lines)
 
     understanding_raw = _invoke_cognitive_converse(
         UNDERSTANDING_SYSTEM_PROMPT,
@@ -898,6 +957,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     reasoning_text, tools_used, tool_data_log = _invoke_bedrock_direct(
         reasoning_prompt, farmer_context,
         skip_native_guardrail=True,  # internal pipeline — app-level guardrails already screen I/O
+        chat_history=chat_history,  # conversation memory for follow-up context
     )
     pipeline_meta['agents_invoked'].append('reasoning')
     logger.info(f"Reasoning result: {len(reasoning_text or '')} chars, tools={tools_used}")
@@ -1484,6 +1544,13 @@ def lambda_handler(event, context):
         # --- Step 3: Invoke AI Agent ---
         pipeline_meta_extra = {}
 
+        # Retrieve conversation history for follow-up context (chat pages only, not feature pages)
+        chat_history = []
+        if not _is_feature_page:
+            chat_history = _build_conversation_history_context(session_id, limit=6)
+            if chat_history:
+                logger.info(f"Loaded {len(chat_history)} prior messages for conversation memory")
+
         if _is_feature_page:
             # FAST PATH: feature pages skip 4-agent pipeline, use single Bedrock call
             # skip_native_guardrail=True because these prompts are code-generated
@@ -1504,6 +1571,7 @@ def lambda_handler(event, context):
                 farmer_id=farmer_id,
                 farmer_context=farmer_context,
                 detected_lang=detected_lang,
+                chat_history=chat_history,
             )
 
         elif USE_AGENTCORE:
@@ -1515,7 +1583,7 @@ def lambda_handler(event, context):
                 farmer_context,
             )
             result_text, tools_used, _ = _invoke_bedrock_direct(
-                routed_prompt, farmer_context
+                routed_prompt, farmer_context, chat_history=chat_history
             )
         else:
             logger.info("Invoking Bedrock Agent (fallback)...")
