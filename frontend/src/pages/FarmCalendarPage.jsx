@@ -136,7 +136,7 @@ function FarmCalendarPage() {
         const monthName = MONTH_NAMES_EN[selectedMonth];
         const season = getSeason(selectedMonth);
 
-        const prompt = `You are an expert Indian agricultural calendar advisor. Generate a detailed farming activity calendar for **${monthName}** (${season} season).
+        const prompt = `Generate a detailed Indian farming activity calendar for **${monthName}** (${season} season).
 
 ${selectedCrops.length ? `Farmer's crops: ${selectedCrops.join(', ')}` : ''}
 ${[state, district].filter(Boolean).length ? `Location: ${[state, district].filter(Boolean).join(', ')}` : ''}

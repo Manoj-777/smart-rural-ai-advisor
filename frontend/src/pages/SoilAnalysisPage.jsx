@@ -99,7 +99,7 @@ function SoilAnalysisPage() {
         const targetCrop = crop || 'General';
         const location = [farmerProfile?.district, farmerProfile?.state].filter(Boolean).join(', ') || 'India';
 
-        const prompt = `You are an expert Indian soil scientist. Analyze the soil data below and give a detailed report.
+        const prompt = `Analyze the following soil test data and provide a detailed agricultural soil health report for an Indian farmer.
 
 Soil Data:
 ${soilDetails.length ? soilDetails.map(d => `- ${d}`).join('\n') : '- No lab data provided (use visual observations)'}

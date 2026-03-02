@@ -495,10 +495,12 @@ def _execute_tool(tool_name, tool_input):
         return {"error": str(e)}
 
 
-def _invoke_bedrock_direct(prompt, farmer_context=None):
+def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False):
     """
     Call Bedrock model directly with tool use (converse API).
     Fallback when AgentCore runtimes are cold-starting.
+    skip_native_guardrail: True for feature-page fast paths (internal prompts
+    are code-generated, already screened by application-level guardrails).
     Returns: (result_text, tools_used, tool_data_log)
     """
     tools_used = []
@@ -522,8 +524,10 @@ def _invoke_bedrock_direct(prompt, farmer_context=None):
                 "inferenceConfig": {"maxTokens": 2048, "temperature": 0.3},
             }
             # Gap #5: Attach Bedrock native guardrail if configured
+            # (skipped for feature-page fast paths — their prompts are
+            #  code-generated and already passed application guardrails)
             gc = _guardrail_config()
-            if gc:
+            if gc and not skip_native_guardrail:
                 converse_kwargs['guardrailConfig'] = gc
 
             response = bedrock_rt.converse(**converse_kwargs)
@@ -1321,9 +1325,13 @@ def lambda_handler(event, context):
 
         if _is_feature_page:
             # FAST PATH: feature pages skip 4-agent pipeline, use single Bedrock call
+            # skip_native_guardrail=True because these prompts are code-generated
+            # (not raw user text) and already passed application-level guardrails.
             logger.info(f'FAST PATH for feature page (elapsed {_time.time()-_t_start:.1f}s)')
             routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
-            result_text, tools_used, _ = _invoke_bedrock_direct(routed_prompt, farmer_context)
+            result_text, tools_used, _ = _invoke_bedrock_direct(
+                routed_prompt, farmer_context, skip_native_guardrail=True
+            )
 
         elif USE_AGENTCORE and PIPELINE_MODE == 'cognitive':
             # ═══ NEW: Cognitive Multi-Agent Pipeline ═══

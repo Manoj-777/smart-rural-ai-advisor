@@ -104,7 +104,7 @@ function CropRecommendPage() {
         setLoading(true);
         setResult(null);
 
-        const prompt = `You are an expert Indian agricultural advisor. Based on the following farm details, recommend the top 5 best crops to grow. For each crop, provide the crop name, expected yield per acre, estimated profit per acre, water requirement, key care tips, and market demand status.
+        const prompt = `Based on the following Indian farm details, recommend the top 5 best crops to grow. For each crop, provide the crop name, expected yield per acre, estimated profit per acre, water requirement, key care tips, and market demand status.
 
 Farm Details:
 - Soil Type: ${soilType}
