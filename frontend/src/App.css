@@ -13,6 +13,8 @@
 /* ── Smooth scrolling globally ─────────────────────────── */
 html {
     scroll-behavior: smooth;
+    /* Prevent layout shift from scrollbar appearance */
+    scrollbar-gutter: stable;
 }
 
 /* ── Custom thin scrollbar (visible but subtle) ────────── */
@@ -80,6 +82,8 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Prevent content from jumping on fast navigations */
+    overflow-anchor: auto;
 }
 
 /* ── Top Language Selector ─────────────────────────────── */
@@ -111,7 +115,7 @@ body {
     font-weight: 500;
     cursor: pointer;
     outline: none;
-    transition: all 0.2s;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .top-bar__lang-select:hover {
     border-color: var(--primary);
@@ -136,6 +140,12 @@ body {
 @keyframes pageIn {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── CSS Containment for layout isolation (perf) ───────── */
+.dashboard, .weather-page, .schemes-page, .cropdoctor-page,
+.profile-page, .price-page, .chat-page {
+    contain: layout style;
 }
 
 /* ── GPU-Accelerated Smooth Scroll for all overflow containers ── */
@@ -244,11 +254,14 @@ body {
     font-size: 22px;
     cursor: pointer;
     box-shadow: var(--shadow-md);
-    transition: all var(--transition);
+    transition: background var(--transition), transform var(--transition);
 }
 .mobile-menu-btn:hover {
     background: var(--primary-dark);
     transform: scale(1.05);
+}
+.mobile-menu-btn:active {
+    transform: scale(0.95);
 }
 
 .sidebar-overlay {
@@ -339,7 +352,7 @@ body {
     font-weight: 500;
     cursor: pointer;
     outline: none;
-    transition: all 0.2s;
+    transition: background 0.2s ease, border-color 0.2s ease;
     max-width: none;
 }
 .navbar-lang-select:hover {
@@ -400,9 +413,10 @@ body {
     gap: 3px;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: background 0.18s ease, color 0.18s ease;
     white-space: nowrap;
     flex-shrink: 0;
+    will-change: background;
 }
 .navbar-links a .nav-icon {
     font-size: 15px;
@@ -538,6 +552,9 @@ body {
 .chat-history-new:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 14px rgba(22,163,74,0.35);
+}
+.chat-history-new:active {
+    transform: translateY(0) scale(0.98);
 }
 .chat-history-list {
     flex: 1;
@@ -691,14 +708,25 @@ body {
     transform: translateY(-2px);
     box-shadow: var(--shadow);
 }
+.suggestion-chip:active {
+    transform: translateY(0) scale(0.97);
+}
 
 /* Message layout with avatar */
 .message {
     display: flex;
     gap: 12px;
     max-width: 82%;
-    animation: fadeIn 0.3s ease;
+    animation: messageSlideIn 0.3s cubic-bezier(.4,0,.2,1) both;
     align-items: flex-start;
+    transform: translateZ(0); /* GPU layer for smooth animation */
+}
+.message:nth-last-child(1) { animation-delay: 0s; }
+.message:nth-last-child(2) { animation-delay: 0s; }
+
+@keyframes messageSlideIn {
+    from { opacity: 0; transform: translateY(12px) translateZ(0); }
+    to   { opacity: 1; transform: translateY(0) translateZ(0); }
 }
 
 .message-avatar {
@@ -745,7 +773,7 @@ body {
     background: var(--card-bg);
     color: var(--text-light);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .speak-btn:hover {
@@ -893,6 +921,10 @@ body {
     background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-darker) 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+}
+.send-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.96);
+    box-shadow: 0 1px 4px rgba(22,163,74,0.2);
 }
 .send-btn:disabled {
     opacity: 0.5;
@@ -1666,12 +1698,15 @@ body {
     font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.12s ease;
 }
 .weather-city-btn:hover {
     border-color: var(--primary);
     background: var(--primary-50, #f0fdf4);
     color: var(--primary-dark, #15803d);
+}
+.weather-city-btn:active {
+    transform: scale(0.95);
 }
 .weather-city-btn.active {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -2253,6 +2288,10 @@ body {
     transform: translateY(-4px);
     box-shadow: var(--shadow-md);
 }
+.dash-action-card:active {
+    transform: translateY(-1px) scale(0.98);
+    box-shadow: var(--shadow);
+}
 .dash-action-card:hover::before {
     opacity: 1;
 }
@@ -2560,6 +2599,10 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(22,163,74,0.3);
 }
+.login-btn-primary:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
+}
 .login-btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -2573,6 +2616,9 @@ body {
     border-color: var(--primary);
     background: var(--primary-50);
     transform: translateY(-2px);
+}
+.login-btn-secondary:active {
+    transform: translateY(0) scale(0.98);
 }
 .login-btn-back {
     background: transparent;
@@ -3925,4 +3971,36 @@ body {
         align-items: flex-start;
         gap: 8px;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Accessibility — Reduced Motion
+   Users who prefer reduced motion get instant transitions, no bouncing
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Focus-visible — Keyboard accessibility ring
+   ═══════════════════════════════════════════════════════════════════════ */
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
