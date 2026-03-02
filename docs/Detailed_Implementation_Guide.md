@@ -259,21 +259,74 @@ The agent **combines** all three tool results with its own reasoning:
 
 The English response is translated to Tamil by Amazon Translate.
 
-### Step 9: Voice Output (Amazon Polly)
+### Step 9: Voice Output — Intelligent Dual-Engine TTS
 
-**Amazon Polly** takes the Tamil/Hindi text and generates natural-sounding speech as an MP3 file. This is stored temporarily in **Amazon S3** and a playable URL is sent back.
+Our system uses a **dual-engine Text-to-Speech architecture** to provide voice output across all 13 supported Indian languages, with a smart async pattern that ensures fast response times regardless of the TTS engine used.
 
-**Why Polly?**  
-- Neural voices sound natural (not robotic)
-- Supports Hindi and Indian English voices (Kajal - Neural)
-- Very cheap: ~$4 per 1 million characters
-- For Tamil/Telugu: Polly may not have dedicated voices, so we use browser's built-in TTS as fallback
+#### Engine 1: Amazon Polly (English & Hindi — Inline)
+
+For **English** and **Hindi**, we use **Amazon Polly's Kajal Neural voice** — a high-quality Indian English/Hindi voice. Polly is blazing fast (~1-2 seconds), so audio is generated **inline** with the main response. The farmer sees text and audio arrive together.
+
+#### Engine 2: gTTS (11 Regional Languages — Async)
+
+Amazon Polly currently supports only 2 Indian languages (English + Hindi). For **Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia, Assamese, and Urdu**, we use **Google Text-to-Speech (gTTS)** — an open-source library that generates natural-sounding audio in 11+ Indian languages at zero API cost.
+
+**The Challenge:** gTTS makes sequential HTTP calls to Google's translation service. For longer responses (2000+ characters in Tamil, for example), this can take 15-25 seconds — which, combined with Bedrock's ~14-second AI processing, would exceed API Gateway's 29-second hard timeout.
+
+**Our Solution — Async TTS Pattern:**
+
+```
+Main Request (13s):   Farmer asks → Bedrock AI → Translate → Return TEXT immediately
+                      Response includes: audio_pending = true
+
+Async TTS Call (15-20s):  Frontend fires a SEPARATE API call → gTTS generates full audio
+                          → Stored in S3 → Audio URL returned → Player appears
+```
+
+This means:
+1. **Text arrives in ~13 seconds** — the farmer can start reading immediately
+2. **Audio loads 15-20 seconds later** — a "Generating audio..." spinner shows while loading
+3. **No truncation** — the full response is converted to audio, not just a snippet
+4. **No timeout** — each call is well within the 29-second API Gateway limit
+
+#### Markdown Stripping for Clean Audio
+
+Before sending text to any TTS engine, we apply intelligent **markdown stripping** — removing `###` headings, `**bold**` markers, `*` bullet points, emojis, table characters (`|`), and other formatting symbols. This ensures the farmer hears clean, natural spoken language instead of "hash hash hash Soil Health Rating" or "asterisk asterisk Good asterisk asterisk."
+
+#### Audio Persistence
+
+All generated audio files are stored permanently in **Amazon S3** with unique keys. If a farmer revisits a past conversation, the audio is still available — we simply re-sign the S3 URL. No re-generation needed.
+
+#### Why This Design for the Prototype
+
+| Decision | Reasoning |
+|----------|-----------|
+| **Polly for en/hi** | Fastest option (~1-2s), neural quality, already in AWS ecosystem |
+| **gTTS for 11 languages** | Zero API cost, covers all 11 languages Polly lacks, ideal for prototype scale |
+| **Async pattern** | Eliminates timeout issues while keeping full audio — no compromise on quality |
+| **S3 storage** | Permanent audio cache — generate once, play forever |
+
+#### Production Roadmap — TTS at Scale
+
+For production deployment, we would migrate from gTTS to a **commercial TTS API** to achieve inline-speed audio (~1-3s) for all languages:
+
+| Service | Speed | Indian Languages | Cost | Notes |
+|---------|-------|-----------------|------|-------|
+| **gTTS (current — prototype)** | 15-25s | 11 | Free | HTTP scraping, not a real API — adequate for prototype |
+| **Google Cloud TTS** | 1-3s | 8 (ta, te, kn, ml, bn, gu, mr, hi) | $4-16/1M chars | Proper REST API with neural/WaveNet voices; near drop-in replacement for gTTS |
+| **Azure Cognitive Services Speech** | 1-2s | **All 13** | $16/1M chars | Best Indian language coverage; neural voices for all including Assamese, Odia, Punjabi |
+| **Sarvam AI** | 2-4s | 10+ | Pay-per-use | India-focused startup; optimized for Indian accents and dialects |
+
+**Our recommended production path:** **Google Cloud TTS** as an immediate upgrade (same language codes as gTTS, minimal code change — swap one function call) to bring all regional languages down to 1-3 seconds inline. For complete coverage of all 13 languages including Assamese, Odia, and Punjabi, **Azure Cognitive Services** would be the ultimate solution.
+
+With either upgrade, the async pattern becomes unnecessary — all languages would be fast enough for inline TTS, giving every farmer the same instant text + audio experience regardless of their language. The async infrastructure we've built would remain as a **graceful fallback** for any edge case where TTS takes longer than expected.
 
 ### Step 10: Rajesh Sees and Hears the Answer
 
 On his phone screen:
-- **Tamil text** of the full recommendation
-- **Audio player** — he presses play and hears the advice spoken
+- **Tamil text** of the full recommendation — arrives in ~13 seconds
+- **"Generating audio..." indicator** — shows briefly while async TTS runs
+- **Audio player** — appears when audio is ready, he presses play and hears the advice spoken
 - **Expandable "Why this recommendation?"** section
 - **Links** to relevant govt schemes
 
@@ -285,22 +338,24 @@ Everything is stored in **Amazon DynamoDB**:
 - The agent's English response
 - The Tamil translation
 - Which tools were called
-- The audio file URL
+- The audio file URL and S3 key (for permanent audio access)
 
 **Why save all this?** 
 - Memory — next time Rajesh asks "what about my rice?", the agent already knows the context
 - Debugging — if something goes wrong, we can trace exactly where
 - Analytics — we can see what farmers ask most (for improving the system)
+- Audio persistence — farmer can replay past conversations without re-generating TTS
 
 ### That's One Complete Cycle
 
 ```
 Tamil Speech → Text → Auto-Detect Tamil → Translate to English 
   → AgentCore reasons → Calls 3 tools → Synthesizes answer 
-  → Translate to Tamil → Polly speaks Tamil → Farmer hears advice
+  → Translate to Tamil → Return Text (13s) → Async gTTS speaks Tamil (15-20s)
+  → Farmer reads immediately, hears audio moments later
 ```
 
-Total time: **3-7 seconds**. Available 24/7. No waiting in queue.
+Total time: **Text in ~13 seconds, audio ~15-20 seconds later**. Available 24/7. No waiting in queue.
 
 ---
 
@@ -371,7 +426,7 @@ Total time: **3-7 seconds**. Available 24/7. No waiting in queue.
 | **Web App** | React 18 + Vite (JavaScript) | 5-page app: Chat, Weather, Govt Schemes, Crop Doctor, My Farm | Custom, professional UI with full control over styling and mobile responsiveness. Sanjay handles frontend — React gives the best judge impression ("looks like a real product"). |
 | **Voice Input (Primary)** | Browser Web Speech API | Farmer speaks → converts to text | **Free** (no AWS cost), supports Tamil/Telugu/Hindi/English, works in Chrome/Edge/Safari/Opera. **Native in React** — Web Speech API is just JavaScript, no hacks needed. |
 | **Voice Input (Fallback)** | Amazon Transcribe | Audio recorded via MediaRecorder → Lambda → Transcribe → text | 60 min/month free. Kicks in automatically for Firefox or any browser without Web Speech API. Farmer sees no difference. Custom hook auto-detects and switches path. |
-| **Voice Output** | Amazon Polly audio | AI speaks back in farmer's language | Neural voices sound natural, supports Hindi + Indian English. Cheap ($4/million chars). |
+| **Voice Output** | Amazon Polly + gTTS (dual engine) | AI speaks back in farmer's language across all 13 languages | Polly (neural, ~1-2s) for English/Hindi. gTTS (async, ~15-20s) for Tamil, Telugu, Kannada + 8 more regional languages. Async pattern ensures no timeout. Production roadmap: Google Cloud TTS or Azure for 1-3s across all languages. |
 | **Crop Image Upload** | React file input + drag-and-drop | Upload photo of diseased crop → AI diagnosis | Full control over UI, drag-and-drop zone, sends image as base64 to Claude Vision for analysis. |
 | **Farmer Profile** | Sidebar form | Name, state, district, crops, soil type | Personalizes every AI response. Stored in DynamoDB. |
 | **Hosting** | S3 + CloudFront | Gives a public URL for the app | Submission requires a "Working Live Link." Static site hosted on S3 with CloudFront CDN — fast, cheap, and globally distributed. |
