@@ -9,7 +9,6 @@ ACCOUNT = '948809294205'
 API_ID = 'zuadk9l1nc'
 CF_DIST_ID = 'E2HUWT1BUYIIRG'
 CF_DOMAIN = 'd80ytlzsrax1n.cloudfront.net'
-SM_ARN = f'arn:aws:states:{REGION}:{ACCOUNT}:stateMachine:smart-rural-ai-cognitive-pipeline'
 
 lam = boto3.client('lambda', region_name=REGION)
 ddb = boto3.client('dynamodb', region_name=REGION)
@@ -17,7 +16,6 @@ cw = boto3.client('cloudwatch', region_name=REGION)
 events = boto3.client('events', region_name=REGION)
 sns = boto3.client('sns', region_name=REGION)
 cog = boto3.client('cognito-idp', region_name=REGION)
-sfn = boto3.client('stepfunctions', region_name=REGION)
 cf = boto3.client('cloudfront')
 s3 = boto3.client('s3', region_name=REGION)
 apigw = boto3.client('apigateway', region_name=REGION)
@@ -45,7 +43,7 @@ print('  COMPREHENSIVE SYSTEM TEST')
 print('=' * 70)
 
 # ═══ 1. ALL 13 LAMBDA FUNCTIONS ═══
-print('\n[1/9] Lambda Functions (13)')
+print('\n[1/8] Lambda Functions (9)')
 ALL_FNS = [
     'smart-rural-ai-AgentOrchestratorFunction-9L6obTRaxJHM',
     'smart-rural-ai-WeatherFunction-dilSoHSLlXGN',
@@ -56,10 +54,6 @@ ALL_FNS = [
     'smart-rural-ai-TranscribeSpeechFunction-rF4EDECy1VaO',
     'smart-rural-ai-HealthCheckFunction-FQB8TfJ91HKs',
     'smart-rural-ai-DailyWeatherAlert',
-    'smart-rural-ai-SFN-UnderstandingAgent',
-    'smart-rural-ai-SFN-ReasoningAgent',
-    'smart-rural-ai-SFN-FactCheckAgent',
-    'smart-rural-ai-SFN-CommunicationAgent',
 ]
 for fn in ALL_FNS:
     short = fn.replace('smart-rural-ai-', '')
@@ -106,7 +100,7 @@ def ck_weather():
 test('Invoke: Weather (Chennai)', ck_weather)
 
 # ═══ 2. API GATEWAY ═══
-print('\n[2/9] API Gateway')
+print('\n[2/8] API Gateway')
 
 def ck_api_routes():
     res = apigw.get_resources(restApiId=API_ID)
@@ -161,7 +155,7 @@ except ImportError:
     print('  SKIP  HTTP tests (requests not installed)')
 
 # ═══ 3. DYNAMODB ═══
-print('\n[3/9] DynamoDB Tables')
+print('\n[3/8] DynamoDB Tables')
 for t in ['farmer_profiles', 'chat_sessions', 'otp_codes', 'rate_limits']:
     def ck_ddb(t=t):
         r = ddb.describe_table(TableName=t)
@@ -170,7 +164,7 @@ for t in ['farmer_profiles', 'chat_sessions', 'otp_codes', 'rate_limits']:
     test(f'DynamoDB: {t}', ck_ddb)
 
 # ═══ 4. CLOUDWATCH DASHBOARD ═══
-print('\n[4/9] CloudWatch Dashboard')
+print('\n[4/8] CloudWatch Dashboard')
 def ck_cw():
     r = cw.get_dashboard(DashboardName='SmartRuralAI-Operations')
     body = json.loads(r['DashboardBody'])
@@ -180,7 +174,7 @@ def ck_cw():
 test('CloudWatch: Dashboard', ck_cw)
 
 # ═══ 5. EVENTBRIDGE + SNS ═══
-print('\n[5/9] EventBridge + SNS')
+print('\n[5/8] EventBridge + SNS')
 def ck_eb():
     r = events.describe_rule(Name='smart-rural-ai-DailyWeatherRule')
     if r['State'] != 'ENABLED': raise Exception(f'State: {r["State"]}')
@@ -206,7 +200,7 @@ def ck_eb_lambda():
 test('EventBridge Lambda: Active', ck_eb_lambda)
 
 # ═══ 6. COGNITO ═══
-print('\n[6/9] Cognito')
+print('\n[6/8] Cognito')
 pool_id = None
 def ck_pool():
     global pool_id
@@ -241,45 +235,8 @@ def ck_auth():
     print(f'         ID: {a[0]["id"]}', end='')
 test('Cognito: API GW Authorizer', ck_auth)
 
-# ═══ 7. STEP FUNCTIONS ═══
-print('\n[7/9] Step Functions')
-def ck_sm():
-    d = sfn.describe_state_machine(stateMachineArn=SM_ARN)
-    if d['status'] != 'ACTIVE': raise Exception(d['status'])
-    print(f'         Type: {d["type"]}, XRay: {d.get("tracingConfiguration",{}).get("enabled")}', end='')
-test('SFN: State Machine ACTIVE', ck_sm)
-
-def ck_sm_def():
-    d = sfn.describe_state_machine(stateMachineArn=SM_ARN)
-    defn = json.loads(d['definition'])
-    states = list(defn['States'].keys())
-    need = ['UnderstandingAgent','ReasoningAgent','FactCheckAgent','CommunicationAgent','FallbackResponse']
-    missing = [s for s in need if s not in states]
-    if missing: raise Exception(f'Missing: {missing}')
-    print(f'         States: {", ".join(states)}', end='')
-test('SFN: All 5 states', ck_sm_def)
-
-def ck_sfn_exec():
-    execs = sfn.list_executions(stateMachineArn=SM_ARN, maxResults=5)
-    if not execs['executions']: raise Exception('No executions')
-    for e in execs['executions']:
-        if e['status'] == 'SUCCEEDED':
-            desc = sfn.describe_execution(executionArn=e['executionArn'])
-            out = json.loads(desc.get('output','{}'))
-            trace = out.get('agent_trace',[])
-            if len(trace) >= 4 and 'error-fallback' not in trace:
-                print(f'         Last success: {e["name"]}, trace={trace}', end='')
-                return
-    # Check any succeeded
-    succeeded = [e for e in execs['executions'] if e['status']=='SUCCEEDED']
-    if succeeded:
-        print(f'         {len(succeeded)} runs completed (some via fallback)', end='')
-        return 'WARN'
-    raise Exception('No successful executions')
-test('SFN: Past execution OK', ck_sfn_exec)
-
-# ═══ 8. CLOUDFRONT ═══
-print('\n[8/9] CloudFront')
+# ═══ 7. CLOUDFRONT ═══
+print('\n[7/8] CloudFront')
 def ck_cf():
     d = cf.get_distribution(Id=CF_DIST_ID)
     dist = d['Distribution']
@@ -298,7 +255,7 @@ def ck_cf_inv():
 test('CloudFront: Invalidation', ck_cf_inv)
 
 # ═══ 9. S3 ═══
-print('\n[9/9] S3 Buckets')
+print('\n[8/8] S3 Buckets')
 def ck_s3_data():
     r = s3.list_objects_v2(Bucket=f'smart-rural-ai-{ACCOUNT}', MaxKeys=5)
     if r.get('KeyCount',0)==0: raise Exception('Empty')
