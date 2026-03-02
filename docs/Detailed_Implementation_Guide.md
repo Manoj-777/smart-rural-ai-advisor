@@ -306,20 +306,41 @@ All generated audio files are stored permanently in **Amazon S3** with unique ke
 | **Async pattern** | Eliminates timeout issues while keeping full audio — no compromise on quality |
 | **S3 storage** | Permanent audio cache — generate once, play forever |
 
-#### Production Roadmap — TTS at Scale
+#### Why gTTS and Not Just Polly for Everything?
 
-For production deployment, we would migrate from gTTS to a **commercial TTS API** to achieve inline-speed audio (~1-3s) for all languages:
+**Amazon Polly** is the ideal TTS service within the AWS ecosystem — neural voices, sub-second latency, seamless IAM integration. However, as of today, Polly supports only **2 Indian languages: English and Hindi** (Kajal Neural voice). For the remaining **11 regional languages** (Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia, Assamese, Urdu) that our system supports, Polly simply doesn't have voices available yet.
 
-| Service | Speed | Indian Languages | Cost | Notes |
-|---------|-------|-----------------|------|-------|
-| **gTTS (current — prototype)** | 15-25s | 11 | Free | HTTP scraping, not a real API — adequate for prototype |
-| **Google Cloud TTS** | 1-3s | 8 (ta, te, kn, ml, bn, gu, mr, hi) | $4-16/1M chars | Proper REST API with neural/WaveNet voices; near drop-in replacement for gTTS |
-| **Azure Cognitive Services Speech** | 1-2s | **All 13** | $16/1M chars | Best Indian language coverage; neural voices for all including Assamese, Odia, Punjabi |
-| **Sarvam AI** | 2-4s | 10+ | Pay-per-use | India-focused startup; optimized for Indian accents and dialects |
+This is a **known AWS limitation**, not a design choice. We use gTTS purely as a **bridge** to fill this gap in the prototype — it's a lightweight, zero-cost library that generates speech for all 11 languages that Polly cannot.
 
-**Our recommended production path:** **Google Cloud TTS** as an immediate upgrade (same language codes as gTTS, minimal code change — swap one function call) to bring all regional languages down to 1-3 seconds inline. For complete coverage of all 13 languages including Assamese, Odia, and Punjabi, **Azure Cognitive Services** would be the ultimate solution.
+#### Production Roadmap — Staying Within AWS
 
-With either upgrade, the async pattern becomes unnecessary — all languages would be fast enough for inline TTS, giving every farmer the same instant text + audio experience regardless of their language. The async infrastructure we've built would remain as a **graceful fallback** for any edge case where TTS takes longer than expected.
+Our architecture is **designed for seamless Polly migration**. The moment AWS expands Polly's Indian language support (which is actively on their roadmap — they've been adding languages steadily), we can switch with a single configuration change:
+
+```python
+# Current: language → engine routing in polly_helper.py
+POLLY_LANGUAGES = {'en', 'hi'}           # → Amazon Polly (inline, ~1-2s)
+GTTS_LANGUAGES  = {'ta', 'te', 'kn', ...}  # → gTTS bridge (async, ~15-20s)
+
+# Future: as Polly adds Tamil, Telugu, etc.
+POLLY_LANGUAGES = {'en', 'hi', 'ta', 'te', 'kn', ...}  # → All Polly (inline, ~1-2s)
+GTTS_LANGUAGES  = {}                                      # → No longer needed
+```
+
+**What this means for production scaling:**
+
+| Phase | Approach | Speed | Cost |
+|-------|----------|-------|------|
+| **Prototype (current)** | Polly (en/hi) + gTTS bridge (11 langs) with async pattern | Text ~13s, audio ~15-20s async | Free (gTTS) + Polly free tier |
+| **Near-term** | As Polly adds Indian languages → move them from gTTS to Polly one by one | ~1-2s inline per migrated language | ~$4/1M chars (Polly standard) |
+| **Full production** | All 13 languages on Amazon Polly | ~1-2s inline for all | Fully within AWS ecosystem |
+
+**Key engineering decisions that make this migration trivial:**
+- **Engine routing is config-based** — moving a language from gTTS to Polly is a one-line set change
+- **Same S3 storage pipeline** — both engines output MP3 → S3 → presigned URL. No downstream changes needed
+- **Async pattern remains as fallback** — if any future TTS call is unexpectedly slow, the async infrastructure gracefully handles it
+- **Markdown stripping is engine-agnostic** — clean text goes to whichever engine is active
+
+**The bottom line:** gTTS is a temporary, zero-cost bridge for the prototype. The entire TTS architecture is built around Amazon Polly — we're simply waiting for AWS to expand Polly's Indian language coverage, and when they do, it's a config change, not a rewrite.
 
 ### Step 10: Rajesh Sees and Hears the Answer
 
@@ -426,7 +447,7 @@ Total time: **Text in ~13 seconds, audio ~15-20 seconds later**. Available 24/7.
 | **Web App** | React 18 + Vite (JavaScript) | 5-page app: Chat, Weather, Govt Schemes, Crop Doctor, My Farm | Custom, professional UI with full control over styling and mobile responsiveness. Sanjay handles frontend — React gives the best judge impression ("looks like a real product"). |
 | **Voice Input (Primary)** | Browser Web Speech API | Farmer speaks → converts to text | **Free** (no AWS cost), supports Tamil/Telugu/Hindi/English, works in Chrome/Edge/Safari/Opera. **Native in React** — Web Speech API is just JavaScript, no hacks needed. |
 | **Voice Input (Fallback)** | Amazon Transcribe | Audio recorded via MediaRecorder → Lambda → Transcribe → text | 60 min/month free. Kicks in automatically for Firefox or any browser without Web Speech API. Farmer sees no difference. Custom hook auto-detects and switches path. |
-| **Voice Output** | Amazon Polly + gTTS (dual engine) | AI speaks back in farmer's language across all 13 languages | Polly (neural, ~1-2s) for English/Hindi. gTTS (async, ~15-20s) for Tamil, Telugu, Kannada + 8 more regional languages. Async pattern ensures no timeout. Production roadmap: Google Cloud TTS or Azure for 1-3s across all languages. |
+| **Voice Output** | Amazon Polly + gTTS (bridge) | AI speaks back in farmer's language across all 13 languages | Polly (neural, ~1-2s) for English/Hindi. gTTS as a zero-cost bridge for 11 regional languages Polly doesn't yet support. Async pattern avoids timeouts. Architecture is Polly-first — as AWS adds Indian language voices, we migrate with a config change. |
 | **Crop Image Upload** | React file input + drag-and-drop | Upload photo of diseased crop → AI diagnosis | Full control over UI, drag-and-drop zone, sends image as base64 to Claude Vision for analysis. |
 | **Farmer Profile** | Sidebar form | Name, state, district, crops, soil type | Personalizes every AI response. Stored in DynamoDB. |
 | **Hosting** | S3 + CloudFront | Gives a public URL for the app | Submission requires a "Working Live Link." Static site hosted on S3 with CloudFront CDN — fast, cheap, and globally distributed. |
