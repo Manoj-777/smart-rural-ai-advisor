@@ -37,11 +37,11 @@ def deploy_lambda(name, source_dir, function_name, pip_deps=None):
                 arcname = os.path.relpath(fp, source_dir)
                 zf.write(fp, arcname)
                 added.add(arcname.replace('\\', '/'))
-        # Add shared utils (skip if already in source tree)
+        # Add shared utils (ALWAYS use canonical backend/utils/ — overwrites source tree copies)
         utils_dir = 'backend/utils'
         for f in os.listdir(utils_dir):
             arcname = f'utils/{f}'
-            if f.endswith('.py') and arcname not in added:
+            if f.endswith('.py'):
                 zf.write(os.path.join(utils_dir, f), arcname)
                 added.add(arcname)
         # Add pip dependencies (skip runtime pkgs and already-present files)

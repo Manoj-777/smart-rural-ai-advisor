@@ -201,6 +201,7 @@ function ChatPage() {
                     role: 'assistant',
                     content: reply,
                     audioUrl: data.data.audio_url,
+                    audioKey: data.data.audio_key,
                     timestamp: Date.now()
                 };
             } else {
@@ -261,6 +262,17 @@ function ChatPage() {
         t('chatSuggestion3'),
         t('chatSuggestion4'),
     ];
+
+    // Persist refreshed audio URL for a message (when expired URL is re-signed)
+    const handleUpdateAudioUrl = useCallback((timestamp, newUrl) => {
+        setMessages(prev => {
+            const updated = prev.map(m =>
+                m.timestamp === timestamp ? { ...m, audioUrl: newUrl } : m
+            );
+            saveSessionMessages(activeIdRef.current, updated);
+            return updated;
+        });
+    }, []);
 
     return (
         <div className="chat-page">
@@ -333,7 +345,7 @@ function ChatPage() {
                     </div>
                 )}
                 {messages.map((msg, i) => (
-                    <ChatMessage key={i} message={msg} />
+                    <ChatMessage key={i} message={msg} onUpdateAudioUrl={handleUpdateAudioUrl} />
                 ))}
                 {loading && (
                     <div className="message assistant">

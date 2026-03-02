@@ -1,7 +1,8 @@
 // src/components/ChatMessage.jsx
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import config from '../config';
 
 function formatMessage(text) {
     if (!text) return '';
@@ -54,22 +55,50 @@ const SPEECH_LANG_MAP = {
     'pa-IN': 'pa-IN',
 };
 
-function ChatMessage({ message }) {
+function ChatMessage({ message, onUpdateAudioUrl }) {
     const isUser = message.role === 'user';
     const { t } = useLanguage();
     const [speaking, setSpeaking] = useState(false);
     const [playingAudio, setPlayingAudio] = useState(false);
+    const [refreshedUrl, setRefreshedUrl] = useState(null);
+    const refreshingRef = useRef(false);
+
+    const currentAudioUrl = refreshedUrl || message.audioUrl;
+
     const audioRef = useCallback(node => {
         if (node) {
             node.onended = () => setPlayingAudio(false);
             node.onpause = () => setPlayingAudio(false);
             node.onplay = () => setPlayingAudio(true);
+            // Auto-refresh expired presigned URLs on error
+            node.onerror = async () => {
+                setPlayingAudio(false);
+                if (message.audioKey && !refreshingRef.current) {
+                    refreshingRef.current = true;
+                    try {
+                        const res = await fetch(`${config.API_URL}/chat`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ refresh_audio_key: message.audioKey })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success' && data.data?.audio_url) {
+                            setRefreshedUrl(data.data.audio_url);
+                            // Also notify parent to persist the new URL
+                            if (onUpdateAudioUrl) {
+                                onUpdateAudioUrl(message.timestamp, data.data.audio_url);
+                            }
+                        }
+                    } catch { /* silent */ }
+                    refreshingRef.current = false;
+                }
+            };
         }
-    }, []);
+    }, [message.audioKey, message.timestamp, onUpdateAudioUrl]);
 
     const handleSpeak = useCallback(() => {
-        // If there's an audio_url from Polly, use that
-        if (message.audioUrl) {
+        // If there's an audio_url from Polly/gTTS, use that
+        if (currentAudioUrl) {
             const existing = document.getElementById('tts-audio-' + message.timestamp);
             if (existing) {
                 if (playingAudio) { existing.pause(); existing.currentTime = 0; setPlayingAudio(false); }
@@ -127,7 +156,7 @@ function ChatMessage({ message }) {
             window.speechSynthesis.speak(utter);
         }
         speakNext();
-    }, [message, speaking, playingAudio]);
+    }, [message, speaking, playingAudio, currentAudioUrl]);
 
     // Simple script detection for speech lang
     function detectSpeechLang(text) {
@@ -155,12 +184,12 @@ function ChatMessage({ message }) {
                     className="message-text"
                     dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }} 
                 />
-                {/* Hidden audio element for Polly audio URL */}
-                {message.audioUrl && (
+                {/* Hidden audio element for Polly/gTTS audio URL */}
+                {currentAudioUrl && (
                     <audio
                         id={'tts-audio-' + message.timestamp}
                         ref={audioRef}
-                        src={message.audioUrl}
+                        src={currentAudioUrl}
                         className="message-audio-hidden"
                         preload="none"
                     />

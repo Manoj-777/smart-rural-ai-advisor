@@ -30,7 +30,7 @@ FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-')
 
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
-from utils.polly_helper import text_to_speech
+from utils.polly_helper import text_to_speech, refresh_audio_url
 from utils.dynamodb_helper import save_chat_message, get_farmer_profile
 
 # Enterprise Guardrails (Gaps #1-#4, #6-#7)
@@ -1162,6 +1162,16 @@ def lambda_handler(event, context):
 
     try:
         body = json.loads(event.get('body', '{}'))
+
+        # ── Fast path: Refresh an expired audio presigned URL ──
+        refresh_key = body.get('refresh_audio_key')
+        if refresh_key:
+            fresh_url = refresh_audio_url(refresh_key)
+            if fresh_url:
+                return success_response({'audio_url': fresh_url, 'audio_key': refresh_key},
+                                        message='Audio URL refreshed')
+            return error_response('Audio file not found', 404)
+
         user_message = body.get('message', '')
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
@@ -1199,6 +1209,7 @@ def lambda_handler(event, context):
                 'detected_language': 'en',
                 'tools_used': [],
                 'audio_url': None,
+                'audio_key': None,
                 'session_id': session_id,
                 'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
                 'policy': {
@@ -1228,6 +1239,7 @@ def lambda_handler(event, context):
                 'detected_language': 'en',
                 'tools_used': [],
                 'audio_url': None,
+                'audio_key': None,
                 'session_id': session_id,
                 'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
                 'policy': {
@@ -1267,6 +1279,7 @@ def lambda_handler(event, context):
             )
 
             audio_url = None
+            audio_key = None
             polly_text_truncated = False
             try:
                 polly_result = text_to_speech(
@@ -1276,6 +1289,7 @@ def lambda_handler(event, context):
                 )
                 if isinstance(polly_result, dict):
                     audio_url = polly_result.get('audio_url')
+                    audio_key = polly_result.get('audio_key')
                     polly_text_truncated = bool(polly_result.get('truncated', False))
                 else:
                     audio_url = polly_result
@@ -1291,6 +1305,7 @@ def lambda_handler(event, context):
                 'detected_language': detected_lang,
                 'tools_used': [],
                 'audio_url': audio_url,
+                'audio_key': audio_key,
                 'polly_text_truncated': polly_text_truncated,
                 'session_id': session_id,
                 'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
@@ -1430,9 +1445,9 @@ def lambda_handler(event, context):
         # --- Step 5: Generate TTS audio ---
         _elapsed = _time.time() - _t_start
         audio_url = None
+        audio_key = None
         polly_text_truncated = False
         if _elapsed > TTS_TIME_BUDGET_SEC:
-            logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
             logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
         else:
             try:
@@ -1443,6 +1458,7 @@ def lambda_handler(event, context):
                 )
                 if isinstance(polly_result, dict):
                     audio_url = polly_result.get('audio_url')
+                    audio_key = polly_result.get('audio_key')
                     polly_text_truncated = bool(polly_result.get('truncated', False))
                 else:
                     audio_url = polly_result
@@ -1477,6 +1493,7 @@ def lambda_handler(event, context):
             'tools_used': tools_used,
             'sources': sources_line or None,
             'audio_url': audio_url,
+            'audio_key': audio_key,
             'polly_text_truncated': polly_text_truncated,
             'session_id': session_id,
             'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',

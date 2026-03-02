@@ -146,7 +146,8 @@ Format clearly with numbered recommendations. Include practical advice specific 
                 if (data.status === 'success') {
                     setResult({
                         text: data.data.reply,
-                        audioUrl: data.data.audio_url
+                        audioUrl: data.data.audio_url,
+                        audioKey: data.data.audio_key
                     });
                     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
                     setLoading(false);
@@ -280,7 +281,24 @@ Format clearly with numbered recommendations. Include practical advice specific 
                         </button>
                     </div>
                     {result.audioUrl && (
-                        <audio controls src={result.audioUrl} className="ai-result-audio" />
+                        <audio controls src={result.audioUrl} className="ai-result-audio"
+                            onError={async (e) => {
+                                if (result.audioKey) {
+                                    try {
+                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ refresh_audio_key: result.audioKey })
+                                        });
+                                        const d = await res.json();
+                                        if (d.status === 'success' && d.data?.audio_url) {
+                                            e.target.src = d.data.audio_url;
+                                            setResult(prev => ({ ...prev, audioUrl: d.data.audio_url }));
+                                        }
+                                    } catch { /* silent */ }
+                                }
+                            }}
+                        />
                     )}
                     <div className="ai-result-body"
                         dangerouslySetInnerHTML={{ __html: formatText(result.text) }} />

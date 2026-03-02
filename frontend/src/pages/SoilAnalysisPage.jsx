@@ -1,7 +1,7 @@
 // src/pages/SoilAnalysisPage.jsx
 // AI-powered soil health analysis and fertilizer recommendation
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
@@ -148,7 +148,8 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                 if (data.status === 'success') {
                     setResult({
                         text: data.data.reply,
-                        audioUrl: data.data.audio_url
+                        audioUrl: data.data.audio_url,
+                        audioKey: data.data.audio_key
                     });
                     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
                     setLoading(false);
@@ -297,7 +298,24 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                         </button>
                     </div>
                     {result.audioUrl && (
-                        <audio controls src={result.audioUrl} className="ai-result-audio" />
+                        <audio controls src={result.audioUrl} className="ai-result-audio"
+                            onError={async (e) => {
+                                if (result.audioKey) {
+                                    try {
+                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ refresh_audio_key: result.audioKey })
+                                        });
+                                        const d = await res.json();
+                                        if (d.status === 'success' && d.data?.audio_url) {
+                                            e.target.src = d.data.audio_url;
+                                            setResult(prev => ({ ...prev, audioUrl: d.data.audio_url }));
+                                        }
+                                    } catch { /* silent */ }
+                                }
+                            }}
+                        />
                     )}
                     <div className="ai-result-body"
                         dangerouslySetInnerHTML={{ __html: formatText(result.text) }} />
