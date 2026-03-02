@@ -118,7 +118,34 @@ AGRI_POLICY_KEYWORDS = {
     'horticulture', 'agri', 'cattle', 'dairy', 'goat', 'poultry'
 }
 
-SAFE_CHITCHAT = {'hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay'}
+SAFE_CHITCHAT = {'hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay',
+                 'good morning', 'good evening', 'good afternoon', 'good night',
+                 'bye', 'goodbye', 'namaste', 'vanakkam', 'namaskar'}
+
+
+def _is_greeting_or_chitchat(text):
+    """Return True if the message is a simple greeting/chitchat with no farming intent."""
+    normalized = (text or '').lower().strip().rstrip('!?.,')
+    if not normalized:
+        return False
+    return normalized in SAFE_CHITCHAT
+
+
+def _greeting_response(farmer_context=None):
+    """Generate a short, friendly greeting. Does NOT trigger the 4-agent pipeline."""
+    name = ''
+    if farmer_context and farmer_context.get('name'):
+        name = f" {farmer_context['name'].split()[0]}"  # first name only
+    return (
+        f"Hello{name}! 👋 Welcome to Smart Rural AI Advisor.\n\n"
+        f"I can help you with:\n"
+        f"• **Crop advice** — what to plant, fertilizers, irrigation\n"
+        f"• **Weather updates** — rain, temperature, forecasts\n"
+        f"• **Pest & disease help** — symptoms, treatment, prevention\n"
+        f"• **Government schemes** — PM-KISAN, subsidies, insurance\n"
+        f"• **Market prices** — MSP, mandi rates\n\n"
+        f"Just type your question or use the feature pages above!"
+    )
 
 
 def _sanitize_user_message(text):
@@ -1386,6 +1413,73 @@ def lambda_handler(event, context):
                 f"Soil={farmer_context['soil_type']}] "
             )
             english_message = context_prefix + english_message
+
+        # --- Step 2b: Greeting shortcut (skip 4-agent pipeline for "hi", "hello", etc.) ---
+        _raw_en = detection.get('translated_text', user_message)
+        if _is_greeting_or_chitchat(_raw_en) and not intents:
+            logger.info(f"Greeting shortcut: '{_raw_en}' — skipping pipeline")
+            result_text = _greeting_response(farmer_context)
+            tools_used = []
+            policy_meta = {
+                'code_policy_enforced': True,
+                'off_topic_blocked': False,
+                'grounding_required': False,
+                'grounding_satisfied': True,
+                'greeting_shortcut': True,
+            }
+
+            # Translate if needed
+            if detected_lang and detected_lang != 'en':
+                translated_reply = translate_response(result_text, 'en', detected_lang)
+            else:
+                translated_reply = result_text
+
+            # Quick TTS
+            audio_url = None
+            audio_key = None
+            audio_pending = False
+            polly_text_truncated = False
+            _lang = detected_lang or 'en'
+            if _lang not in ('en', 'hi'):
+                audio_pending = True
+            else:
+                try:
+                    polly_result = text_to_speech(translated_reply, _lang, return_metadata=True)
+                    if isinstance(polly_result, dict):
+                        audio_url = polly_result.get('audio_url')
+                        audio_key = polly_result.get('audio_key')
+                        polly_text_truncated = bool(polly_result.get('truncated', False))
+                    else:
+                        audio_url = polly_result
+                except Exception as polly_err:
+                    logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
+
+            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
+
+            _total_elapsed = _time.time() - _t_start
+            logger.info(f'Greeting shortcut completed in {_total_elapsed:.1f}s')
+            audit_request_complete(
+                farmer_id=farmer_id, session_id=session_id,
+                tools_used=[], pipeline_mode='greeting',
+                response_length=len(translated_reply), elapsed_seconds=_total_elapsed,
+                bedrock_guardrail_triggered=False,
+            )
+            return success_response({
+                'reply': translated_reply,
+                'reply_en': result_text,
+                'detected_language': detected_lang,
+                'tools_used': [],
+                'sources': None,
+                'audio_url': audio_url,
+                'audio_key': audio_key,
+                'audio_pending': audio_pending,
+                'polly_text_truncated': polly_text_truncated,
+                'session_id': session_id,
+                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'pipeline_mode': 'greeting',
+                'policy': policy_meta,
+            }, message='Greeting response', language=detected_lang)
 
         # --- Step 3: Invoke AI Agent ---
         pipeline_meta_extra = {}
