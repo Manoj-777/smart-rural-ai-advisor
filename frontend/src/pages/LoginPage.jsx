@@ -24,6 +24,7 @@ function LoginPage() {
     const [demoOtp, setDemoOtp] = useState('');
     const [otpSmsSent, setOtpSmsSent] = useState(false);
     const [maskedPhone, setMaskedPhone] = useState('');
+    const [isRegistration, setIsRegistration] = useState(false); // true = new user OTP, false = returning user OTP
     const otpRefs = useRef([]);
 
     // Registration form fields
@@ -54,7 +55,34 @@ function LoginPage() {
         );
     };
 
-    // ── Send OTP ──
+    // ── Send OTP (shared helper — callers manage loading state) ──
+    const sendOtpToPhone = async () => {
+        const res = await fetch(`${config.API_URL}/otp/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone.replace(/\D/g, '') })
+        });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            setMode('otp');
+            setOtpDigits(['', '', '', '', '', '']);
+            setOtpTimer(300); // 5 minutes
+            setOtpSmsSent(data.sms_sent || data.sandbox_verification || false);
+            setMaskedPhone(data.phone_masked || `+91 ${phone.slice(0,3)}***${phone.slice(-2)}`);
+            if (data.demo_otp) {
+                setDemoOtp(data.demo_otp);
+            } else {
+                setDemoOtp('');
+            }
+            // Focus first OTP input
+            setTimeout(() => otpRefs.current[0]?.focus(), 100);
+        } else {
+            setError(data.error || data.message || t('otpSendFailed'));
+        }
+    };
+
+    // ── Send OTP for returning user ──
     const handleSendOtp = async () => {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         setLoading(true);
@@ -68,31 +96,8 @@ function LoginPage() {
                 return;
             }
             setReturnedProfile(existing);
-
-            // Send OTP
-            const res = await fetch(`${config.API_URL}/otp/send`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: phone.replace(/\D/g, '') })
-            });
-            const data = await res.json();
-
-            if (data.status === 'success') {
-                setMode('otp');
-                setOtpDigits(['', '', '', '', '', '']);
-                setOtpTimer(300); // 5 minutes
-                setOtpSmsSent(data.sms_sent || data.sandbox_verification || false);
-                setMaskedPhone(data.phone_masked || `+91 ${phone.slice(0,3)}***${phone.slice(-2)}`);
-                if (data.demo_otp) {
-                    setDemoOtp(data.demo_otp);
-                } else {
-                    setDemoOtp('');
-                }
-                // Focus first OTP input
-                setTimeout(() => otpRefs.current[0]?.focus(), 100);
-            } else {
-                setError(data.error || data.message || t('otpSendFailed'));
-            }
+            setIsRegistration(false);
+            await sendOtpToPhone();
         } catch {
             setError(t('loginError'));
         }
@@ -117,9 +122,25 @@ function LoginPage() {
             const data = await res.json();
 
             if (data.status === 'success' && data.verified) {
-                // OTP verified — proceed with login
-                // Language stays as the user's current selection (from login page or localStorage)
-                await loginWithPhone(phone);
+                if (isRegistration) {
+                    // OTP verified for new user — create profile and login
+                    const profileData = {
+                        name: name.trim(),
+                        state: regState,
+                        district: regDistrict.trim(),
+                        crops: regCrops,
+                        soil_type: regSoilType,
+                        land_size_acres: parseFloat(regLandSize) || 0,
+                        language: regLanguage,
+                    };
+                    await loginWithPhone(phone, name.trim(), profileData);
+                    if (regLanguage !== language) {
+                        setLanguage(regLanguage);
+                    }
+                } else {
+                    // OTP verified for returning user — just login
+                    await loginWithPhone(phone);
+                }
             } else {
                 setError(data.message || t('loginError'));
             }
@@ -215,21 +236,9 @@ function LoginPage() {
                 setLoading(false);
                 return;
             }
-            // Build full profile
-            const profileData = {
-                name: name.trim(),
-                state: regState,
-                district: regDistrict.trim(),
-                crops: regCrops,
-                soil_type: regSoilType,
-                land_size_acres: parseFloat(regLandSize) || 0,
-                language: regLanguage,
-            };
-            await loginWithPhone(phone, name.trim(), profileData);
-            // Auto-switch the app language to the farmer's chosen preference
-            if (regLanguage !== language) {
-                setLanguage(regLanguage);
-            }
+            // Send OTP for verification before creating profile
+            setIsRegistration(true);
+            await sendOtpToPhone();
         } catch {
             setError(t('loginError'));
         }
@@ -494,7 +503,7 @@ function LoginPage() {
                             onClick={handleVerifyOtp}
                             disabled={loading || otpDigits.join('').length !== 6 || otpTimer === 0}
                         >
-                            {loading ? `⏳ ${t('otpVerifying')}` : `✅ ${t('otpVerifyBtn')}`}
+                            {loading ? `⏳ ${t('otpVerifying')}` : `✅ ${isRegistration ? t('otpVerifyRegister') : t('otpVerifyBtn')}`}
                         </button>
 
                         <div className="otp-actions">
@@ -507,7 +516,7 @@ function LoginPage() {
                             </button>
                             <button
                                 className="otp-change-btn"
-                                onClick={() => { setMode('returning'); setError(''); setOtpDigits(['', '', '', '', '', '']); setDemoOtp(''); }}
+                                onClick={() => { setMode(isRegistration ? 'new' : 'returning'); setError(''); setOtpDigits(['', '', '', '', '', '']); setDemoOtp(''); }}
                             >
                                 ✏️ {t('otpChangeNumber')}
                             </button>
