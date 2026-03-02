@@ -1,0 +1,16 @@
+{
+  "stateMachineArn": "arn:aws:states:ap-south-1:948809294205:stateMachine:smart-rural-ai-cognitive-pipeline",
+  "agentLambdas": {
+    "understanding": "smart-rural-ai-SFN-UnderstandingAgent",
+    "reasoning": "smart-rural-ai-SFN-ReasoningAgent",
+    "factcheck": "smart-rural-ai-SFN-FactCheckAgent",
+    "communication": "smart-rural-ai-SFN-CommunicationAgent"
+  },
+  "agentLambdaArns": {
+    "understanding": "arn:aws:lambda:ap-south-1:948809294205:function:smart-rural-ai-SFN-UnderstandingAgent",
+    "reasoning": "arn:aws:lambda:ap-south-1:948809294205:function:smart-rural-ai-SFN-ReasoningAgent",
+    "factcheck": "arn:aws:lambda:ap-south-1:948809294205:function:smart-rural-ai-SFN-FactCheckAgent",
+    "communication": "arn:aws:lambda:ap-south-1:948809294205:function:smart-rural-ai-SFN-CommunicationAgent"
+  },
+  "consoleUrl": "https://ap-south-1.console.aws.amazon.com/states/home?region=ap-south-1#/statemachines/view/arn:aws:states:ap-south-1:948809294205:stateMachine:smart-rural-ai-cognitive-pipeline"
+}
