@@ -367,7 +367,7 @@ function LoginPage() {
                                     placeholder="0" />
                             </div>
                             <div className="login-form-group">
-                                <label>{t('profileLanguage')}</label>
+                                <label>{t('profileLanguage')} <span className="required-star">*</span></label>
                                 <select className="form-input" value={regLanguage}
                                     onChange={(e) => setRegLanguage(e.target.value)}>
                                     {Object.entries(config.LANGUAGES).map(([code, lang]) =>

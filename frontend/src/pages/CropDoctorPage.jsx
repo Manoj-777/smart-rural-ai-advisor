@@ -12,7 +12,33 @@ function CropDoctorPage() {
     const [analysis, setAnalysis] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [cropType, setCropType] = useState('');
     const fileInputRef = useRef(null);
+
+    const CROP_OPTIONS = [
+        { value: 'Rice', key: 'cropRice' },
+        { value: 'Wheat', key: 'cropWheat' },
+        { value: 'Cotton', key: 'cropCotton' },
+        { value: 'Sugarcane', key: 'cropSugarcane' },
+        { value: 'Maize', key: 'cropMaize' },
+        { value: 'Groundnut', key: 'cropGroundnut' },
+        { value: 'Banana', key: 'cropBanana' },
+        { value: 'Coconut', key: 'cropCoconut' },
+        { value: 'Tomato', key: 'cropTomato' },
+        { value: 'Onion', key: 'cropOnion' },
+        { value: 'Millets', key: 'cropMillets' },
+        { value: 'Pulses', key: 'cropPulses' },
+        { value: 'Soybean', key: 'cropSoybean' },
+        { value: 'Potato', key: 'cropPotato' },
+        { value: 'Mango', key: 'cropMango' },
+        { value: 'Chilli', key: 'cropChilli' },
+        { value: 'Brinjal', key: 'cropBrinjal' },
+        { value: 'Turmeric', key: 'cropTurmeric' },
+        { value: 'Mustard', key: 'cropMustard' },
+        { value: 'Jute', key: 'cropJute' },
+        { value: 'Tea', key: 'cropTea' },
+        { value: 'Coffee', key: 'cropCoffee' },
+    ];
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -74,7 +100,8 @@ function CropDoctorPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             image_base64: base64,
-                            language: language
+                            language: language,
+                            crop_type: cropType || undefined
                         })
                     });
                     const data = await res.json();
@@ -100,6 +127,7 @@ function CropDoctorPage() {
         setPreview(null);
         setAnalysis('');
         setError('');
+        setCropType('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -154,13 +182,30 @@ function CropDoctorPage() {
                     />
                 </div>
 
+                {/* Crop Type Dropdown */}
+                {image && (
+                    <div style={{ marginTop: '12px' }}>
+                        <select
+                            value={cropType}
+                            onChange={(e) => setCropType(e.target.value)}
+                            className="input-field"
+                            style={{ width: '100%', padding: '12px 16px', fontSize: '15px', borderRadius: '12px', cursor: 'pointer' }}
+                        >
+                            <option value="">{t('cropDocSelectCropType')}</option>
+                            {CROP_OPTIONS.map(c => (
+                                <option key={c.value} value={c.value}>{t(c.key)}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 {/* Analyze Button */}
                 {image && (
                     <button
                         onClick={analyzeImage}
                         disabled={loading}
                         className="send-btn"
-                        style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', marginTop: '12px' }}
+                        style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', marginTop: '12px', justifyContent: 'center' }}
                     >
                         {loading ? `⏳ ${t('cropDocAnalyzing')}` : `🔍 ${t('cropDocAnalyze')}`}
                     </button>
