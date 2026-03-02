@@ -2,7 +2,7 @@
 // Shared farmer identity — Cognito-authenticated, single source of truth
 // Phone + PIN auth via AWS Cognito, JWT tokens on every API call
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import config from '../config';
 import { useGeolocation } from '../hooks/useGeolocation';
 import * as cognitoAuth from '../services/cognitoAuth';
@@ -189,6 +189,40 @@ export function FarmerProvider({ children }) {
             requestGps();
         }
     }, [isLoggedIn, gpsStatus, requestGps]);
+
+    // ── Session timeout: periodic Cognito token refresh + auto-logout ──
+    // Cognito ID/Access tokens expire after 1 hour; the SDK auto-refreshes
+    // them using the Refresh Token (valid 30 days). If the refresh token is
+    // also expired, getSession() returns null → auto-logout.
+    const SESSION_CHECK_MS = 5 * 60 * 1000; // check every 5 minutes
+    const sessionCheckRef = useRef(null);
+
+    useEffect(() => {
+        if (!isLoggedIn) {
+            if (sessionCheckRef.current) clearInterval(sessionCheckRef.current);
+            return;
+        }
+
+        const checkSession = async () => {
+            try {
+                const session = await cognitoAuth.getSession();
+                if (!session || !session.idToken) {
+                    // Refresh token expired — force logout
+                    console.warn('[Session] Cognito session expired — logging out');
+                    logout();
+                }
+            } catch {
+                // Session invalid
+                console.warn('[Session] Cognito session check failed — logging out');
+                logout();
+            }
+        };
+
+        sessionCheckRef.current = setInterval(checkSession, SESSION_CHECK_MS);
+        return () => {
+            if (sessionCheckRef.current) clearInterval(sessionCheckRef.current);
+        };
+    }, [isLoggedIn, logout]);
 
     const logout = useCallback(() => {
         cognitoAuth.signOut();

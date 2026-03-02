@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
 import config from './config';
@@ -82,7 +82,17 @@ function MicFab() {
 }
 
 function AppContent() {
-    const { isLoggedIn } = useFarmer();
+    const { isLoggedIn, authReady } = useFarmer();
+    const navigate = useNavigate();
+    const prevLoggedIn = useRef(isLoggedIn);
+
+    // Navigate to home when user logs in (prevents landing on stale route like /weather)
+    useEffect(() => {
+        if (isLoggedIn && !prevLoggedIn.current) {
+            navigate('/', { replace: true });
+        }
+        prevLoggedIn.current = isLoggedIn;
+    }, [isLoggedIn, navigate]);
 
     // Prefetch ALL lazy-loaded chunks during idle time
     // → navigation becomes instant because JS is already cached
@@ -107,6 +117,17 @@ function AppContent() {
             return () => clearTimeout(id);
         }
     }, [isLoggedIn]);
+
+    // Wait for Cognito session check before rendering anything
+    if (!authReady) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+                <div style={{ textAlign: 'center', opacity: 0.6 }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🌾</div>
+                </div>
+            </div>
+        );
+    }
 
     if (!isLoggedIn) {
         return <LoginPage />;
