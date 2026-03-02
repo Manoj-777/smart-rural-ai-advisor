@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
+import { sanitizeHtml } from '../utils/sanitize';
 import { getPriceT } from '../i18n/priceTranslations';
 import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import { generateAsyncTts } from '../utils/asyncTts';
@@ -157,7 +158,7 @@ function PricePage() {
     /* ── Rich text formatter (same as CropRecommend / FarmCalendar) ─────── */
     function formatText(text) {
         if (!text) return '';
-        return text
+        const html = text
             .replace(/^###\s*(.+)$/gm, '<div class="ai-section-title">$1</div>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -166,6 +167,7 @@ function PricePage() {
             .replace(/^\s{2,}[\-•]\s+(.+)/gm, '<div class="ai-list-item ai-sub-item"><span class="list-bullet">◦</span> $1</div>')
             .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
             .replace(/\n/g, '<br/>');
+        return sanitizeHtml(html);
     }
 
     /* translate a crop name for display */

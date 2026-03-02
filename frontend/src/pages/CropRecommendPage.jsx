@@ -3,6 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';
 import { DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
@@ -176,10 +177,10 @@ Format clearly with numbered recommendations. Include practical advice specific 
         setLoading(false);
     };
 
-    // Simple markdown formatting
+    // Simple markdown formatting (sanitized via DOMPurify)
     function formatText(text) {
         if (!text) return '';
-        return text
+        const html = text
             .replace(/^###\s*(.+)$/gm, '<div class="ai-section-title">$1</div>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -188,6 +189,7 @@ Format clearly with numbered recommendations. Include practical advice specific 
             .replace(/^\s{2,}[\-•]\s+(.+)/gm, '<div class="ai-list-item ai-sub-item"><span class="list-bullet">◦</span> $1</div>')
             .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
             .replace(/\n/g, '<br/>');
+        return sanitizeHtml(html);
     }
 
     return (

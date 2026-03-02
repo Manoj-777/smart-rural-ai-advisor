@@ -3,20 +3,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import config from '../config';
+import { formatAndSanitize } from '../utils/sanitize';
 
 function formatMessage(text) {
-    if (!text) return '';
-    return text
-        // Bold
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Numbered list items
-        .replace(/^(\d+)\.\s/gm, '<span class="list-num">$1.</span> ')
-        // Bullet list items with dash
-        .replace(/^-\s(.+)/gm, '<span class="list-bullet">•</span> $1')
-        // Line breaks
-        .replace(/\n/g, '<br/>');
+    return formatAndSanitize(text);
 }
 
 function formatTimestamp(ts) {

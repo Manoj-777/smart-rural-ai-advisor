@@ -8,6 +8,7 @@ import json
 import requests
 import os
 import logging
+import re
 from utils.response_helper import (
     success_response, error_response,
     is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
@@ -18,7 +19,20 @@ logger.setLevel(logging.INFO)
 
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
 
-import re
+# ── Security: Input validation constants ──
+MAX_LOCATION_LENGTH = 100
+LOCATION_PATTERN = re.compile(r'^[\w\s\-\.,\'()]+$', re.UNICODE)
+
+
+def _validate_location(location):
+    """Validate and sanitize location input. Returns (clean_location, error_msg)."""
+    if not location or not location.strip():
+        return None, 'Location is required'
+    location = location.strip()[:MAX_LOCATION_LENGTH]
+    # Block obvious injection attempts
+    if any(ch in location for ch in ['<', '>', '{', '}', '|', ';', '`', '$', '\\']):
+        return None, 'Invalid characters in location name'
+    return location, None
 
 def clean_location(name):
     """Strip administrative suffixes that confuse weather APIs."""
@@ -62,9 +76,30 @@ def lambda_handler(event, context):
         lat = qsp.get('lat')
         lon = qsp.get('lon')
 
+        # Security: validate location input
+        location, val_err = _validate_location(location)
+        if val_err:
+            return error_response(val_err, 400)
+
+        # Validate lat/lon if provided
+        if lat:
+            try:
+                lat_f = float(lat)
+                if not (-90 <= lat_f <= 90):
+                    lat = None
+            except (ValueError, TypeError):
+                lat = None
+        if lon:
+            try:
+                lon_f = float(lon)
+                if not (-180 <= lon_f <= 180):
+                    lon = None
+            except (ValueError, TypeError):
+                lon = None
+
         # Clean administrative suffixes (e.g. "Igatpuri Subdistrict" -> "Igatpuri")
         location = clean_location(location)
-        logger.info(f"Cleaned location: {location}, lat={lat}, lon={lon}")
+        logger.info(f"Cleaned location: {location}")
 
         if not OPENWEATHER_API_KEY:
             logger.error("OPENWEATHER_API_KEY not configured")
@@ -123,8 +158,9 @@ def lambda_handler(event, context):
         if not current or current.get('cod') != 200:
             error_msg = current.get('message', 'Unknown error') if current else 'No response'
             logger.error(f"Failed to get weather for {location}: {error_msg}")
+            # Security: never expose raw API error details to client
             return error_response(
-                f"Weather data not found for '{location}': {error_msg}",
+                f"Weather data not available for '{location}'. Please check the location name and try again.",
                 404 if current and current.get('cod') == '404' else 500
             )
 
@@ -242,6 +278,8 @@ def lambda_handler(event, context):
         return error_response(msg, 504)
     except Exception as e:
         logger.error(f"Weather error: {str(e)}")
+        # Security: never expose internal error details to client
+        safe_msg = "Weather service is temporarily unavailable. Please try again."
         if is_bedrock_event(event):
-            return bedrock_error_response(str(e), event)
-        return error_response(str(e), 500)
+            return bedrock_error_response(safe_msg, event)
+        return error_response(safe_msg, 500)

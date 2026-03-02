@@ -20,7 +20,7 @@ def success_response(data, message="Success", language="en", status_code=200):
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": "https://d80ytlzsrax1n.cloudfront.net",
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
             "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
         },
@@ -41,7 +41,7 @@ def error_response(message, status_code=500, language="en"):
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": "https://d80ytlzsrax1n.cloudfront.net",
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
             "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
         },

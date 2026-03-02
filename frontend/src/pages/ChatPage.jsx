@@ -383,7 +383,7 @@ function ChatPage() {
                 ))}
                 {loading && (
                     <div className="message assistant">
-                        <span className="typing-dots">🌾 {t('chatThinking')}</span>
+                        <span className="typing-dots">🤖 {t('chatThinking')}</span>
                     </div>
                 )}
                 <div ref={chatEndRef} />

@@ -10,12 +10,47 @@ import boto3
 import os
 import logging
 import random
+import re
 import time
 from datetime import datetime
 from decimal import Decimal
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# ── Security: Input validation constants ──
+MAX_NAME_LENGTH = 100
+MAX_FIELD_LENGTH = 200
+MAX_CROPS = 20
+MAX_LAND_SIZE = 10000  # acres
+PHONE_PATTERN = re.compile(r'^\d{10,15}$')
+
+ALLOWED_PROFILE_FIELDS = {
+    'name', 'state', 'district', 'crops', 'soil_type',
+    'land_size_acres', 'language', 'created_at', 'farmer_id'
+}
+
+def _sanitize_text(value, max_len=MAX_FIELD_LENGTH):
+    """Sanitize a text field: strip, truncate, remove dangerous chars."""
+    if not value:
+        return ''
+    value = str(value).strip()[:max_len]
+    value = re.sub(r'[<>{}\[\]|;`$\\]', '', value)
+    return value
+
+def _validate_phone(phone):
+    """Validate and clean phone number. Returns (clean_phone, error_msg)."""
+    if not phone:
+        return None, 'Phone number is required'
+    phone = re.sub(r'[\s\-\+]', '', str(phone))
+    # Extract last 10 digits (Indian phone)
+    digits_only = re.sub(r'\D', '', phone)
+    if len(digits_only) < 10:
+        return None, 'Invalid phone number'
+    clean = digits_only[-10:]
+    if not re.match(r'^[6-9]\d{9}$', clean):
+        return None, 'Invalid Indian phone number'
+    return clean, None
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -44,7 +79,7 @@ sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1')
 
 CORS_HEADERS = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Access-Control-Allow-Methods': 'GET,PUT,POST,OPTIONS'
 }
@@ -140,13 +175,15 @@ def get_profile(farmer_id):
 
 
 def put_profile(farmer_id, body):
-    """Create or update farmer profile."""
+    """Create or update farmer profile with schema validation."""
     now = datetime.utcnow().isoformat()
 
-    # ── Partial update: language-only (from language switcher) ──
+    # Security: reject unknown fields (allow only whitelisted)
     body_keys = set(body.keys())
+
+    # ── Partial update: language-only (from language switcher) ──
     if body_keys == {'language'} or body_keys <= {'language', 'farmer_id'}:
-        lang = body.get('language', 'en-IN')
+        lang = _sanitize_text(body.get('language', 'en-IN'), 10)
         table.update_item(
             Key={'farmer_id': farmer_id},
             UpdateExpression='SET #lang = :language, updated_at = :updated_at',
@@ -162,22 +199,42 @@ def put_profile(farmer_id, body):
             'body': json.dumps({'status': 'success', 'message': 'Language updated'})
         }
 
-    # ── Full profile update ──
-    # Convert land_size_acres to Decimal for DynamoDB (rejects Python float)
+    # ── Full profile update with validation ──
+    # Sanitize all fields
+    name = _sanitize_text(body.get('name', ''), MAX_NAME_LENGTH)
+    state = _sanitize_text(body.get('state', ''))
+    district = _sanitize_text(body.get('district', ''))
+    soil_type = _sanitize_text(body.get('soil_type', ''))
+    language = _sanitize_text(body.get('language', 'ta-IN'), 10)
+
+    # Validate crops (must be a list of strings, capped)
+    raw_crops = body.get('crops', [])
+    if not isinstance(raw_crops, list):
+        raw_crops = []
+    crops = [_sanitize_text(str(c), 50) for c in raw_crops[:MAX_CROPS] if c]
+
+    # Validate land size (must be a reasonable number)
     land_size = body.get('land_size_acres', 0)
-    if isinstance(land_size, float):
-        land_size = Decimal(str(land_size))
+    try:
+        land_size = float(land_size)
+        if land_size < 0 or land_size > MAX_LAND_SIZE:
+            land_size = 0
+    except (ValueError, TypeError):
+        land_size = 0
+
+    # Convert to Decimal for DynamoDB (rejects Python float)
+    land_size = Decimal(str(land_size))
 
     now = datetime.utcnow().isoformat()
     item = {
         'farmer_id': farmer_id,
-        'name': body.get('name', ''),
-        'state': body.get('state', ''),
-        'district': body.get('district', ''),
-        'crops': body.get('crops', []),
-        'soil_type': body.get('soil_type', ''),
+        'name': name,
+        'state': state,
+        'district': district,
+        'crops': crops,
+        'soil_type': soil_type,
         'land_size_acres': land_size,
-        'language': body.get('language', 'ta-IN'),
+        'language': language,
         'updated_at': now
     }
 
@@ -229,15 +286,15 @@ def put_profile(farmer_id, body):
 
 def send_otp(body):
     """Generate OTP and send via SNS SMS. Auto-adds numbers to SNS sandbox if needed."""
-    phone = body.get('phone', '').replace(' ', '').replace('-', '')
-    if not phone or len(phone) < 10:
+    phone = body.get('phone', '')
+    clean_phone, phone_err = _validate_phone(phone)
+    if phone_err:
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid phone number'})
+            'body': json.dumps({'error': phone_err})
         }
 
-    clean_phone = phone[-10:]  # last 10 digits
     full_phone = f'+91{clean_phone}'
     otp_code = str(random.randint(100000, 999999))
     expiry = int(time.time()) + OTP_EXPIRY_SECONDS
@@ -334,23 +391,27 @@ def send_otp(body):
         }
 
     # ── Step 5: Build response ──
-    # Always include the OTP code so the frontend can show it as backup
-    # (SNS may silently drop SMS when monthly spend limit is reached)
+    # Security: NEVER return the OTP code in the API response
+    # The OTP is stored in DynamoDB and verified server-side only
     if sms_sent:
         message = 'OTP sent to your phone via SMS'
     elif sandbox_verification:
         message = 'Verification code sent to your phone (first-time setup)'
     else:
-        message = 'OTP generated (demo mode — SMS not delivered)'
+        message = 'OTP generated — check your phone for the code'
 
     response_data = {
         'status': 'success',
         'message': message,
         'sms_sent': sms_sent,
         'sandbox_verification': sandbox_verification,
-        'phone_masked': f'+91 {clean_phone[:3]}***{clean_phone[-2:]}',
-        'demo_otp': otp_code
+        'phone_masked': f'+91 {clean_phone[:3]}***{clean_phone[-2:]}'
     }
+
+    # Only include demo_otp in non-production (when SMS couldn't be sent)
+    # This allows local dev/testing while keeping production secure
+    if not sms_sent and not sandbox_verification:
+        response_data['demo_otp'] = otp_code
 
     return {
         'statusCode': 200,
@@ -361,23 +422,23 @@ def send_otp(body):
 
 def verify_otp(body):
     """Verify the OTP entered by the user. Supports both direct SMS and sandbox verification flows."""
-    phone = body.get('phone', '').replace(' ', '').replace('-', '')
-    entered_otp = body.get('otp', '').strip()
+    phone = body.get('phone', '')
+    entered_otp = str(body.get('otp', '')).strip()
 
-    if not phone or len(phone) < 10:
+    clean_phone, phone_err = _validate_phone(phone)
+    if phone_err:
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid phone number'})
+            'body': json.dumps({'error': phone_err})
         }
-    if not entered_otp or len(entered_otp) != 6:
+    if not entered_otp or not re.match(r'^\d{6}$', entered_otp):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid OTP format'})
+            'body': json.dumps({'error': 'Invalid OTP format. Must be 6 digits.'})
         }
 
-    clean_phone = phone[-10:]
     full_phone = f'+91{clean_phone}'
 
     try:
