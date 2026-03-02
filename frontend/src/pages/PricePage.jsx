@@ -138,11 +138,21 @@ function PricePage() {
     /* ── Strip conversational tail from AI response ─────── */
     function stripConversationalTail(text) {
         if (!text) return text;
-        // Remove trailing lines like "If you have any more questions...", "Feel free to...", etc.
-        return text
-            .replace(/\n*(?:If you have any (?:more )?questions|Feel free to|I hope this|Don't hesitate|Please (?:feel free|don't hesitate)|Let me know if)[^\n]*$/i, '')
-            .replace(/\n*(?:I'm here to help|Happy farming|Best of luck|Good luck|Wishing you)[^\n]*$/i, '')
-            .trim();
+        // Repeatedly strip trailing conversational lines (model may add multiple)
+        let cleaned = text;
+        const tailPatterns = [
+            /\n*(?:If you (?:have|need|want|would like))[^\n]*$/i,
+            /\n*(?:Feel free to|Don't hesitate|Please (?:feel free|don't hesitate|let me know|contact))[^\n]*$/i,
+            /\n*(?:I hope this|I'm here to help|Happy farming|Best of luck|Good luck|Wishing you)[^\n]*$/i,
+            /\n*(?:Let me know if|For (?:more|further|any) (?:detailed |specific )?(?:information|details|queries|questions|assistance|help))[^\n]*$/i,
+            /\n*(?:Should you (?:need|have|require)|Do not hesitate|Reach out)[^\n]*$/i,
+        ];
+        for (let i = 0; i < 3; i++) { // up to 3 passes to catch stacked closings
+            for (const pat of tailPatterns) {
+                cleaned = cleaned.replace(pat, '');
+            }
+        }
+        return cleaned.trim();
     }
 
     /* ── Rich text formatter (same as CropRecommend / FarmCalendar) ─────── */
@@ -256,7 +266,7 @@ function PricePage() {
                 const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-                const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice. Do NOT end with conversational closings like "feel free to ask" or "I hope this helps" — this is a one-way advisory, not a conversation.`;
+                const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice. IMPORTANT: This is a one-way advisory panel, NOT a conversation. Do NOT include any closing lines like "feel free to ask", "if you have any questions", "if you need more information", "I hope this helps", or any invitation to continue a dialogue. End with your last piece of actionable advice.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -321,7 +331,7 @@ function PricePage() {
                 const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-                const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice. Do NOT end with conversational closings like "feel free to ask" or "I hope this helps" — this is a one-way advisory, not a conversation.`;
+                const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice. IMPORTANT: This is a one-way advisory panel, NOT a conversation. Do NOT include any closing lines like "feel free to ask", "if you have any questions", "if you need more information", "I hope this helps", or any invitation to continue a dialogue. End with your last piece of actionable advice.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
