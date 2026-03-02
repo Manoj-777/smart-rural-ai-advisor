@@ -10,15 +10,19 @@ import { useFarmer } from '../contexts/FarmerContext';
 import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 
-// Fix Leaflet default marker icon issue with bundlers
+// Inline SVG map pin — zero network requests, resolution-independent
+const MARKER_SVG = encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">' +
+    '<path d="M12.5 0C5.6 0 0 5.6 0 12.5 0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0zm0 18.8a6.3 6.3 0 110-12.6 6.3 6.3 0 010 12.6z" fill="#2563EB" stroke="#1E40AF"/>' +
+    '</svg>'
+);
+const MARKER_URL = `data:image/svg+xml,${MARKER_SVG}`;
 const defaultIcon = new L.Icon({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconUrl: MARKER_URL,
+    iconRetinaUrl: MARKER_URL,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-    shadowSize: [41, 41],
 });
 L.Marker.prototype.options.icon = defaultIcon;
 
@@ -336,9 +340,10 @@ function WeatherPage() {
                         wheelDebounceTime={100}
                     >
                         <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            maxZoom={18}
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+                            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                            subdomains="abcd"
+                            maxZoom={20}
                             keepBuffer={4}
                             updateWhenZooming={false}
                             updateWhenIdle={true}

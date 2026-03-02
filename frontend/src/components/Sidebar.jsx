@@ -40,25 +40,32 @@ function Sidebar() {
                     <NavLink to="/chat" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
                         <span className="nav-icon">💬</span> <span className="nav-label">{t('navChat')}</span>
                     </NavLink>
-                    <NavLink to="/weather" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/weather" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/WeatherPage')}>
                         <span className="nav-icon">🌤️</span> <span className="nav-label">{t('navWeather')}</span>
                     </NavLink>
-                    <NavLink to="/schemes" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/schemes" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/SchemesPage')}>
                         <span className="nav-icon">📋</span> <span className="nav-label">{t('navSchemes')}</span>
                     </NavLink>
-                    <NavLink to="/crop-doctor" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/crop-doctor" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/CropDoctorPage')}>
                         <span className="nav-icon">📸</span> <span className="nav-label">{t('navCropDoctor')}</span>
                     </NavLink>
-                    <NavLink to="/prices" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/prices" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/PricePage')}>
                         <span className="nav-icon">💰</span> <span className="nav-label">{t('navPrices')}</span>
                     </NavLink>
-                    <NavLink to="/crop-recommend" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/crop-recommend" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/CropRecommendPage')}>
                         <span className="nav-icon">🌱</span> <span className="nav-label">{t('navCropRec')}</span>
                     </NavLink>
-                    <NavLink to="/farm-calendar" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/farm-calendar" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/FarmCalendarPage')}>
                         <span className="nav-icon">📅</span> <span className="nav-label">{t('navFarmCal')}</span>
                     </NavLink>
-                    <NavLink to="/soil-analysis" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
+                    <NavLink to="/soil-analysis" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
+                        onMouseEnter={() => import('../pages/SoilAnalysisPage')}>
                         <span className="nav-icon">🧪</span> <span className="nav-label">{t('navSoilAnalysis')}</span>
                     </NavLink>
                 </div>

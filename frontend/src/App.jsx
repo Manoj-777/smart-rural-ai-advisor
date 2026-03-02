@@ -84,6 +84,30 @@ function MicFab() {
 function AppContent() {
     const { isLoggedIn } = useFarmer();
 
+    // Prefetch ALL lazy-loaded chunks during idle time
+    // → navigation becomes instant because JS is already cached
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        const prefetch = () => {
+            import('./pages/WeatherPage');
+            import('./pages/SchemesPage');
+            import('./pages/CropDoctorPage');
+            import('./pages/ProfilePage');
+            import('./pages/PricePage');
+            import('./pages/CropRecommendPage');
+            import('./pages/FarmCalendarPage');
+            import('./pages/SoilAnalysisPage');
+        };
+        // Use requestIdleCallback (fires during browser idle) with 3s hard deadline
+        if ('requestIdleCallback' in window) {
+            const id = requestIdleCallback(prefetch, { timeout: 3000 });
+            return () => cancelIdleCallback(id);
+        } else {
+            const id = setTimeout(prefetch, 2000);
+            return () => clearTimeout(id);
+        }
+    }, [isLoggedIn]);
+
     if (!isLoggedIn) {
         return <LoginPage />;
     }
