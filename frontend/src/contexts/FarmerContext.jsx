@@ -191,6 +191,20 @@ export function FarmerProvider({ children }) {
 
     const resolvedCoords = gpsCoords || null;
 
+    // ── Logout ──
+    const logout = useCallback(() => {
+        cognitoAuth.signOut();
+        localStorage.removeItem(FARMER_ID_KEY);
+        localStorage.removeItem(FARMER_PHONE_KEY);
+        localStorage.removeItem(FARMER_NAME_KEY);
+        setFarmerIdState(null);
+        setFarmerPhoneState('');
+        setFarmerNameState('');
+        setFarmerProfile(null);
+        setIsLoggedIn(false);
+        clearGps();
+    }, [clearGps]);
+
     // Auto-request GPS once logged in (if not already granted/denied)
     useEffect(() => {
         if (isLoggedIn && gpsStatus === 'idle') {
@@ -231,19 +245,6 @@ export function FarmerProvider({ children }) {
             if (sessionCheckRef.current) clearInterval(sessionCheckRef.current);
         };
     }, [isLoggedIn, logout]);
-
-    const logout = useCallback(() => {
-        cognitoAuth.signOut();
-        localStorage.removeItem(FARMER_ID_KEY);
-        localStorage.removeItem(FARMER_PHONE_KEY);
-        localStorage.removeItem(FARMER_NAME_KEY);
-        setFarmerIdState(null);
-        setFarmerPhoneState('');
-        setFarmerNameState('');
-        setFarmerProfile(null);
-        setIsLoggedIn(false);
-        clearGps();
-    }, [clearGps]);
 
     const updateProfile = useCallback((profile) => {
         setFarmerProfile(profile);
