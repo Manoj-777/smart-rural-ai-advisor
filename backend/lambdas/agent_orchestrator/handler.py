@@ -592,7 +592,9 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 if "text" in block:
                     result_text += block["text"]
 
-            logger.info(f"Direct Bedrock response: {len(result_text)} chars, tools={tools_used}")
+            if stop_reason == "guardrail_intervened":
+                logger.warning(f"Direct Bedrock guardrail INTERVENED — output replaced ({len(result_text)} chars)")
+            logger.info(f"Direct Bedrock response: {len(result_text)} chars, tools={tools_used}, stopReason={stop_reason}")
             return result_text, tools_used, tool_data_log
 
         # Exhausted turns
@@ -740,10 +742,13 @@ Do NOT use technical jargon unless explaining it.
 Output ONLY the rewritten advisory text (no JSON, no metadata)."""
 
 
-def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2):
+def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2, skip_guardrail=False):
     """
     Invoke a cognitive agent via Bedrock converse() API.
     No tools — just system prompt + user prompt → text response.
+    skip_guardrail: True for internal pipeline agents whose meta-instructions
+    (e.g. 'Output STRICT JSON') trigger the NonAgriculturalTopics deny filter.
+    Application-level guardrails already screen input/output.
     """
     try:
         converse_kwargs = {
@@ -753,18 +758,23 @@ def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_to
             "inferenceConfig": {"maxTokens": max_tokens, "temperature": temperature},
         }
         # Gap #5: Attach Bedrock native guardrail if configured
+        # Skipped for internal pipeline agents — their meta-instructions
+        # are not user-facing and trigger false positives on topic filters.
         gc = _guardrail_config()
-        if gc:
+        if gc and not skip_guardrail:
             converse_kwargs['guardrailConfig'] = gc
 
         response = bedrock_rt.converse(**converse_kwargs)
         output = response.get("output", {})
         message = output.get("message", {})
+        stop_reason = response.get("stopReason", "")
         result_text = ""
         for block in message.get("content", []):
             if "text" in block:
                 result_text += block["text"]
-        logger.info(f"[{label}] Response: {len(result_text)} chars")
+        if stop_reason == "guardrail_intervened":
+            logger.warning(f"[{label}] Bedrock guardrail INTERVENED — output replaced ({len(result_text)} chars)")
+        logger.info(f"[{label}] Response: {len(result_text)} chars, stopReason={stop_reason}")
         return result_text
     except Exception as e:
         logger.error(f"[{label}] Bedrock converse error: {str(e)}")
@@ -806,6 +816,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         label="understanding",
         max_tokens=512,
         temperature=0.1,
+        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
     )
 
     understanding = None
@@ -858,7 +869,8 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         reasoning_prompt = english_message + reasoning_context
 
     reasoning_text, tools_used, tool_data_log = _invoke_bedrock_direct(
-        reasoning_prompt, farmer_context
+        reasoning_prompt, farmer_context,
+        skip_native_guardrail=True,  # internal pipeline — app-level guardrails already screen I/O
     )
     pipeline_meta['agents_invoked'].append('reasoning')
     logger.info(f"Reasoning result: {len(reasoning_text or '')} chars, tools={tools_used}")
@@ -898,6 +910,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         label="fact_check",
         max_tokens=1024,
         temperature=0.1,
+        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
     )
 
     fact_checked_text = reasoning_text  # default: use reasoning output as-is
@@ -952,6 +965,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         label="communication",
         max_tokens=1500,
         temperature=0.3,
+        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
     )
 
     if final_text and len(final_text.strip()) > 20:
