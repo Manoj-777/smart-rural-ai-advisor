@@ -1,23 +1,35 @@
 // src/App.jsx
 
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
 import config from './config';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
 import ChatPage from './pages/ChatPage';
-import WeatherPage from './pages/WeatherPage';
-import SchemesPage from './pages/SchemesPage';
-import CropDoctorPage from './pages/CropDoctorPage';
-import ProfilePage from './pages/ProfilePage';
-import PricePage from './pages/PricePage';
-import CropRecommendPage from './pages/CropRecommendPage';
-import FarmCalendarPage from './pages/FarmCalendarPage';
-import SoilAnalysisPage from './pages/SoilAnalysisPage';
 import LoginPage from './pages/LoginPage';
 import './App.css';
+
+// Lazy-load heavy pages (Leaflet map ~150KB, etc.) — only fetched when navigated to
+const WeatherPage = lazy(() => import('./pages/WeatherPage'));
+const SchemesPage = lazy(() => import('./pages/SchemesPage'));
+const CropDoctorPage = lazy(() => import('./pages/CropDoctorPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const PricePage = lazy(() => import('./pages/PricePage'));
+const CropRecommendPage = lazy(() => import('./pages/CropRecommendPage'));
+const FarmCalendarPage = lazy(() => import('./pages/FarmCalendarPage'));
+const SoilAnalysisPage = lazy(() => import('./pages/SoilAnalysisPage'));
+
+// Lightweight loading fallback for lazy pages
+const PageLoader = () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh', opacity: 0.6 }}>
+        <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🌾</div>
+            <div style={{ color: 'var(--text-secondary, #666)' }}>Loading...</div>
+        </div>
+    </div>
+);
 
 function ScrollToTop() {
     const { pathname } = useLocation();
@@ -85,14 +97,14 @@ function AppContent() {
                     <Routes>
                         <Route path="/" element={<DashboardPage />} />
                         <Route path="/chat" element={<ChatPage />} />
-                        <Route path="/weather" element={<WeatherPage />} />
-                        <Route path="/schemes" element={<SchemesPage />} />
-                        <Route path="/crop-doctor" element={<CropDoctorPage />} />
-                        <Route path="/prices" element={<PricePage />} />
-                        <Route path="/crop-recommend" element={<CropRecommendPage />} />
-                        <Route path="/farm-calendar" element={<FarmCalendarPage />} />
-                        <Route path="/soil-analysis" element={<SoilAnalysisPage />} />
-                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/weather" element={<Suspense fallback={<PageLoader />}><WeatherPage /></Suspense>} />
+                        <Route path="/schemes" element={<Suspense fallback={<PageLoader />}><SchemesPage /></Suspense>} />
+                        <Route path="/crop-doctor" element={<Suspense fallback={<PageLoader />}><CropDoctorPage /></Suspense>} />
+                        <Route path="/prices" element={<Suspense fallback={<PageLoader />}><PricePage /></Suspense>} />
+                        <Route path="/crop-recommend" element={<Suspense fallback={<PageLoader />}><CropRecommendPage /></Suspense>} />
+                        <Route path="/farm-calendar" element={<Suspense fallback={<PageLoader />}><FarmCalendarPage /></Suspense>} />
+                        <Route path="/soil-analysis" element={<Suspense fallback={<PageLoader />}><SoilAnalysisPage /></Suspense>} />
+                        <Route path="/profile" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
                     </Routes>
                 </main>
             </div>

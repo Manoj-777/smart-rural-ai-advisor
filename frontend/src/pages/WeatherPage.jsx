@@ -1,6 +1,6 @@
 // src/pages/WeatherPage.jsx
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -11,12 +11,16 @@ import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 
 // Fix Leaflet default marker icon issue with bundlers
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
+const defaultIcon = new L.Icon({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
 });
+L.Marker.prototype.options.icon = defaultIcon;
 
 // Major Indian cities for quick selection
 const INDIA_CITIES = [
@@ -327,10 +331,17 @@ function WeatherPage() {
                         zoom={5}
                         className="weather-map"
                         scrollWheelZoom={true}
+                        preferCanvas={true}
+                        zoomSnap={0.5}
+                        wheelDebounceTime={100}
                     >
                         <TileLayer
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            maxZoom={18}
+                            keepBuffer={4}
+                            updateWhenZooming={false}
+                            updateWhenIdle={true}
                         />
                         <MapClickHandler onMapClick={handleMapClick} />
                         {flyTarget && <MapFlyTo lat={flyTarget.lat} lng={flyTarget.lng} />}
