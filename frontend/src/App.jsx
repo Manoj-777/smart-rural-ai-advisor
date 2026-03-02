@@ -121,9 +121,10 @@ function AppContent() {
     // Wait for Cognito session check before rendering anything
     if (!authReady) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-                <div style={{ textAlign: 'center', opacity: 0.6 }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🌾</div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '12px', animation: 'pulse 1.5s ease-in-out infinite' }}>🌾</div>
+                    <div style={{ color: '#15803d', fontSize: '14px', fontWeight: 500 }}>Loading...</div>
                 </div>
             </div>
         );

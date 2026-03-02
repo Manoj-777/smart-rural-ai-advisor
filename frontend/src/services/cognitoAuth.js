@@ -135,8 +135,19 @@ export function getSession() {
         user.getSession((err, session) => {
             if (err || !session || !session.isValid()) return resolve(null);
 
-            // Get user attributes
+            // Try to get user attributes but don't let it block
+            // (getUserAttributes makes a network call that can hang)
+            const fallbackTimer = setTimeout(() => {
+                resolve({
+                    idToken: session.getIdToken().getJwtToken(),
+                    accessToken: session.getAccessToken().getJwtToken(),
+                    phone: '',
+                    name: '',
+                });
+            }, 2000);
+
             user.getUserAttributes((attrErr, attrs) => {
+                clearTimeout(fallbackTimer);
                 let phone = '';
                 let name = '';
                 if (!attrErr && attrs) {

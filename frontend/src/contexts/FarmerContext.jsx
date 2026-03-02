@@ -30,9 +30,16 @@ export function FarmerProvider({ children }) {
 
     // On mount: restore Cognito session if it exists
     useEffect(() => {
+        let didFinish = false;
         const restoreSession = async () => {
             try {
-                const session = await cognitoAuth.getSession();
+                // Race getSession against a 3-second timeout so the app
+                // never gets stuck on a white screen if Cognito SDK hangs
+                const session = await Promise.race([
+                    cognitoAuth.getSession(),
+                    new Promise(resolve => setTimeout(() => resolve(null), 3000)),
+                ]);
+                if (didFinish) return; // timeout already fired
                 if (session && session.idToken) {
                     // Cognito session is valid — restore login state
                     const phone = session.phone?.replace('+91', '') || '';
@@ -57,6 +64,7 @@ export function FarmerProvider({ children }) {
                     setIsLoggedIn(false);
                 }
             } catch { /* no session */ }
+            didFinish = true;
             setAuthReady(true);
         };
         restoreSession();
