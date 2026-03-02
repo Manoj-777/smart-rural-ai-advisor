@@ -8,7 +8,7 @@ import config from '../config';
 
 function Sidebar() {
     const { t, language, setLanguage } = useLanguage();
-    const { farmerName, farmerPhone, logout } = useFarmer();
+    const { farmerName, farmerPhone, logout, resolvedLocation, gpsStatus, requestGps } = useFarmer();
     const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
 
@@ -69,6 +69,28 @@ function Sidebar() {
                         <span className="nav-icon">🧪</span> <span className="nav-label">{t('navSoilAnalysis')}</span>
                     </NavLink>
                 </div>
+
+                {/* Location indicator */}
+                {resolvedLocation && (
+                    <button
+                        className="navbar-location-badge"
+                        onClick={() => { if (gpsStatus !== 'granted') requestGps(); }}
+                        title={gpsStatus === 'granted' ? `GPS: ${resolvedLocation}` : `Profile: ${resolvedLocation}`}
+                    >
+                        <span className="navbar-loc-icon">{gpsStatus === 'granted' ? '📍' : '📌'}</span>
+                        <span className="navbar-loc-name">{resolvedLocation}</span>
+                    </button>
+                )}
+                {!resolvedLocation && gpsStatus !== 'denied' && (
+                    <button
+                        className="navbar-location-badge navbar-location-badge--request"
+                        onClick={requestGps}
+                        title="Enable GPS location"
+                    >
+                        <span className="navbar-loc-icon">📍</span>
+                        <span className="navbar-loc-name">{t('enableLocation') || 'Set location'}</span>
+                    </button>
+                )}
 
                 <div className="navbar-lang">
                     <span className="navbar-lang-icon">🌐</span>

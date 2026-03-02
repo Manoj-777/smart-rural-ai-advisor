@@ -391,7 +391,7 @@ CRITICAL RULES:
 7. For pest/disease queries with symptoms (yellow leaves, spots, wilting), always call get_pest_alert — the KB has pesticide guides, dosages, and treatment protocols
 8. When farmer context is provided, ALWAYS use it to fill missing parameters (name, state, crop, soil_type) for tool calls — DO NOT ask the farmer for information already in their profile context. NEVER ask for the farmer's name — it is already provided. Address them by name directly.
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
-10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context.
+10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context. If gps_location is in the context, use it as the PRIMARY location.
 11. ANSWER ONLY WHAT THE FARMER ASKED. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. Be concise and focused.
 12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
@@ -811,6 +811,7 @@ Rules:
 - ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data
 - CRITICAL: When farmer context is provided (state, crops, district, soil_type), use those values to fill NULL entities. For example, if the farmer asks 'what crops should I plant this kharif?' and context has state=Tamil Nadu, set location='Tamil Nadu', season='kharif', and ALWAYS include get_crop_advisory in tools_needed.
 - NEVER leave entities as null when the farmer context provides those values.
+- IMPORTANT: If the farmer context includes gps_location, use that as the PRIMARY location instead of state/district. GPS location is the most accurate real-time position of the farmer.
 - When conversation history is provided, use it to resolve follow-up references. For example, if the farmer previously asked about rice and now asks 'what about pest control?', set crop=rice and add get_pest_alert to tools_needed."""
 
 # ── Agent 3: Fact-Checking Agent ──
@@ -1385,6 +1386,9 @@ def lambda_handler(event, context):
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
         language = body.get('language', None)  # Auto-detect if not provided
+        # GPS location sent from frontend (browser Geolocation API)
+        gps_location = body.get('gps_location', None)  # e.g. "Coimbatore"
+        gps_coords = body.get('gps_coords', None)      # e.g. {"lat": 11.01, "lng": 76.95}
 
         # AgentCore runtimeSessionId requires min 33 chars
         if len(session_id) < 33:
@@ -1537,12 +1541,35 @@ def lambda_handler(event, context):
                 'soil_type': profile.get('soil_type', ''),
                 'district': profile.get('district', ''),
             }
+            # GPS location priority: GPS > profile district > profile state
+            # If frontend sent GPS-detected location, inject as the primary location
+            if gps_location:
+                farmer_context['gps_location'] = gps_location
+                logger.info(f"GPS location from frontend: {gps_location}")
+            if gps_coords:
+                farmer_context['gps_lat'] = gps_coords.get('lat')
+                farmer_context['gps_lng'] = gps_coords.get('lng')
+
+            # Build context prefix — use GPS location if available, else profile district/state
+            active_location = gps_location or farmer_context['district'] or farmer_context['state']
             context_prefix = (
                 f"[Farmer context: {farmer_context['name']}, "
-                f"State={farmer_context['state']}, Crops={farmer_context['crops']}, "
-                f"Soil={farmer_context['soil_type']}] "
+                f"Location={active_location}, State={farmer_context['state']}, "
+                f"Crops={farmer_context['crops']}, Soil={farmer_context['soil_type']}] "
             )
             english_message = context_prefix + english_message
+        elif gps_location:
+            # No profile but we have GPS — create minimal context
+            farmer_context = {
+                'name': '', 'state': '', 'crops': [], 'soil_type': '', 'district': '',
+                'gps_location': gps_location,
+            }
+            if gps_coords:
+                farmer_context['gps_lat'] = gps_coords.get('lat')
+                farmer_context['gps_lng'] = gps_coords.get('lng')
+            context_prefix = f"[Farmer GPS location: {gps_location}] "
+            english_message = context_prefix + english_message
+            logger.info(f"GPS location (no profile): {gps_location}")
 
         # --- Step 2b: Greeting shortcut (skip 4-agent pipeline for "hi", "hello", etc.) ---
         _raw_en = detection.get('translated_text', user_message)

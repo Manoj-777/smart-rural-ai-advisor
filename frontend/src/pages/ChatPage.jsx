@@ -54,7 +54,7 @@ function saveSessionMessages(sessionId, messages) {
 
 function ChatPage() {
     const { language, t } = useLanguage();
-    const { farmerId } = useFarmer();
+    const { farmerId, resolvedLocation, resolvedCoords } = useFarmer();
     const [sessions, setSessions] = useState(loadSessions);
 
     // Active session
@@ -195,7 +195,9 @@ function ChatPage() {
                                 message: text,
                                 session_id: targetSessionId,
                                 farmer_id: farmerId || 'anonymous',
-                                language: language
+                                language: language,
+                                ...(resolvedLocation && { gps_location: resolvedLocation }),
+                                ...(resolvedCoords && { gps_coords: resolvedCoords }),
                             }),
                             signal: controller.signal
                         });

@@ -113,17 +113,18 @@ function cleanLocationName(name) {
 
 function WeatherPage() {
     const { language, t } = useLanguage();
-    const { farmerProfile } = useFarmer();
+    const { farmerProfile, gpsLocation, gpsCoords } = useFarmer();
 
-    // Determine initial location from profile
-    const profileLocation = farmerProfile?.district || farmerProfile?.state || 'Chennai';
+    // Location priority: GPS (primary) → Profile district/state (secondary) → 'Chennai' fallback
+    const profileLocation = gpsLocation || farmerProfile?.district || farmerProfile?.state || 'Chennai';
+    const initialCoords = gpsCoords || { lat: 13.0827, lng: 80.2707 };
 
     const [locationEn, setLocationEn] = useState(profileLocation); // English name for API
     const [locationDisplay, setLocationDisplay] = useState(getDistrictName(profileLocation, language)); // translated for UI
     const [weather, setWeather] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [markerPos, setMarkerPos] = useState({ lat: 13.0827, lng: 80.2707 });
+    const [markerPos, setMarkerPos] = useState({ lat: initialCoords.lat, lng: initialCoords.lng });
     const [clickedPlace, setClickedPlace] = useState(profileLocation); // English internally
     const [flyTarget, setFlyTarget] = useState(null);
 

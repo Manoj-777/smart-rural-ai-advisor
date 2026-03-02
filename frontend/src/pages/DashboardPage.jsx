@@ -57,7 +57,7 @@ const DAILY_TIPS = {
 
 function DashboardPage() {
     const { language, t } = useLanguage();
-    const { farmerName } = useFarmer();
+    const { farmerName, resolvedLocation, gpsStatus, requestGps } = useFarmer();
     const navigate = useNavigate();
     const [greeting, setGreeting] = useState('');
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -108,6 +108,16 @@ function DashboardPage() {
                         <span className="dash-meta-item">
                             {seasonInfo.icon} {seasonInfo.name} ({seasonInfo.months})
                         </span>
+                        {resolvedLocation && (
+                            <span className="dash-meta-item">
+                                {gpsStatus === 'granted' ? '📍' : '📌'} {resolvedLocation}
+                            </span>
+                        )}
+                        {!resolvedLocation && gpsStatus !== 'denied' && (
+                            <button className="dash-meta-item dash-meta-btn" onClick={requestGps}>
+                                📍 {t('enableLocation') || 'Enable GPS'}
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="dash-hero-art">🌾</div>

@@ -244,6 +244,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'Home',
+        enableLocation: 'Enable GPS',
         dashGreetMorning: 'Good Morning',
         dashGreetAfternoon: 'Good Afternoon',
         dashGreetEvening: 'Good Evening',
@@ -646,6 +647,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'முகப்பக்கம்',
+        enableLocation: 'GPS இயக்கு',
         dashGreetMorning: 'காலை வணக்கம்',
         dashGreetAfternoon: 'மதிய வணக்கம்',
         dashGreetEvening: 'மாலை வணக்கம்',
@@ -992,6 +994,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'होम',
+        enableLocation: 'GPS चालू करें',
         dashGreetMorning: 'शुभ प्रभात',
         dashGreetAfternoon: 'शुभ दोपहर',
         dashGreetEvening: 'शुभ संध्या',
@@ -1337,6 +1340,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'హోమ్',
+        enableLocation: 'GPS ప్రారంభించు',
         dashGreetMorning: 'శుభోదయం',
         dashGreetAfternoon: 'శుభ మధ్యాహ్నం',
         dashGreetEvening: 'శుభ సాయంత్రం',
@@ -1664,6 +1668,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ಹೋಮ್',
+        enableLocation: 'GPS ಸಕ್ರಿಯಗೊಳಿಸಿ',
         dashGreetMorning: 'ಶುಭ ಮುಂಜಾನೆ',
         dashGreetAfternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ',
         dashGreetEvening: 'ಶುಭ ಸಂಜೆ',
@@ -1991,6 +1996,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ഹോം',
+        enableLocation: 'GPS പ്രവർത്തനക്ഷമമാക്കുക',
         dashGreetMorning: 'സുപ്രഭാതം',
         dashGreetAfternoon: 'ശുഭ ഉച്ച',
         dashGreetEvening: 'ശുഭ സന്ധ്യ',
@@ -2318,6 +2324,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'হোম',
+        enableLocation: 'GPS সক্রিয় করুন',
         dashGreetMorning: 'শুভ সকাল',
         dashGreetAfternoon: 'শুভ দুপুর',
         dashGreetEvening: 'শুভ সন্ধ্যা',
@@ -2645,6 +2652,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'होम',
+        enableLocation: 'GPS सुरू करा',
         dashGreetMorning: 'शुभ सकाळ',
         dashGreetAfternoon: 'शुभ दुपार',
         dashGreetEvening: 'शुभ संध्याकाळ',
@@ -2963,6 +2971,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'હોમ',
+        enableLocation: 'GPS ચાલુ કરો',
         dashGreetMorning: 'શુભ સવાર',
         dashGreetAfternoon: 'શુભ બપોર',
         dashGreetEvening: 'શુભ સાંજ',
@@ -3281,6 +3290,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ਹੋਮ',
+        enableLocation: 'GPS ਚਾਲੂ ਕਰੋ',
         dashGreetMorning: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ',
         dashGreetAfternoon: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ',
         dashGreetEvening: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ',
@@ -3599,6 +3609,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ହୋମ',
+        enableLocation: 'GPS ସକ୍ରିୟ କରନ୍ତୁ',
         dashGreetMorning: 'ଶୁଭ ସକାଳ',
         dashGreetAfternoon: 'ଶୁଭ ଅପରାହ୍ନ',
         dashGreetEvening: 'ଶୁଭ ସନ୍ଧ୍ୟା',
@@ -3917,6 +3928,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ঘৰ',
+        enableLocation: 'GPS সক্ৰিয় কৰক',
         dashGreetMorning: 'শুভ পুৱা',
         dashGreetAfternoon: 'শুভ অপৰাহ্ন',
         dashGreetEvening: 'শুভ সন্ধিয়া',
@@ -4283,6 +4295,7 @@ const translations = {
 
         // Dashboard
         navDashboard: 'ہوم',
+        enableLocation: 'GPS فعال کریں',
         dashGreetMorning: 'صبح بخیر',
         dashGreetAfternoon: 'طیب دوپہر',
         dashGreetEvening: 'شب بخیر',

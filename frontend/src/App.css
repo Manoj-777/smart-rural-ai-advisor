@@ -10,14 +10,31 @@
     box-sizing: border-box;
 }
 
-/* ── Hide scrollbar globally while keeping scroll ──────── */
+/* ── Smooth scrolling globally ─────────────────────────── */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ── Custom thin scrollbar (visible but subtle) ────────── */
 *::-webkit-scrollbar {
-    display: none;
+    width: 5px;
+    height: 5px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12);
+    border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.25);
 }
 
 * {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: thin;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.12) transparent;
 }
 
 :root {
@@ -52,7 +69,7 @@
     --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
     --shadow-lg: 0 16px 48px rgba(0,0,0,0.10);
     --sidebar-w: 280px;
-    --transition: 0.2s cubic-bezier(.4,0,.2,1);
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
 }
 
 body {
@@ -61,6 +78,8 @@ body {
     color: var(--text);
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 /* ── Top Language Selector ─────────────────────────────── */
@@ -115,8 +134,24 @@ body {
 }
 
 @keyframes pageIn {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── GPU-Accelerated Smooth Scroll for all overflow containers ── */
+.dashboard-scroll,
+.weather-page-scroll,
+.schemes-page-scroll,
+.cropdoctor-page-scroll,
+.profile-page-scroll,
+.price-page-scroll,
+.chat-container,
+.chat-history-list,
+.login-form-register {
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
 }
 
 /* ── Page Header ──────────────────────────────────────── */
@@ -316,6 +351,45 @@ body {
     color: white;
 }
 
+/* ── Navbar Location Badge ─────────────────────────────── */
+.navbar-location-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.9);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    max-width: 160px;
+    white-space: nowrap;
+}
+.navbar-location-badge:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.35);
+}
+.navbar-location-badge--request {
+    border-style: dashed;
+    opacity: 0.7;
+}
+.navbar-location-badge--request:hover {
+    opacity: 1;
+}
+.navbar-loc-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.navbar-loc-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .navbar-links a {
     color: rgba(255,255,255,0.75);
     text-decoration: none;
@@ -373,6 +447,12 @@ body {
     }
     .navbar-brand .brand-text {
         display: none;
+    }
+    .navbar-location-badge {
+        max-width: 100px;
+    }
+    .navbar-loc-name {
+        font-size: 11px;
     }
 }
 
@@ -851,11 +931,13 @@ body {
     box-shadow: var(--shadow);
     margin-bottom: 18px;
     border: 1px solid var(--border-light);
-    transition: box-shadow var(--transition), transform var(--transition);
+    transition: box-shadow 0.3s cubic-bezier(.4,0,.2,1), transform 0.3s cubic-bezier(.4,0,.2,1);
+    transform: translateZ(0); /* GPU layer */
 }
 
 .card:hover {
     box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
 
 .card h3 {
@@ -1383,19 +1465,9 @@ body {
     }
 }
 
-/* ── Scrollbar Styling ─────────────────────────────────── */
-::-webkit-scrollbar {
-    width: 6px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: var(--text-light);
+/* ── Scrollbar hover accent ────────────────────────────── */
+*:hover::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.18);
 }
 
 /* ── Weather Map ────────────────────────────────────────── */
@@ -2110,6 +2182,18 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+.dash-meta-btn {
+    cursor: pointer;
+    border: 1px dashed rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.8);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+.dash-meta-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-style: solid;
+    color: white;
 }
 .dash-hero-art {
     font-size: 56px;
@@ -3078,6 +3162,9 @@ body {
     .navbar-logout-btn {
         width: 28px;
         height: 28px;
+    }
+    .navbar-location-badge {
+        display: none;
     }
 
     /* Dashboard – phone optimized */

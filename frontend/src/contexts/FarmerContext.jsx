@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import config from '../config';
+import { useGeolocation } from '../hooks/useGeolocation';
 
 const FarmerContext = createContext();
 
@@ -17,6 +18,12 @@ export function FarmerProvider({ children }) {
     const [farmerName, setFarmerNameState] = useState(() => localStorage.getItem(FARMER_NAME_KEY) || '');
     const [farmerProfile, setFarmerProfile] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem(FARMER_ID_KEY));
+
+    // GPS geolocation
+    const {
+        gpsLocation, gpsCoords, gpsStatus, gpsError,
+        requestGps, refreshGps, clearGps,
+    } = useGeolocation();
 
     // Load profile from DynamoDB when logged in
     useEffect(() => {
@@ -103,6 +110,21 @@ export function FarmerProvider({ children }) {
         return null;
     }, []);
 
+    // Resolved location: GPS (primary) → Profile district/state (secondary)
+    const resolvedLocation = gpsLocation
+        || farmerProfile?.district
+        || farmerProfile?.state
+        || null;
+
+    const resolvedCoords = gpsCoords || null;
+
+    // Auto-request GPS once logged in (if not already granted/denied)
+    useEffect(() => {
+        if (isLoggedIn && gpsStatus === 'idle') {
+            requestGps();
+        }
+    }, [isLoggedIn, gpsStatus, requestGps]);
+
     const logout = useCallback(() => {
         localStorage.removeItem(FARMER_ID_KEY);
         localStorage.removeItem(FARMER_PHONE_KEY);
@@ -112,7 +134,8 @@ export function FarmerProvider({ children }) {
         setFarmerNameState('');
         setFarmerProfile(null);
         setIsLoggedIn(false);
-    }, []);
+        clearGps();
+    }, [clearGps]);
 
     const updateProfile = useCallback((profile) => {
         setFarmerProfile(profile);
@@ -133,6 +156,15 @@ export function FarmerProvider({ children }) {
             loginWithPhone,
             logout,
             updateProfile,
+            // GPS location
+            gpsLocation,
+            gpsCoords,
+            gpsStatus,
+            gpsError,
+            requestGps,
+            refreshGps,
+            resolvedLocation,
+            resolvedCoords,
         }}>
             {children}
         </FarmerContext.Provider>
