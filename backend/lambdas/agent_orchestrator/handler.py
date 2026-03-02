@@ -15,7 +15,9 @@ import logging
 import os
 import re
 import time as _time
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -209,8 +211,7 @@ def _strip_sources_line(text):
     Returns (cleaned_text, extracted_sources_str_or_None)."""
     if not text:
         return text, None
-    import re as _re
-    match = _re.search(r'\n\s*Sources:\s*(.+)$', text)
+    match = re.search(r'\n\s*Sources:\s*(.+)$', text)
     if match:
         return text[:match.start()].rstrip(), match.group(1).strip()
     return text, None
@@ -540,6 +541,44 @@ def _execute_tool(tool_name, tool_input):
         return {"error": str(e)}
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  BEDROCK RETRY WITH EXPONENTIAL BACKOFF
+#  Handles ThrottlingException, ModelTimeoutException gracefully
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MAX_RETRIES = 2  # 1 original + 2 retries = 3 total attempts
+RETRY_BASE_DELAY = 0.5  # seconds
+
+
+def _bedrock_converse_with_retry(bedrock_client, **kwargs):
+    """Wrapper around bedrock_rt.converse() with exponential backoff for throttling.
+    Returns the Bedrock response dict, or raises the last exception on exhaustion.
+    """
+    last_exc = None
+    for attempt in range(1 + MAX_RETRIES):
+        try:
+            return bedrock_client.converse(**kwargs)
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            retryable = error_code in (
+                'ThrottlingException', 'TooManyRequestsException',
+                'ServiceUnavailableException', 'ModelTimeoutException',
+                'InternalServerException',
+            )
+            if retryable and attempt < MAX_RETRIES:
+                delay = RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.3)
+                logger.warning(
+                    f"Bedrock {error_code} (attempt {attempt+1}/{1+MAX_RETRIES}) — "
+                    f"retrying in {delay:.1f}s"
+                )
+                _time.sleep(delay)
+                last_exc = e
+            else:
+                raise
+        except Exception:
+            raise
+    raise last_exc  # unreachable, but satisfies linters
+
+
 def _build_conversation_history_context(session_id, limit=6):
     """Retrieve recent chat history from DynamoDB and format for the model.
     Returns a list of Bedrock converse() message dicts (role/content pairs).
@@ -587,7 +626,10 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
         system_prompt += f"\n\nFarmer context: {json.dumps(farmer_context)}"
 
     # Prepend conversation history for follow-up context
-    # Bedrock converse() requires alternating user/assistant roles
+    # Bedrock converse() requires:
+    #   1. Must start with a user message
+    #   2. Alternating user/assistant roles
+    #   3. Must end with assistant before we append the new user message
     messages = []
     if chat_history:
         prev_role = None
@@ -598,8 +640,11 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 continue
             messages.append(msg)
             prev_role = role
-        # Ensure history ends with assistant so new user message is valid
-        if messages and messages[-1].get('role') == 'user':
+        # Bedrock rule: must START with user message
+        while messages and messages[0].get('role') != 'user':
+            messages.pop(0)
+        # Bedrock rule: must END with assistant so new user message is valid next
+        while messages and messages[-1].get('role') == 'user':
             messages.pop()
         if messages:
             logger.info(f"Conversation memory: {len(messages)} prior messages")
@@ -622,7 +667,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
             if gc and not skip_native_guardrail:
                 converse_kwargs['guardrailConfig'] = gc
 
-            response = bedrock_rt.converse(**converse_kwargs)
+            response = _bedrock_converse_with_retry(bedrock_rt, **converse_kwargs)
             output = response.get("output", {})
             message = output.get("message", {})
             stop_reason = response.get("stopReason", "")
@@ -841,7 +886,7 @@ def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_to
         if gc and not skip_guardrail:
             converse_kwargs['guardrailConfig'] = gc
 
-        response = bedrock_rt.converse(**converse_kwargs)
+        response = _bedrock_converse_with_retry(bedrock_rt, **converse_kwargs)
         output = response.get("output", {})
         message = output.get("message", {})
         stop_reason = response.get("stopReason", "")
@@ -872,6 +917,13 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
 
     Returns: (result_text_en, tools_used, pipeline_metadata)
     """
+    pipeline_start = _time.time()
+    # Budget: API GW is 29s, reserve 6s for translation + TTS + overhead
+    PIPELINE_BUDGET_SEC = 22
+
+    def _budget_remaining():
+        return max(0, PIPELINE_BUDGET_SEC - (_time.time() - pipeline_start))
+
     pipeline_meta = {
         'pipeline_mode': 'cognitive',
         'agents_invoked': [],
@@ -971,7 +1023,12 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     #  AGENT 3: Fact-Checking Agent (~2-3s)
     #  Validates reasoning output against tool data
     # ══════════════════════════════════════════════════════════
-    logger.info("Pipeline Step 3/4: Fact-Checking Agent")
+    _remaining = _budget_remaining()
+    if _remaining < 5:
+        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping fact-check + communication")
+        pipeline_meta['budget_skip'] = ['fact_check', 'communication']
+        return reasoning_text, tools_used, pipeline_meta
+    logger.info(f"Pipeline Step 3/4: Fact-Checking Agent (budget {_remaining:.0f}s left)")
 
     # Build raw tool data summary for fact-checker (truncated to stay within token limits)
     tool_data_summary = "None"
@@ -1028,7 +1085,12 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     #  AGENT 4: Communication Agent (~2-3s)
     #  Rewrites for farmer audience, clear and actionable
     # ══════════════════════════════════════════════════════════
-    logger.info("Pipeline Step 4/4: Communication Agent")
+    _remaining = _budget_remaining()
+    if _remaining < 3:
+        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping communication agent")
+        pipeline_meta['budget_skip'] = pipeline_meta.get('budget_skip', []) + ['communication']
+        return fact_checked_text, tools_used, pipeline_meta
+    logger.info(f"Pipeline Step 4/4: Communication Agent (budget {_remaining:.0f}s left)")
 
     # Map language codes to language names for better LLM understanding
     LANG_NAMES = {
@@ -1278,6 +1340,10 @@ def lambda_handler(event, context):
     # Handle CORS preflight
     if event.get('httpMethod') == 'OPTIONS':
         return success_response({}, message='OK')
+
+    # Correlation ID for end-to-end request tracing across CloudWatch logs
+    _request_id = getattr(context, 'aws_request_id', str(uuid.uuid4())[:8])
+    logger.info(f"[{_request_id}] Handler invoked")
 
     try:
         body = json.loads(event.get('body', '{}'))
@@ -1544,6 +1610,9 @@ def lambda_handler(event, context):
         # --- Step 3: Invoke AI Agent ---
         pipeline_meta_extra = {}
 
+        # Save user message EARLY (before Bedrock) — prevents data loss on timeout
+        save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+
         # Retrieve conversation history for follow-up context (chat pages only, not feature pages)
         chat_history = []
         if not _is_feature_page:
@@ -1693,7 +1762,7 @@ def lambda_handler(event, context):
                 logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
         # --- Step 6: Save chat history ---
-        save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+        # User message was already saved before Step 3 (early save for durability)
         save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
 
         # --- Step 7: Return response (matches API contract) ---
