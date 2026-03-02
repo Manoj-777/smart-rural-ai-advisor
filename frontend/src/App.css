@@ -305,7 +305,7 @@ body {
     cursor: pointer;
     outline: none;
     transition: all 0.2s;
-    max-width: 120px;
+    max-width: none;
 }
 .navbar-lang-select:hover {
     background: rgba(255,255,255,0.2);
@@ -360,7 +360,7 @@ body {
         margin-right: 6px;
     }
     .navbar-lang-select {
-        max-width: 100px;
+        max-width: none;
         font-size: 12px;
     }
 }
@@ -3007,7 +3007,7 @@ body {
         display: block;
     }
     .navbar-lang-select {
-        max-width: 80px;
+        max-width: none;
         font-size: 11px;
         padding: 3px 6px;
     }
