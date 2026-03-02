@@ -143,6 +143,24 @@ function CropDoctorPage() {
             <div className="cropdoctor-page-scroll">
 
             <div>
+                {/* Crop Type Dropdown — always visible */}
+                <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontWeight: 600, fontSize: '15px', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>
+                        🌾 {t('cropDocSelectCropType')}
+                    </label>
+                    <select
+                        value={cropType}
+                        onChange={(e) => setCropType(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', padding: '12px 16px', fontSize: '15px', borderRadius: '12px', cursor: 'pointer' }}
+                    >
+                        <option value="">{t('cropDocSelectCropType')}</option>
+                        {CROP_OPTIONS.map(c => (
+                            <option key={c.value} value={c.value}>{t(c.key)}</option>
+                        ))}
+                    </select>
+                </div>
+
                 {/* Image Upload */}
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div
@@ -182,33 +200,23 @@ function CropDoctorPage() {
                     />
                 </div>
 
-                {/* Crop Type Dropdown */}
-                {image && (
-                    <div style={{ marginTop: '12px' }}>
-                        <select
-                            value={cropType}
-                            onChange={(e) => setCropType(e.target.value)}
-                            className="input-field"
-                            style={{ width: '100%', padding: '12px 16px', fontSize: '15px', borderRadius: '12px', cursor: 'pointer' }}
-                        >
-                            <option value="">{t('cropDocSelectCropType')}</option>
-                            {CROP_OPTIONS.map(c => (
-                                <option key={c.value} value={c.value}>{t(c.key)}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
                 {/* Analyze Button */}
                 {image && (
-                    <button
-                        onClick={analyzeImage}
-                        disabled={loading}
-                        className="send-btn"
-                        style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', marginTop: '12px', justifyContent: 'center' }}
-                    >
-                        {loading ? `⏳ ${t('cropDocAnalyzing')}` : `🔍 ${t('cropDocAnalyze')}`}
-                    </button>
+                    <>
+                        <button
+                            onClick={analyzeImage}
+                            disabled={loading || !cropType}
+                            className="send-btn"
+                            style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', marginTop: '12px', justifyContent: 'center', opacity: (!cropType) ? 0.5 : 1 }}
+                        >
+                            {loading ? `⏳ ${t('cropDocAnalyzing')}` : `🔍 ${t('cropDocAnalyze')}`}
+                        </button>
+                        {!cropType && (
+                            <p style={{ textAlign: 'center', color: 'var(--warning)', fontSize: '13px', marginTop: '6px' }}>
+                                ⚠️ {t('cropDocSelectCropType')}
+                            </p>
+                        )}
+                    </>
                 )}
 
                 <div className="tip-box" style={{ marginTop: '14px' }}>

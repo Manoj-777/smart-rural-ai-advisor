@@ -62,7 +62,7 @@ def lambda_handler(event, context):
     try:
         body = json.loads(event.get('body', '{}'))
         image_base64 = body.get('image_base64', '')
-        crop_name = body.get('crop_name', 'unknown crop')
+        crop_name = body.get('crop_type') or body.get('crop_name', 'unknown crop')
         farmer_state = body.get('state', 'India')
         # Normalize BCP-47 codes (e.g. 'ta-IN' → 'ta') for AWS Translate
         raw_lang = body.get('language', 'en')
