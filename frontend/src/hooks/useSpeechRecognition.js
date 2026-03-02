@@ -13,6 +13,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const mediaRecorderRef = useRef(null);
     const onResultRef = useRef(onResult);
     const gotResultRef = useRef(false);
+    const lastTranscriptRef = useRef('');  // Track interim transcript as fallback
 
     // Always keep the callback ref synced with the latest value
     useEffect(() => { onResultRef.current = onResult; }, [onResult]);
@@ -32,6 +33,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const startListening = useCallback(async () => {
         setError('');
         gotResultRef.current = false;
+        lastTranscriptRef.current = '';
 
         // Abort any previous session
         if (recognitionRef.current) {
@@ -54,16 +56,16 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
                 recognitionRef.current = recognition;
 
                 recognition.lang = language;
-                recognition.continuous = true;
+                recognition.continuous = false;
                 recognition.interimResults = true;
                 recognition.maxAlternatives = 1;
 
-                // Auto-stop after 12 seconds max
+                // Auto-stop after 15 seconds max
                 const autoStopTimer = setTimeout(() => {
                     if (recognitionRef.current) {
                         try { recognitionRef.current.stop(); } catch { /* */ }
                     }
-                }, 12000);
+                }, 15000);
 
                 recognition.onresult = (event) => {
                     // Collect the latest transcript (interim or final)
@@ -78,7 +80,10 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
                         }
                     }
 
-                    const text = finalTranscript || interimTranscript;
+                    // Always track the best available transcript
+                    const bestText = finalTranscript || interimTranscript;
+                    if (bestText) lastTranscriptRef.current = bestText;
+
                     if (finalTranscript && onResultRef.current) {
                         gotResultRef.current = true;
                         onResultRef.current(finalTranscript.trim());
@@ -107,7 +112,13 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
                 recognition.onend = () => {
                     clearTimeout(autoStopTimer);
                     setIsListening(false);
-                    if (!gotResultRef.current) {
+                    // Use interim transcript as fallback if no final result was received
+                    if (!gotResultRef.current && lastTranscriptRef.current.trim()) {
+                        gotResultRef.current = true;
+                        if (onResultRef.current) {
+                            onResultRef.current(lastTranscriptRef.current.trim());
+                        }
+                    } else if (!gotResultRef.current) {
                         setError(prev => prev || 'No speech detected. Please tap the mic and speak clearly.');
                     }
                 };
