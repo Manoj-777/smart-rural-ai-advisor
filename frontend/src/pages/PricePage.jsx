@@ -1,10 +1,11 @@
 // src/pages/PricePage.jsx
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { getPriceT } from '../i18n/priceTranslations';
 import { mockPrices, mockPestAdvice } from '../services/mockApi';
+import { generateAsyncTts } from '../utils/asyncTts';
 import config from '../config';
 
 /* ── Season helper based on current month ─────── */
@@ -126,8 +127,52 @@ function PricePage() {
     const [aiLoading, setAiLoading] = useState(false);
     const [aiCrop, setAiCrop] = useState(null);
     const [aiType, setAiType] = useState('crop'); // 'crop' or 'pest'
+    const [aiAudioUrl, setAiAudioUrl] = useState(null);
+    const [aiAudioKey, setAiAudioKey] = useState(null);
+    const [aiAudioLoading, setAiAudioLoading] = useState(false);
+    const [speaking, setSpeaking] = useState(false);
+    const advisoryRef = useRef(null);
 
     const aiLabel = AI_LABELS[language] || AI_LABELS['en-IN'];
+
+    /* ── Strip conversational tail from AI response ─────── */
+    function stripConversationalTail(text) {
+        if (!text) return text;
+        // Remove trailing lines like "If you have any more questions...", "Feel free to...", etc.
+        return text
+            .replace(/\n*(?:If you have any (?:more )?questions|Feel free to|I hope this|Don't hesitate|Please (?:feel free|don't hesitate)|Let me know if)[^\n]*$/i, '')
+            .replace(/\n*(?:I'm here to help|Happy farming|Best of luck|Good luck|Wishing you)[^\n]*$/i, '')
+            .trim();
+    }
+
+    /* ── Rich text formatter (same as CropRecommend / FarmCalendar) ─────── */
+    function formatText(text) {
+        if (!text) return '';
+        return text
+            .replace(/^###\s*(.+)$/gm, '<div class="ai-section-title">$1</div>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/^(\d+)\.\s+(.+)/gm, '<div class="ai-list-item"><span class="list-num">$1.</span> $2</div>')
+            .replace(/^[•\-]\s+(.+)/gm, '<div class="ai-list-item"><span class="list-bullet">•</span> $1</div>')
+            .replace(/^\s{2,}[\-•]\s+(.+)/gm, '<div class="ai-list-item ai-sub-item"><span class="list-bullet">◦</span> $1</div>')
+            .replace(/\n\n/g, '<div class="ai-section-gap"></div>')
+            .replace(/\n/g, '<br/>');
+    }
+
+    /* ── TTS: browser speech synthesis fallback ─────── */
+    const handleSpeak = () => {
+        const text = aiAdvisory?.advisory;
+        if (!text) return;
+        if (speaking) { window.speechSynthesis?.cancel(); setSpeaking(false); return; }
+        const cleaned = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/###/g, '').replace(/\n/g, '. ');
+        const utter = new SpeechSynthesisUtterance(cleaned.slice(0, 3000));
+        utter.lang = language.replace('_', '-');
+        utter.rate = 0.9;
+        utter.onend = () => setSpeaking(false);
+        utter.onerror = () => setSpeaking(false);
+        setSpeaking(true);
+        window.speechSynthesis.speak(utter);
+    };
 
     /* translate a crop name for display */
     const cropName = (en) => pt.crops?.[en] || en;
@@ -211,7 +256,7 @@ function PricePage() {
                 const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-                const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice.`;
+                const query = `You are an agricultural market analyst advising a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProvide a detailed price advisory for ${crop.name} (${crop.season} crop) based on this data:\n- Government MSP: ${crop.msp ? '₹' + crop.msp + '/quintal' : 'Not applicable (no MSP fixed)'}\n- Current Market Price Range: ₹${crop.marketMin} – ₹${crop.marketMax}/quintal\n- Price Trend: ${crop.trend === 'up' ? 'Rising' : crop.trend === 'down' ? 'Falling' : 'Stable'}\n\nGive advice specific to ${farmerLocation} region. Include: best time to sell in the current ${currentSeason} season, nearest recommended mandis for this region, storage tips to get better prices, price trend analysis, and market outlook for the next 3 months. Give specific actionable advice. Do NOT end with conversational closings like "feel free to ask" or "I hope this helps" — this is a one-way advisory, not a conversation.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -220,24 +265,40 @@ function PricePage() {
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
                 let rawAdvisory = data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.';
-                // Strip any leftover "Sources: ..." line from backend response
+                // Strip any leftover "Sources: ..." line and conversational tail
                 rawAdvisory = rawAdvisory.replace(/\n\s*Sources:\s*.+$/m, '').trim();
+                rawAdvisory = stripConversationalTail(rawAdvisory);
                 result = {
                     status: 'success',
                     data: {
                         advisory: rawAdvisory,
-                        source: data.data?.sources || 'AI Cognitive Pipeline + Knowledge Base',
-                        lastUpdated: new Date().toISOString().split('T')[0],
+                        audioUrl: data.data?.audio_url || null,
+                        audioKey: data.data?.audio_key || null,
+                        audioPending: !!data.data?.audio_pending,
+                        detectedLang: data.data?.detected_language || language,
                     }
                 };
             }
-            setAiAdvisory(result.data);
+            const advisory = result.data;
+            setAiAdvisory(advisory);
+            setAiAudioUrl(advisory.audioUrl || null);
+            setAiAudioKey(advisory.audioKey || null);
+            // Fire async TTS if pending
+            if (advisory.audioPending && advisory.advisory) {
+                setAiAudioLoading(true);
+                generateAsyncTts(advisory.advisory, advisory.detectedLang).then(tts => {
+                    if (tts) {
+                        setAiAudioUrl(tts.audioUrl);
+                        setAiAudioKey(tts.audioKey);
+                    }
+                    setAiAudioLoading(false);
+                });
+            }
+            setTimeout(() => advisoryRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
         } catch (err) {
             console.error('AI price advisory error:', err);
             setAiAdvisory({
                 advisory: t('priceAiUnavailable'),
-                source: 'Error',
-                lastUpdated: '',
             });
         } finally {
             setAiLoading(false);
@@ -260,7 +321,7 @@ function PricePage() {
                 const farmerLocation = farmerState && farmerDistrict ? `${farmerDistrict}, ${farmerState}` : farmerState || 'India';
                 const currentSeason = getCurrentSeason();
                 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-                const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice.`;
+                const query = `Pesticide product guide for a farmer in ${farmerLocation}.\n\nDate: ${today} | Current Season: ${currentSeason}\n\nProduct: ${pest.name} (${pest.category}), Primary Uses: ${pest.usage}, Market Price: ₹${pest.price} ${pest.unit}.\n\nProvide comprehensive usage guide specific to ${farmerLocation} region and ${currentSeason} season including: exact dosage per litre/acre, target pests and diseases, crops commonly used on, best application timing and method, safety precautions and PPE, pre-harvest interval (PHI in days), organic/bio alternatives, and storage advice. Give specific actionable advice. Do NOT end with conversational closings like "feel free to ask" or "I hope this helps" — this is a one-way advisory, not a conversation.`;
                 const res = await fetch(`${config.API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -270,22 +331,37 @@ function PricePage() {
                 const data = await res.json();
                 let rawPestAdv = data.data?.reply || data.data?.response || data.response || data.message || 'No advisory available.';
                 rawPestAdv = rawPestAdv.replace(/\n\s*Sources:\s*.+$/m, '').trim();
+                rawPestAdv = stripConversationalTail(rawPestAdv);
                 result = {
                     status: 'success',
                     data: {
                         advisory: rawPestAdv,
-                        source: data.data?.sources || 'AI Cognitive Pipeline + Knowledge Base',
-                        lastUpdated: new Date().toISOString().split('T')[0],
+                        audioUrl: data.data?.audio_url || null,
+                        audioKey: data.data?.audio_key || null,
+                        audioPending: !!data.data?.audio_pending,
+                        detectedLang: data.data?.detected_language || language,
                     }
                 };
             }
-            setAiAdvisory(result.data);
+            const advisory = result.data;
+            setAiAdvisory(advisory);
+            setAiAudioUrl(advisory.audioUrl || null);
+            setAiAudioKey(advisory.audioKey || null);
+            if (advisory.audioPending && advisory.advisory) {
+                setAiAudioLoading(true);
+                generateAsyncTts(advisory.advisory, advisory.detectedLang).then(tts => {
+                    if (tts) {
+                        setAiAudioUrl(tts.audioUrl);
+                        setAiAudioKey(tts.audioKey);
+                    }
+                    setAiAudioLoading(false);
+                });
+            }
+            setTimeout(() => advisoryRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
         } catch (err) {
             console.error('AI pest advisory error:', err);
             setAiAdvisory({
                 advisory: t('priceAiUnavailable'),
-                source: 'Error',
-                lastUpdated: '',
             });
         } finally {
             setAiLoading(false);
@@ -313,23 +389,49 @@ function PricePage() {
 
             {/* AI Advisory Panel */}
             {aiAdvisory && (
-                <div className={`ai-advisory-panel${aiType === 'pest' ? ' pest-panel' : ''}`}>
+                <div className={`ai-advisory-panel${aiType === 'pest' ? ' pest-panel' : ''}`} ref={advisoryRef}>
                     <div className="ai-advisory-header">
                         <h3>🤖 {aiType === 'pest' ? aiLabel.titlePest : aiLabel.titleCrop} — {aiType === 'pest' ? (pestName(aiCrop) || aiCrop) : (cropName(aiCrop) || aiCrop)}</h3>
-                        <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); }}>{aiLabel.close}</button>
+                        <div className="ai-advisory-actions">
+                            <button className={`tts-btn${speaking ? ' tts-active' : ''}`} onClick={handleSpeak}
+                                title={speaking ? (t('ttsStopReading') || 'Stop') : (t('ttsReadAloud') || 'Listen')}>
+                                {speaking ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                                ) : (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                                )}
+                                <span className="tts-label">{speaking ? (t('ttsStop') || 'Stop') : (t('ttsListen') || '🔊 Listen')}</span>
+                            </button>
+                            <button className="ai-advisory-close" onClick={() => { setAiAdvisory(null); setAiCrop(null); setAiAudioUrl(null); setAiAudioKey(null); setSpeaking(false); window.speechSynthesis?.cancel(); }}>{aiLabel.close}</button>
+                        </div>
                     </div>
-                    <div className="ai-advisory-body">
-                        {aiAdvisory.advisory.split('\n').map((line, i) => {
-                            if (!line.trim()) return <br key={i} />;
-                            // Bold markers
-                            const parts = line.split(/\*\*(.*?)\*\*/g);
-                            return <p key={i} style={{ margin: '2px 0' }}>{parts.map((part, j) =>
-                                j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-                            )}</p>;
-                        })}
-                    </div>
-                    <div className="ai-advisory-footer">
-                    </div>
+                    {aiAudioUrl && (
+                        <audio controls src={aiAudioUrl} className="ai-result-audio"
+                            onError={async (e) => {
+                                if (aiAudioKey) {
+                                    try {
+                                        const res = await fetch(`${config.API_URL}/chat`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ refresh_audio_key: aiAudioKey })
+                                        });
+                                        const d = await res.json();
+                                        if (d.status === 'success' && d.data?.audio_url) {
+                                            e.target.src = d.data.audio_url;
+                                            setAiAudioUrl(d.data.audio_url);
+                                        }
+                                    } catch { /* silent */ }
+                                }
+                            }}
+                        />
+                    )}
+                    {aiAudioLoading && (
+                        <div className="audio-loading-indicator">
+                            <span className="spinner-sm"></span> {t('ttsGenerating') || 'Generating audio...'}
+                        </div>
+                    )}
+                    <div className="ai-advisory-body"
+                        dangerouslySetInnerHTML={{ __html: formatText(aiAdvisory.advisory) }} />
                 </div>
             )}
 
