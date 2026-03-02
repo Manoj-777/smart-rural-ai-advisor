@@ -1276,6 +1276,28 @@ body {
     animation: pulse 1.5s infinite;
 }
 
+.mic-btn.processing {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    cursor: wait;
+    opacity: 0.85;
+    animation: pulse-amber 1.5s infinite;
+}
+
+.mic-btn:disabled {
+    cursor: wait;
+    transform: none;
+}
+
+.voice-status.processing {
+    color: #d97706;
+    font-weight: 500;
+}
+
+@keyframes pulse-amber {
+    0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+    70% { box-shadow: 0 0 0 14px rgba(245,158,11,0); }
+}
+
 /* ── Loading spinner ──────────────────────────────────── */
 .spinner {
     display: inline-block;
