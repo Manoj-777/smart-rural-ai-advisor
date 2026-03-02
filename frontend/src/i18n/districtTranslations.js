@@ -463,12 +463,12 @@ DT['as-IN'] = {
 
 /**
  * Get the translated district name for the given language.
- * Falls back: language → Hindi → English (original).
+ * Falls back: language → English (original).
  */
 export function getDistrictName(district, language) {
     if (!district) return '';
     if (language === 'en-IN') return district;
-    return DT[language]?.[district] || DT['hi-IN']?.[district] || district;
+    return DT[language]?.[district] || district;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -495,6 +495,7 @@ Object.assign(DT['ta-IN'], {
     'Ahmedabad': 'அகமதாபாத்', 'Pune': 'புனே', 'Jaipur': 'ஜெய்ப்பூர்',
     'Lucknow': 'லக்னோ', 'Bhopal': 'போபால்', 'Patna': 'பட்னா',
     'Raipur': 'ராய்ப்பூர்', 'Ranchi': 'ராஞ்சி',
+    'Visakhapatnam': 'விசாகப்பட்டினம்',
 });
 
 // Telugu aliases

@@ -7,6 +7,20 @@ import { useFarmer } from '../contexts/FarmerContext';
 import { SchemesSkeleton } from '../components/SkeletonLoader';
 import schemeTranslations from '../i18n/schemeTranslations';
 
+// Map English state name → translation key (same as ProfilePage)
+const STATE_KEY_MAP = {
+    'Andhra Pradesh': 'stateAP', 'Arunachal Pradesh': 'stateAR', 'Assam': 'stateAS',
+    'Bihar': 'stateBR', 'Chhattisgarh': 'stateCG', 'Goa': 'stateGA',
+    'Gujarat': 'stateGJ', 'Haryana': 'stateHR', 'Himachal Pradesh': 'stateHP',
+    'Jharkhand': 'stateJH', 'Karnataka': 'stateKA', 'Kerala': 'stateKL',
+    'Madhya Pradesh': 'stateMP', 'Maharashtra': 'stateMH', 'Manipur': 'stateMN',
+    'Meghalaya': 'stateML', 'Mizoram': 'stateMZ', 'Nagaland': 'stateNL',
+    'Odisha': 'stateOD', 'Puducherry': 'statePY', 'Punjab': 'statePB',
+    'Rajasthan': 'stateRJ', 'Sikkim': 'stateSK', 'Tamil Nadu': 'stateTN',
+    'Telangana': 'stateTS', 'Tripura': 'stateTR', 'Uttar Pradesh': 'stateUP',
+    'Uttarakhand': 'stateUK', 'West Bengal': 'stateWB',
+};
+
 function SchemesPage() {
     const { language, t } = useLanguage();
     const { farmerProfile } = useFarmer();
@@ -102,7 +116,7 @@ function SchemesPage() {
             {farmerState && (
                 <div className="state-schemes-section" style={{ marginBottom: '24px' }}>
                     <div className="state-schemes-header">
-                        <h3>🏛️ {t('schemesForState')} {farmerState}</h3>
+                        <h3>🏛️ {t('schemesForState')} {t(STATE_KEY_MAP[farmerState]) || farmerState}</h3>
                         <button
                             className="send-btn"
                             style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '8px' }}

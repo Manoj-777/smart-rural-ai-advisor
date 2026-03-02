@@ -14,10 +14,19 @@ import boto3
 import logging
 import os
 import re
+import time as _time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# API Gateway hard timeout is 29s. We must return before that.
+API_GW_TIMEOUT_SEC = 29
+TTS_TIME_BUDGET_SEC = 18  # skip TTS if elapsed > this
+
+# Feature-page session prefixes: pre-structured prompts that
+# don't need the 4-agent cognitive pipeline.
+FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-')
 
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
@@ -1110,6 +1119,10 @@ def lambda_handler(event, context):
         if len(session_id) < 33:
             session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, session_id))
 
+        _t_start = _time.time()
+        _is_feature_page = any(session_id.startswith(p) or body.get('session_id', '').startswith(p) for p in FAST_PATH_PREFIXES)
+        logger.info(f'Session {session_id} | feature_page={_is_feature_page}')
+
         if not user_message:
             return error_response('Message is required', 400)
 
@@ -1197,7 +1210,13 @@ def lambda_handler(event, context):
         # --- Step 3: Invoke AI Agent ---
         pipeline_meta_extra = {}
 
-        if USE_AGENTCORE and PIPELINE_MODE == 'cognitive':
+        if _is_feature_page:
+            # FAST PATH: feature pages skip 4-agent pipeline, use single Bedrock call
+            logger.info(f'FAST PATH for feature page (elapsed {_time.time()-_t_start:.1f}s)')
+            routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
+            result_text, tools_used, _ = _invoke_bedrock_direct(routed_prompt, farmer_context)
+
+        elif USE_AGENTCORE and PIPELINE_MODE == 'cognitive':
             # ═══ NEW: Cognitive Multi-Agent Pipeline ═══
             logger.info(f"Pipeline mode: COGNITIVE | intents={intents}")
             result_text, tools_used, pipeline_meta_extra = _run_cognitive_pipeline(
@@ -1266,28 +1285,36 @@ def lambda_handler(event, context):
         if sources_line:
             result_text = f"{text_for_translation}\n\nSources: {sources_line}"
 
-        # --- Step 5: Generate Polly audio ---
+        # --- Step 5: Generate TTS audio ---
+        _elapsed = _time.time() - _t_start
         audio_url = None
         polly_text_truncated = False
-        try:
-            polly_result = text_to_speech(
-                translated_reply,
-                detected_lang or 'en',
-                return_metadata=True,
-            )
-            if isinstance(polly_result, dict):
-                audio_url = polly_result.get('audio_url')
-                polly_text_truncated = bool(polly_result.get('truncated', False))
-            else:
-                audio_url = polly_result
-        except Exception as polly_err:
-            logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
+        if _is_feature_page:
+            logger.info(f'Feature page - skipping TTS for speed (elapsed {_elapsed:.1f}s)')
+        elif _elapsed > TTS_TIME_BUDGET_SEC:
+            logger.warning(f'Skipping TTS - elapsed {_elapsed:.1f}s > {TTS_TIME_BUDGET_SEC}s budget')
+        else:
+            try:
+                polly_result = text_to_speech(
+                    translated_reply,
+                    detected_lang or 'en',
+                    return_metadata=True,
+                )
+                if isinstance(polly_result, dict):
+                    audio_url = polly_result.get('audio_url')
+                    polly_text_truncated = bool(polly_result.get('truncated', False))
+                else:
+                    audio_url = polly_result
+                logger.info(f'TTS completed in {_time.time()-_t_start-_elapsed:.1f}s, audio={bool(audio_url)}')
+            except Exception as polly_err:
+                logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
         # --- Step 6: Save chat history ---
         save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
         save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
 
         # --- Step 7: Return response (matches API contract) ---
+        logger.info(f'Total handler time: {_time.time()-_t_start:.1f}s | feature_page={_is_feature_page} | audio={bool(audio_url)}')
         return success_response({
             'reply': translated_reply,
             'reply_en': result_text,
