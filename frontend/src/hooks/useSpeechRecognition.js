@@ -228,8 +228,15 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             clearTimeout(autoStopTimerRef.current);
             autoStopTimerRef.current = null;
         }
+
+        // Update UI immediately on user stop tap
+        setIsListening(false);
+        setIsProcessing(false);
+
         if (recognitionRef.current) {
+            try { recognitionRef.current.abort(); } catch { /* */ }
             try { recognitionRef.current.stop(); } catch { /* */ }
+            recognitionRef.current = null;
         }
         if (mediaRecorderRef.current?.state === 'recording') {
             mediaRecorderRef.current.stop();
