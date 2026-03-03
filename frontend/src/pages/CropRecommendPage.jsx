@@ -12,14 +12,14 @@ import { generateAsyncTts } from '../utils/asyncTts';
 import { apiFetch } from '../utils/apiFetch';
 
 const SOIL_TYPES = [
-    { value: 'Alluvial', key: 'soilAlluvial' },
-    { value: 'Black (Regur)', key: 'soilBlack' },
-    { value: 'Red', key: 'soilRed' },
-    { value: 'Laterite', key: 'soilLaterite' },
-    { value: 'Sandy', key: 'soilSandy' },
-    { value: 'Clay', key: 'soilClay' },
-    { value: 'Loamy', key: 'soilLoamy' },
-    { value: 'Saline', key: 'soilSaline' },
+    { value: 'Alluvial Soil', key: 'soilAlluvial' },
+    { value: 'Black Soil', key: 'soilBlack' },
+    { value: 'Red Soil', key: 'soilRed' },
+    { value: 'Laterite Soil', key: 'soilLaterite' },
+    { value: 'Sandy Soil', key: 'soilSandy' },
+    { value: 'Clay Soil', key: 'soilClay' },
+    { value: 'Loamy Soil', key: 'soilLoamy' },
+    { value: 'Saline Soil', key: 'soilSaline' },
 ];
 const WATER_OPTIONS = [
     { value: 'Rainfed only', key: 'waterRainfed' },

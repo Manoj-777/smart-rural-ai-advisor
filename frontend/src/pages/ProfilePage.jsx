@@ -10,7 +10,6 @@ import { apiFetch } from '../utils/apiFetch';
 import * as cognitoAuth from '../services/cognitoAuth';
 
 // Delete account confirmation phrase
-const DELETE_CONFIRM_PHRASE = 'DELETE';
 
 // State options with translation keys for localized display
 const STATE_OPTION_OBJECTS = [
@@ -70,9 +69,7 @@ function ProfilePage() {
 
     // Delete account
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [deleteInput, setDeleteInput] = useState('');
     const [deleting, setDeleting] = useState(false);
-    const [deleteMessage, setDeleteMessage] = useState(null);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -179,27 +176,22 @@ function ProfilePage() {
         setSavingEmail(false);
     };
 
-    // ── Delete account handler ──
-    const handleDeleteAccount = async () => {
-        if (deleteInput !== DELETE_CONFIRM_PHRASE) {
-            setDeleteMessage({ type: 'error', text: `❌ ${t('deleteProfileTypeMismatch')}` });
-            return;
-        }
-        setDeleting(true);
-        setDeleteMessage(null);
-        try {
-            await deleteAccount();
-            // deleteAccount already logs out and clears state
-        } catch (err) {
-            setDeleteMessage({ type: 'error', text: '❌ ' + (err?.message || t('error')) });
-            setDeleting(false);
-        }
-    };
-
     // Find localized crop name for display
     const localizedCrop = (enValue) => {
         const idx = CROP_VALUES_EN.indexOf(enValue);
         return idx >= 0 ? t(CROP_KEYS[idx]) : enValue;
+    };
+
+
+    const handleDeleteAccount = async () => {
+        setDeleting(true);
+        try {
+            await deleteAccount();
+        } catch (err) {
+            setMessage({ type: 'error', text: 'Failed to delete account. Please try again.' });
+            setDeleting(false);
+            setShowDeleteConfirm(false);
+        }
     };
 
     return (
@@ -413,63 +405,59 @@ function ProfilePage() {
                 <span className="tip-icon">💡</span>
                 <span>{t('profileTip')}</span>
             </div>
-
-            {/* Delete Account — Danger Zone */}
-            <div className="card" style={{ marginTop: '24px', border: '1px solid #e74c3c', background: 'rgba(231,76,60,0.04)' }}>
-                <h3 style={{ color: '#e74c3c' }}>⚠️ {t('deleteProfileTitle')}</h3>
-                <p style={{ fontSize: '13px', color: '#c0392b', marginBottom: '12px' }}>{t('deleteProfileWarning')}</p>
-
-                {!showDeleteConfirm ? (
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <button onClick={() => setShowDeleteConfirm(true)}
-                            className="send-btn"
-                            style={{
-                                padding: '10px 36px', fontSize: '14px', borderRadius: '10px',
-                                background: '#e74c3c', color: '#fff', border: 'none'
-                            }}>
-                            🗑️ {t('deleteProfileBtn')}
-                        </button>
+            {/* ── Delete Account ── */}
+            <div className="delete-zone-card">
+                <div className="delete-zone-inner">
+                    <div className="delete-zone-badge">⚠️</div>
+                    <div className="delete-zone-text">
+                        <h4 className="delete-zone-title">{t('deleteProfileTitle')}</h4>
+                        <p className="delete-zone-desc">{t('deleteProfileWarning')}</p>
                     </div>
-                ) : (
-                    <div>
-                        <p style={{ fontSize: '13px', color: '#e74c3c', marginBottom: '8px', fontWeight: 'bold' }}>
-                            {t('deleteProfileConfirmText')}
-                        </p>
-                        <input
-                            className="form-input"
-                            type="text"
-                            value={deleteInput}
-                            onChange={e => setDeleteInput(e.target.value.toUpperCase())}
-                            placeholder={`${t('deleteProfileTypePlaceholder')}`}
-                            style={{ borderColor: '#e74c3c', marginBottom: '10px', textAlign: 'center', fontWeight: 'bold', letterSpacing: '2px' }}
-                        />
-                        {deleteMessage && (
-                            <div className={`alert ${deleteMessage.type === 'success' ? 'alert-success' : 'alert-error'}`}>
-                                {deleteMessage.text}
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
-                            <button onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); setDeleteMessage(null); }}
-                                className="send-btn"
-                                style={{ padding: '10px 28px', fontSize: '14px', borderRadius: '10px', background: '#95a5a6' }}>
-                                {t('deleteProfileCancel')}
-                            </button>
-                            <button onClick={handleDeleteAccount}
-                                disabled={deleting || deleteInput !== DELETE_CONFIRM_PHRASE}
-                                className="send-btn"
-                                style={{
-                                    padding: '10px 28px', fontSize: '14px', borderRadius: '10px',
-                                    background: deleteInput === DELETE_CONFIRM_PHRASE ? '#c0392b' : '#ccc',
-                                    color: '#fff', border: 'none'
-                                }}>
-                                {deleting ? '⏳ ...' : `🗑️ ${t('deleteProfileConfirmBtn')}`}
-                            </button>
-                        </div>
-                    </div>
-                )}
+                    <button
+                        className="delete-zone-btn"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={deleting}
+                    >
+                        🗑️ {t('deleteProfileBtn')}
+                    </button>
+                </div>
             </div>
 
             </div>{/* end profile-page-scroll */}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="delete-modal-overlay" onClick={() => !deleting && setShowDeleteConfirm(false)}>
+                    <div className="delete-modal" onClick={e => e.stopPropagation()}>
+                        <div className="delete-modal-top">
+                            <div className="delete-modal-icon-ring">
+                                <span style={{ fontSize: '28px' }}>🗑️</span>
+                            </div>
+                            <h3>{t('deleteProfileConfirmTitle')}</h3>
+                            <p>{t('deleteProfileConfirmMsg')}</p>
+                        </div>
+                        <div className="delete-modal-actions">
+                            <button
+                                className="delete-modal-cancel"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={deleting}
+                            >
+                                {t('deleteProfileCancel')}
+                            </button>
+                            <button
+                                className="delete-modal-confirm"
+                                onClick={handleDeleteAccount}
+                                disabled={deleting}
+                            >
+                                {deleting
+                                    ? <span className="delete-spinner" />
+                                    : <><span>🗑️</span> {t('deleteProfileConfirmBtn')}</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
