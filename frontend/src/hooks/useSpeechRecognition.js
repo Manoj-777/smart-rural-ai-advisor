@@ -11,6 +11,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
     const recognitionRef = useRef(null);
+    const manualStopRef = useRef(false);
     const mediaRecorderRef = useRef(null);
     const chunksRef = useRef([]);
     const streamRef = useRef(null);
@@ -40,6 +41,80 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     }, []);
 
+    const _startAwsRecorder = useCallback(async () => {
+        // Stop any previous recording
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch { /* */ }
+            recognitionRef.current = null;
+        }
+        if (mediaRecorderRef.current?.state === 'recording') {
+            try { mediaRecorderRef.current.stop(); } catch { /* */ }
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    channelCount: 1,
+                }
+            });
+            streamRef.current = stream;
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/webm')
+                    ? 'audio/webm'
+                    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+                        ? 'audio/ogg;codecs=opus'
+                        : 'audio/mp4';  // Safari fallback
+
+            const recorder = new MediaRecorder(stream, { mimeType });
+            mediaRecorderRef.current = recorder;
+            chunksRef.current = [];
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunksRef.current.push(e.data);
+            };
+
+            recorder.onstop = () => {
+                stream.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+
+                setIsListening(false);
+                setIsProcessing(true);
+                _sendToTranscribe(chunksRef.current, mimeType);
+            };
+
+            recorder.start(250);
+            setIsListening(true);
+
+            autoStopTimerRef.current = setTimeout(() => {
+                if (mediaRecorderRef.current?.state === 'recording') {
+                    mediaRecorderRef.current.stop();
+                }
+            }, 20000);
+
+            return true;
+        } catch (err) {
+            console.error('Mic access error:', err);
+            if (err.name === 'NotAllowedError') {
+                setError('Microphone permission denied. Please allow mic access in your browser settings.');
+            } else if (err.name === 'NotFoundError') {
+                setError('No microphone found. Please connect a mic and try again.');
+            } else {
+                setError('Could not access microphone. Please try again.');
+            }
+            setIsListening(false);
+            setIsProcessing(false);
+            return false;
+        }
+    }, [_sendToTranscribe]);
+
     const _startNativeSpeechRecognition = useCallback(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return false;
@@ -64,16 +139,22 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
 
             recognition.onerror = (event) => {
                 const code = event?.error || 'unknown';
+                if (code === 'aborted' && manualStopRef.current) return;
                 if (code === 'not-allowed' || code === 'service-not-allowed') {
                     setError('Microphone permission denied. Please allow mic access in your browser settings.');
                 } else if (code === 'no-speech') {
                     setError('No speech detected. Please try again.');
                 } else {
-                    setError('Speech recognition error. Please try again.');
+                    // Fallback to AWS Transcribe path for better cross-browser reliability
+                    setError('');
+                    setIsListening(false);
+                    setIsProcessing(false);
+                    _startAwsRecorder();
                 }
             };
 
             recognition.onend = () => {
+                manualStopRef.current = false;
                 setIsListening(false);
                 setIsProcessing(false);
                 if (autoStopTimerRef.current) {
@@ -95,7 +176,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         } catch {
             return false;
         }
-    }, [language]);
+    }, [language, _startAwsRecorder]);
 
     const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
         if (chunks.length === 0) {
@@ -141,89 +222,18 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const startListening = useCallback(async () => {
         setError('');
         setIsProcessing(false);
+        manualStopRef.current = false;
 
         // Fast path: browser-native speech recognition (much lower latency)
         if (_supportsNativeSpeech()) {
             const started = _startNativeSpeechRecognition();
             if (started) return;
         }
-
-        // Stop any previous recording
-        if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch { /* */ }
-            recognitionRef.current = null;
-        }
-        if (mediaRecorderRef.current?.state === 'recording') {
-            try { mediaRecorderRef.current.stop(); } catch { /* */ }
-        }
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(t => t.stop());
-            streamRef.current = null;
-        }
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    channelCount: 1,
-                }
-            });
-            streamRef.current = stream;
-
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/webm')
-                    ? 'audio/webm'
-                    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-                        ? 'audio/ogg;codecs=opus'
-                        : 'audio/mp4';  // Safari fallback
-
-            const recorder = new MediaRecorder(stream, { mimeType });
-            mediaRecorderRef.current = recorder;
-            chunksRef.current = [];
-
-            recorder.ondataavailable = (e) => {
-                if (e.data.size > 0) chunksRef.current.push(e.data);
-            };
-
-            recorder.onstop = () => {
-                // Release mic immediately
-                stream.getTracks().forEach(t => t.stop());
-                streamRef.current = null;
-
-                setIsListening(false);
-                setIsProcessing(true);
-
-                // Send captured audio to Transcribe
-                _sendToTranscribe(chunksRef.current, mimeType);
-            };
-
-            // Request data every 250ms for reliability
-            recorder.start(250);
-            setIsListening(true);
-
-            // Auto-stop after 20 seconds
-            autoStopTimerRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current?.state === 'recording') {
-                    mediaRecorderRef.current.stop();
-                }
-            }, 20000);
-
-        } catch (err) {
-            console.error('Mic access error:', err);
-            if (err.name === 'NotAllowedError') {
-                setError('Microphone permission denied. Please allow mic access in your browser settings.');
-            } else if (err.name === 'NotFoundError') {
-                setError('No microphone found. Please connect a mic and try again.');
-            } else {
-                setError('Could not access microphone. Please try again.');
-            }
-            setIsListening(false);
-        }
-    }, [language, _sendToTranscribe, _startNativeSpeechRecognition, _supportsNativeSpeech]);
+        await _startAwsRecorder();
+    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
 
     const stopListening = useCallback(() => {
+        manualStopRef.current = true;
         if (autoStopTimerRef.current) {
             clearTimeout(autoStopTimerRef.current);
             autoStopTimerRef.current = null;
