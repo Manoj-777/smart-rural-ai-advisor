@@ -50,6 +50,7 @@ function LoginPage() {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         if (!name.trim()) { setError(t('loginNameRequired')); return; }
         if (!isValidPin) { setError(t('loginPinRequired')); return; }
+        if (!regEmail.trim() || !regEmail.includes('@')) { setError(t('loginEmailRequired') || 'Please enter a valid email for verification.'); return; }
         if (!regState) { setError(t('loginSelectState')); return; }
         if (!regDistrict) { setError(t('loginSelectDistrict')); return; }
         if (regCrops.length === 0) { setError(t('loginSelectCrop')); return; }
@@ -241,9 +242,9 @@ function LoginPage() {
                             <span className="login-form-hint-small">{t('loginPinHint')}</span>
                         </div>
 
-                        {/* Email (optional) */}
+                        {/* Email (required for verification) */}
                         <div className="login-form-group">
-                            <label>{t('signupEmailLabel')}</label>
+                            <label>{t('signupEmailLabel') || 'Email'} <span className="required-star">*</span></label>
                             <input
                                 type="email"
                                 className="form-input"
@@ -325,7 +326,7 @@ function LoginPage() {
                         <button
                             className="login-btn login-btn-primary"
                             onClick={handleNewSignup}
-                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regDistrict || regCrops.length === 0 || !regLandSize}
+                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regEmail.includes('@') || !regDistrict || regCrops.length === 0 || !regLandSize}
                         >
                             {loading ? '⏳ ...' : `✅ ${t('loginStart')}`}
                         </button>

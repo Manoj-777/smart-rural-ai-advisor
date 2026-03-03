@@ -21,6 +21,7 @@ export function FarmerProvider({ children }) {
     const [farmerProfile, setFarmerProfile] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem(FARMER_ID_KEY));
     const [authReady, setAuthReady] = useState(false); // true once Cognito session checked
+    const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
     // GPS geolocation
     const {
@@ -131,6 +132,14 @@ export function FarmerProvider({ children }) {
         setFarmerPhoneState(cleanPhone);
         setFarmerNameState(name);
         setIsLoggedIn(true);
+
+        // 3.5 If email was provided, trigger email verification
+        if (email && email.trim()) {
+            setNeedsEmailVerification(true);
+            try {
+                await cognitoAuth.sendEmailVerificationCode();
+            } catch { /* may fail if already verified */ }
+        }
 
         // 4. Create DynamoDB profile (now with auth token)
         const newProfile = profileData || {
@@ -268,6 +277,8 @@ export function FarmerProvider({ children }) {
             signInWithPin,
             logout,
             updateProfile,
+            needsEmailVerification,
+            setNeedsEmailVerification,
             // GPS location
             gpsLocation,
             gpsCoords,

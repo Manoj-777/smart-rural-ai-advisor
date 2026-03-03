@@ -1,9 +1,10 @@
 // src/App.jsx
 
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
+import * as cognitoAuth from './services/cognitoAuth';
 import config from './config';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -81,8 +82,112 @@ function MicFab() {
     );
 }
 
+function EmailVerifyScreen() {
+    const { t } = useLanguage();
+    const { setNeedsEmailVerification } = useFarmer();
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+
+    const handleVerify = async () => {
+        if (code.length < 6) { setError(t('forgotPinOtpRequired') || 'Enter the 6-digit code'); return; }
+        setLoading(true);
+        setError('');
+        try {
+            await cognitoAuth.verifyEmail(code.trim());
+            setSuccess(true);
+            setTimeout(() => setNeedsEmailVerification(false), 1500);
+        } catch (err) {
+            const msg = err?.message || '';
+            if (msg.includes('CodeMismatch') || msg.includes('Invalid')) {
+                setError(t('forgotPinInvalidOtp') || 'Invalid code. Please check and try again.');
+            } else if (msg.includes('Expired')) {
+                setError(t('forgotPinExpiredOtp') || 'Code expired. Please request a new one.');
+            } else {
+                setError(msg || 'Verification failed.');
+            }
+        }
+        setLoading(false);
+    };
+
+    const handleResend = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            await cognitoAuth.sendEmailVerificationCode();
+            setError('');
+        } catch {
+            setError('Could not resend code.');
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div className="login-page">
+            <div className="login-container">
+                <div className="login-logo">
+                    <span className="login-logo-icon">📧</span>
+                    <h1>{t('verifyEmailTitle') || 'Verify Your Email'}</h1>
+                    <p className="login-tagline">{t('verifyEmailSubtitle') || 'We sent a verification code to your email. Enter it below to complete registration.'}</p>
+                </div>
+                <div className="login-form">
+                    {success ? (
+                        <div className="login-success" style={{ fontSize: '16px', textAlign: 'center', padding: '24px 0' }}>
+                            ✅ {t('verifyEmailSuccess') || 'Email verified successfully! Entering the app...'}
+                        </div>
+                    ) : (
+                        <>
+                            <div className="login-form-group">
+                                <label>{t('forgotPinOtpLabel') || 'Verification Code'}</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    maxLength={6}
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                                    placeholder={t('forgotPinOtpPlaceholder') || 'Enter 6-digit code'}
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && code.length >= 6 && !loading) handleVerify(); }}
+                                    style={{ textAlign: 'center', fontSize: '20px', letterSpacing: '4px' }}
+                                />
+                            </div>
+                            {error && <div className="login-error">{error}</div>}
+                            <button
+                                className="login-btn login-btn-primary"
+                                onClick={handleVerify}
+                                disabled={loading || code.length < 6}
+                            >
+                                {loading ? '⏳ ...' : `✅ ${t('verifyEmailBtn') || 'Verify Email'}`}
+                            </button>
+                            <button
+                                className="login-btn-link login-forgot-pin"
+                                onClick={handleResend}
+                                disabled={loading}
+                                style={{ marginTop: '8px' }}
+                            >
+                                📨 {t('verifyEmailResend') || 'Resend Code'}
+                            </button>
+                            <button
+                                className="login-btn-link"
+                                onClick={() => setNeedsEmailVerification(false)}
+                                style={{ marginTop: '4px', opacity: 0.6 }}
+                            >
+                                {t('verifyEmailSkip') || 'Skip for now'}
+                            </button>
+                        </>
+                    )}
+                </div>
+                <div className="login-footer">
+                    <p>📞 {t('helpline')}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function AppContent() {
-    const { isLoggedIn, authReady } = useFarmer();
+    const { isLoggedIn, authReady, needsEmailVerification } = useFarmer();
     const navigate = useNavigate();
     const prevLoggedIn = useRef(isLoggedIn);
 
@@ -132,6 +237,10 @@ function AppContent() {
 
     if (!isLoggedIn) {
         return <LoginPage />;
+    }
+
+    if (needsEmailVerification) {
+        return <EmailVerifyScreen />;
     }
 
     return (

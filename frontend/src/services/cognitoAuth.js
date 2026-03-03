@@ -289,6 +289,71 @@ export function updateEmail(email) {
 }
 
 /**
+ * Send a verification code to the user's email.
+ * Email must be set but NOT yet verified.
+ * @returns {Promise<object>} code delivery details
+ */
+export function sendEmailVerificationCode() {
+    return new Promise((resolve, reject) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return reject(new Error('No authenticated user'));
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) {
+                return reject(new Error('No valid session'));
+            }
+            user.getAttributeVerificationCode('email', {
+                onSuccess: () => resolve({ sent: true }),
+                onFailure: (verifyErr) => reject(verifyErr),
+                inputVerificationCode: (data) => resolve(data),
+            });
+        });
+    });
+}
+
+/**
+ * Verify the user's email with the code received.
+ * @param {string} code - 6-digit verification code
+ * @returns {Promise<string>} 'SUCCESS'
+ */
+export function verifyEmail(code) {
+    return new Promise((resolve, reject) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return reject(new Error('No authenticated user'));
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) {
+                return reject(new Error('No valid session'));
+            }
+            user.verifyAttribute('email', code, {
+                onSuccess: (result) => resolve(result),
+                onFailure: (verifyErr) => reject(verifyErr),
+            });
+        });
+    });
+}
+
+/**
+ * Check if the current user's email is verified.
+ * @returns {Promise<boolean>}
+ */
+export function isEmailVerified() {
+    return new Promise((resolve) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return resolve(false);
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) return resolve(false);
+            user.getUserAttributes((attrErr, attrs) => {
+                if (attrErr || !attrs) return resolve(false);
+                const emailVerified = attrs.find(a => a.Name === 'email_verified');
+                resolve(emailVerified?.Value === 'true');
+            });
+        });
+    });
+}
+
+/**
  * Check if a user exists in the pool by attempting a forgotten password flow.
  * (Lightweight existence check without credentials.)
  * @param {string} phone - 10-digit phone
