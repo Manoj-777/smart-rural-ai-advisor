@@ -115,7 +115,12 @@ body {
     font-weight: 500;
     cursor: pointer;
     outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.top-bar__lang-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 .top-bar__lang-select:hover {
     border-color: var(--primary);
@@ -359,8 +364,12 @@ body {
     font-weight: 500;
     cursor: pointer;
     outline: none;
-    transition: background 0.2s ease, border-color 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     max-width: none;
+}
+.navbar-lang-select:focus {
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
 }
 .navbar-lang-select:hover {
     background: rgba(255,255,255,0.2);
@@ -896,8 +905,8 @@ body {
 
 .input-bar input:focus {
     border-color: var(--primary);
-    background: white;
-    box-shadow: 0 0 0 4px rgba(22,163,74,0.1);
+    background: #f0fdf4;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
 }
 
 /* Live transcript streaming — ChatGPT-style voice-to-text indicator */
@@ -1209,7 +1218,8 @@ body {
 }
 .search-bar input:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(22,163,74,0.08);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 .search-bar .search-icon {
     position: absolute;
@@ -1247,7 +1257,8 @@ body {
 }
 .form-input:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(22,163,74,0.08);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 
 /* Crop tag chips */
@@ -1820,17 +1831,24 @@ body {
 }
 .price-search:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(22,163,74,0.08);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 .price-filter {
     padding: 10px 16px;
     border-radius: 10px;
-    border: 1.5px solid var(--border);
+    border: 2px solid var(--border);
     background: var(--card-bg);
     font-size: 14px;
     color: var(--text);
     cursor: pointer;
     outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.price-filter:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 .price-table-wrap {
     background: var(--card-bg);
@@ -2715,7 +2733,8 @@ body {
 }
 .login-phone-input:focus-within {
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(22,163,74,0.1);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.25);
+    background: #f0fdf4;
 }
 .login-phone-prefix {
     padding: 14px 12px;
@@ -2739,6 +2758,12 @@ body {
     min-width: 0;
     pointer-events: auto;
     cursor: text;
+}
+.login-phone-input input:focus,
+.login-phone-input input:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none;
 }
 .login-phone-input input::placeholder {
     color: var(--text-light);
@@ -2859,9 +2884,12 @@ body {
     transition: all 0.2s;
     caret-color: var(--primary);
 }
-.otp-digit:focus {
+.otp-digit:focus,
+.otp-digit:focus-visible {
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(22,163,74,0.12);
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.3);
+    background: #f0fdf4;
+    outline: none !important;
 }
 .otp-digit.filled {
     border-color: var(--primary);
@@ -3810,18 +3838,34 @@ body {
     width: 100%;
     padding: 10px 14px;
     border-radius: 8px;
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     font-size: 14px;
     background: var(--bg);
     color: var(--text);
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .ai-form-group select:focus,
 .ai-form-group input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.25);
+    background: #f0fdf4;
+}
+
+/* Selected (non-default) select styling — shows value was picked */
+.ai-form-group select:not([value=""]),
+.ai-form-group select:valid,
+select.form-input:valid {
+    border-color: var(--primary);
+    background: #f0fdf4;
+}
+
+/* Textarea & multi-line inputs: expand focus glow */
+.ai-form-group textarea:focus {
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.25);
+    border-color: var(--primary);
+    background: #f0fdf4;
 }
 
 .ai-form-section-title {
@@ -4256,7 +4300,7 @@ body {
    ═══════════════════════════════════════════════════════════════════════ */
 :focus-visible {
     outline: 2px solid var(--primary);
-    outline-offset: 2px;
+    outline-offset: 3px;
     border-radius: 4px;
 }
 button:focus-visible,
@@ -4264,7 +4308,21 @@ a:focus-visible,
 select:focus-visible,
 input:focus-visible {
     outline: 2px solid var(--primary);
-    outline-offset: 2px;
+    outline-offset: 3px;
+}
+/* Suppress double outline on elements that already have custom :focus box-shadow */
+.form-input:focus-visible,
+.search-bar input:focus-visible,
+.input-bar input:focus-visible,
+.price-search:focus-visible,
+.price-filter:focus-visible,
+.ai-form-group select:focus-visible,
+.ai-form-group input:focus-visible,
+.login-phone-input input:focus-visible,
+.otp-digit:focus-visible,
+.top-bar__lang-select:focus-visible,
+.navbar-lang-select:focus-visible {
+    outline: none !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
