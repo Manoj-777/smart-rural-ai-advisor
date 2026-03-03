@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
 import { apiFetch } from '../utils/apiFetch';
 
-export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult, onPartial) {
+export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult) {
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
@@ -16,12 +16,10 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const chunksRef = useRef([]);
     const streamRef = useRef(null);
     const onResultRef = useRef(onResult);
-    const onPartialRef = useRef(onPartial);
     const autoStopTimerRef = useRef(null);
 
     // Always keep the callback ref synced with the latest value
     useEffect(() => { onResultRef.current = onResult; }, [onResult]);
-    useEffect(() => { onPartialRef.current = onPartial; }, [onPartial]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -41,6 +39,10 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
 
     const _supportsNativeSpeech = useCallback(() => {
         return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    }, []);
+
+    const _isEdgeBrowser = useCallback(() => {
+        return typeof navigator !== 'undefined' && /Edg\//.test(navigator.userAgent || '');
     }, []);
 
     const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
@@ -166,31 +168,17 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             const recognition = new SpeechRecognition();
             recognitionRef.current = recognition;
             recognition.lang = language || config.DEFAULT_LANGUAGE;
-            recognition.continuous = true;
-            recognition.interimResults = true;
+            recognition.continuous = false;
+            recognition.interimResults = false;
             recognition.maxAlternatives = 1;
 
             recognition.onresult = (event) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-
-                for (let i = event.resultIndex; i < event.results.length; i += 1) {
-                    const text = event.results[i]?.[0]?.transcript || '';
-                    if (event.results[i].isFinal) {
-                        finalTranscript += text;
-                    } else {
-                        interimTranscript += text;
-                    }
-                }
-
-                const liveText = `${finalTranscript}${interimTranscript}`.trim();
-                if (liveText && onPartialRef.current) {
-                    onPartialRef.current(liveText);
-                }
-
-                if (finalTranscript.trim() && onResultRef.current) {
-                    onResultRef.current(finalTranscript.trim());
+                const transcript = event?.results?.[0]?.[0]?.transcript?.trim();
+                if (transcript && onResultRef.current) {
+                    onResultRef.current(transcript);
                     setError('');
+                } else {
+                    setError('Could not understand. Please speak clearly and try again.');
                 }
             };
 
@@ -242,12 +230,12 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
 
         // Fast path: browser-native speech recognition (much lower latency)
         // Edge can be inconsistent with Web Speech in some builds, so use recorder path there.
-        if (_supportsNativeSpeech()) {
+        if (_supportsNativeSpeech() && !_isEdgeBrowser()) {
             const started = _startNativeSpeechRecognition();
             if (started) return;
         }
         await _startAwsRecorder();
-    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
+    }, [_isEdgeBrowser, _startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
 
     const stopListening = useCallback(() => {
         manualStopRef.current = true;

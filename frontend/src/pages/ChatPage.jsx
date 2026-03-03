@@ -162,10 +162,6 @@ function ChatPage() {
         if (text?.trim()) setInput(text);
     }, []);
 
-    const handleVoicePartial = useCallback((text) => {
-        if (text) setInput(text);
-    }, []);
-
     const sendMessage = useCallback(async (text) => {
         if (!text.trim()) return;
         const userMsg = { role: 'user', content: text, timestamp: Date.now() };
@@ -400,8 +396,7 @@ function ChatPage() {
             <div className="input-bar">
                 <VoiceInput 
                     language={language} 
-                    onTranscript={handleVoiceResult}
-                    onPartialTranscript={handleVoicePartial}
+                    onTranscript={handleVoiceResult} 
                 />
                 <input
                     type="text"
