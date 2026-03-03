@@ -33,6 +33,7 @@ function LoginPage() {
     const [regSoilType, setRegSoilType] = useState('Alluvial');
     const [regLandSize, setRegLandSize] = useState('');
     const [regLanguage, setRegLanguage] = useState(language);
+    const [regEmail, setRegEmail] = useState('');
 
     const isValidPhone = phone.replace(/\D/g, '').length >= 10;
     const isValidPin = pin.length >= 6;
@@ -64,7 +65,7 @@ function LoginPage() {
                 land_size_acres: parseFloat(regLandSize) || 0,
                 language: regLanguage,
             };
-            await signUpAndLogin(phone, pin, name.trim(), profileData);
+            await signUpAndLogin(phone, pin, name.trim(), profileData, regEmail.trim() || undefined);
             if (regLanguage !== language) {
                 setLanguage(regLanguage);
             }
@@ -236,6 +237,19 @@ function LoginPage() {
                             <span className="login-form-hint-small">{t('loginPinHint')}</span>
                         </div>
 
+                        {/* Email (optional) */}
+                        <div className="login-form-group">
+                            <label>{t('signupEmailLabel')}</label>
+                            <input
+                                type="email"
+                                className="form-input"
+                                value={regEmail}
+                                onChange={(e) => setRegEmail(e.target.value)}
+                                placeholder={t('signupEmailPlaceholder')}
+                            />
+                            <span className="login-form-hint-small">📧 {t('profileEmailHint')}</span>
+                        </div>
+
                         {/* State & District */}
                         <div className="login-form-row">
                             <div className="login-form-group">
@@ -387,7 +401,7 @@ function LoginPage() {
                 {mode === 'forgot-pin' && (
                     <div className="login-form">
                         <h2>🔑 {t('forgotPinTitle')}</h2>
-                        <p className="login-form-hint">{t('forgotPinHint')}</p>
+                        <p className="login-form-hint">{t('forgotPinHintEmail') || t('forgotPinHint')}</p>
                         <div className="login-form-group">
                             <label>{t('loginPhoneLabel')}</label>
                             <div className="login-phone-input">
@@ -419,7 +433,7 @@ function LoginPage() {
                 {mode === 'reset-pin' && (
                     <div className="login-form">
                         <h2>🔐 {t('forgotPinResetTitle')}</h2>
-                        <p className="login-form-hint">{t('forgotPinOtpSent').replace('{phone}', phone ? `+91 ${phone}` : '...')}</p>
+                        <p className="login-form-hint">{t('forgotPinOtpSentEmail') || t('forgotPinOtpSent').replace('{phone}', phone ? `+91 ${phone}` : '...')}</p>
                         <div className="login-form-group">
                             <label>{t('forgotPinOtpLabel')}</label>
                             <input

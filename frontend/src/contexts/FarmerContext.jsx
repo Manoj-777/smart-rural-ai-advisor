@@ -110,14 +110,15 @@ export function FarmerProvider({ children }) {
      * @param {string} pin - 6+ char PIN
      * @param {string} name - Farmer name
      * @param {object} profileData - Full profile data
+     * @param {string} [email] - Optional email for PIN recovery
      * @returns {Promise<object>} tokens
      */
-    const signUpAndLogin = useCallback(async (phone, pin, name, profileData) => {
+    const signUpAndLogin = useCallback(async (phone, pin, name, profileData, email) => {
         const cleanPhone = phone.replace(/\D/g, '').slice(-10);
         const id = `ph_${cleanPhone}`;
 
         // 1. Sign up in Cognito (auto-confirmed via Pre-SignUp trigger)
-        await cognitoAuth.signUp(cleanPhone, pin, name);
+        await cognitoAuth.signUp(cleanPhone, pin, name, email);
 
         // 2. Sign in to get JWT tokens
         const tokens = await cognitoAuth.signIn(cleanPhone, pin);

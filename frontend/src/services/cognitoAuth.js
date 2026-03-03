@@ -25,19 +25,23 @@ function formatPhone(phone) {
 
 /**
  * Sign up a new user with phone number and PIN.
- * Cognito sends an SMS verification code automatically.
+ * Cognito auto-confirms via Pre-SignUp trigger.
  * @param {string} phone - 10-digit phone
  * @param {string} pin   - 6+ char PIN/password
  * @param {string} name  - Farmer name
+ * @param {string} [email] - Optional email for PIN recovery
  * @returns {Promise<{ userSub: string, codeDeliveryDetails: object }>}
  */
-export function signUp(phone, pin, name) {
+export function signUp(phone, pin, name, email) {
     return new Promise((resolve, reject) => {
         const cognitoPhone = formatPhone(phone);
         const attributes = [
             new CognitoUserAttribute({ Name: 'phone_number', Value: cognitoPhone }),
             new CognitoUserAttribute({ Name: 'name', Value: name }),
         ];
+        if (email && email.trim()) {
+            attributes.push(new CognitoUserAttribute({ Name: 'email', Value: email.trim() }));
+        }
 
         userPool.signUp(cognitoPhone, pin, attributes, null, (err, result) => {
             if (err) return reject(err);
@@ -231,6 +235,55 @@ export function confirmForgotPassword(phone, code, newPin) {
         cognitoUser.confirmPassword(code, newPin, {
             onSuccess: () => resolve('SUCCESS'),
             onFailure: (err) => reject(err),
+        });
+    });
+}
+
+/**
+ * Change the current user's password (PIN).
+ * Requires the user to be authenticated.
+ * @param {string} oldPin - Current PIN/password
+ * @param {string} newPin - New PIN/password (6+ chars)
+ * @returns {Promise<string>} 'SUCCESS'
+ */
+export function changePassword(oldPin, newPin) {
+    return new Promise((resolve, reject) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return reject(new Error('No authenticated user'));
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) {
+                return reject(new Error('No valid session'));
+            }
+            user.changePassword(oldPin, newPin, (changeErr, result) => {
+                if (changeErr) return reject(changeErr);
+                resolve(result); // 'SUCCESS'
+            });
+        });
+    });
+}
+
+/**
+ * Update the current user's email attribute.
+ * @param {string} email - New email address
+ * @returns {Promise<string>} 'SUCCESS'
+ */
+export function updateEmail(email) {
+    return new Promise((resolve, reject) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return reject(new Error('No authenticated user'));
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) {
+                return reject(new Error('No valid session'));
+            }
+            const attrs = [
+                new CognitoUserAttribute({ Name: 'email', Value: email.trim() }),
+            ];
+            user.updateAttributes(attrs, (updateErr, result) => {
+                if (updateErr) return reject(updateErr);
+                resolve(result);
+            });
         });
     });
 }
