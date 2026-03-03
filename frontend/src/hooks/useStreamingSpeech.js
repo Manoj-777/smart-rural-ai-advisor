@@ -106,6 +106,12 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
             };
 
             recognition.onend = () => {
+                // Only deliver if stopListening hasn't already handled it
+                if (manualStopRef.current) {
+                    // stopListening already delivered transcript and reset state
+                    return;
+                }
+
                 setIsListening(false);
 
                 if (autoStopTimerRef.current) {
@@ -146,14 +152,29 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     const stopListening = useCallback(() => {
         manualStopRef.current = true;
 
+        // 1) Clear auto-stop timer
         if (autoStopTimerRef.current) {
             clearTimeout(autoStopTimerRef.current);
             autoStopTimerRef.current = null;
         }
 
+        // 2) Immediately update UI — NEVER wait for browser onend event
+        setIsListening(false);
+
+        // 3) Deliver whatever transcript we have right now
+        const text = partialRef.current.trim();
+        if (text && onFinalRef.current) {
+            onFinalRef.current(text);
+        }
+
+        // 4) Reset partial state
+        setPartialTranscript('');
+        partialRef.current = '';
+
+        // 5) Kill the recognition (abort is forceful, works even when stop() hangs)
         if (recognitionRef.current) {
-            // .stop() finishes gracefully → fires onend which delivers final transcript
-            try { recognitionRef.current.stop(); } catch { /* noop */ }
+            try { recognitionRef.current.abort(); } catch { /* noop */ }
+            recognitionRef.current = null;
         }
     }, []);
 
