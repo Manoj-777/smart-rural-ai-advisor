@@ -25,6 +25,7 @@ function LoginPage() {
     const [otpCode, setOtpCode] = useState('');
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
+    const [otpDestination, setOtpDestination] = useState(''); // masked email e.g. m***@g***
 
     // Registration form fields
     const [regState, setRegState] = useState('Tamil Nadu');
@@ -86,7 +87,10 @@ function LoginPage() {
         setLoading(true);
         setError('');
         try {
-            await cognitoAuth.forgotPassword(phone);
+            const deliveryInfo = await cognitoAuth.forgotPassword(phone);
+            // Capture masked destination (e.g. "m***@g***") from Cognito response
+            const dest = deliveryInfo?.CodeDeliveryDetails?.Destination || deliveryInfo?.Destination || '';
+            setOtpDestination(dest);
             setMode('reset-pin');
             setError('');
         } catch (err) {
@@ -433,7 +437,10 @@ function LoginPage() {
                 {mode === 'reset-pin' && (
                     <div className="login-form">
                         <h2>🔐 {t('forgotPinResetTitle')}</h2>
-                        <p className="login-form-hint">{t('forgotPinOtpSentEmail') || t('forgotPinOtpSent').replace('{phone}', phone ? `+91 ${phone}` : '...')}</p>
+                        <p className="login-form-hint">
+                            📧 {t('forgotPinOtpSentEmail') || t('forgotPinOtpSent')}
+                            {otpDestination && <strong style={{ display: 'block', marginTop: '6px', fontSize: '15px', letterSpacing: '0.5px' }}>✉️ {otpDestination}</strong>}
+                        </p>
                         <div className="login-form-group">
                             <label>{t('forgotPinOtpLabel')}</label>
                             <input
