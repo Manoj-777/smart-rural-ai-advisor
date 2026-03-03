@@ -894,6 +894,20 @@ body {
     box-shadow: 0 0 0 4px rgba(22,163,74,0.1);
 }
 
+/* Live transcript streaming — ChatGPT-style voice-to-text indicator */
+.input-bar input.live-transcript {
+    border-color: #dc2626;
+    background: #fef2f2;
+    color: #1a1a1a;
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.15);
+    animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(220,38,38,0.15); }
+    50% { box-shadow: 0 0 0 5px rgba(220,38,38,0.08); }
+}
+
 .input-bar button {
     padding: 10px 18px;
     border: none;

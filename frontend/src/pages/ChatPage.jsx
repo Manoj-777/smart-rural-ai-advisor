@@ -69,6 +69,7 @@ function ChatPage() {
 
     const [messages, setMessages] = useState(() => loadSessionMessages(activeSessionId));
     const [input, setInput] = useState('');
+    const [liveTranscript, setLiveTranscript] = useState('');  // streaming partial text
     const [loading, setLoading] = useState(false);
     const chatEndRef = useRef(null);
 
@@ -160,6 +161,12 @@ function ChatPage() {
 
     const handleVoiceResult = useCallback((text) => {
         if (text?.trim()) setInput(text);
+        setLiveTranscript('');  // clear partial on final delivery
+    }, []);
+
+    // ChatGPT-style: show partial speech text live in the input field
+    const handlePartialTranscript = useCallback((text) => {
+        setLiveTranscript(text || '');
     }, []);
 
     const sendMessage = useCallback(async (text) => {
@@ -396,15 +403,18 @@ function ChatPage() {
             <div className="input-bar">
                 <VoiceInput 
                     language={language} 
-                    onTranscript={handleVoiceResult} 
+                    onTranscript={handleVoiceResult}
+                    onPartialTranscript={handlePartialTranscript}
                 />
                 <input
                     type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    className={liveTranscript ? 'live-transcript' : ''}
+                    value={liveTranscript || input}
+                    onChange={(e) => { if (!liveTranscript) setInput(e.target.value); }}
                     onKeyDown={handleKeyDown}
-                    placeholder={t('chatPlaceholder')}
+                    placeholder={liveTranscript ? '' : t('chatPlaceholder')}
                     disabled={loading}
+                    readOnly={!!liveTranscript}
                 />
                 <button 
                     className="send-btn" 

@@ -1,9 +1,22 @@
 // src/components/VoiceInput.jsx
+// Uses streaming (live partial transcript) on supported browsers,
+// falls back to AWS Transcribe on Edge / unsupported browsers.
 
+import { useCallback, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useStreamingSpeech } from '../hooks/useStreamingSpeech';
 import { useLanguage } from '../contexts/LanguageContext';
 
+/* ── Status labels (Recording = AWS path, Listening = streaming path) ─── */
 const LISTENING_TEXT = {
+    'en-IN': 'Listening...', 'hi-IN': 'सुन रहा है...', 'ta-IN': 'கேட்கிறது...',
+    'te-IN': 'వింటున్నది...', 'kn-IN': 'ಕೇಳುತ್ತಿದೆ...', 'ml-IN': 'കേൾക്കുന്നു...',
+    'bn-IN': 'শুনছে...', 'mr-IN': 'ऐकत आहे...', 'gu-IN': 'સાંભળે છે...',
+    'pa-IN': 'ਸੁਣ ਰਿਹਾ ਹੈ...', 'or-IN': 'ଶୁଣୁଛି...', 'as-IN': 'শুনি আছে...',
+    'ur-IN': 'سن رہا ہے...',
+};
+
+const RECORDING_TEXT = {
     'en-IN': 'Recording...', 'hi-IN': 'रिकॉर्डिंग...', 'ta-IN': 'பதிவு செய்கிறது...',
     'te-IN': 'రికార్డింగ్...', 'kn-IN': 'ರೆಕಾರ್ಡಿಂಗ್...', 'ml-IN': 'റെക്കോർഡ് ചെയ്യുന്നു...',
     'bn-IN': 'রেকর্ডিং...', 'mr-IN': 'रेकॉर्डिंग...', 'gu-IN': 'રેકોર્ડિંગ...',
@@ -19,21 +32,61 @@ const PROCESSING_TEXT = {
     'ur-IN': 'پروسیسنگ...',
 };
 
-function VoiceInput({ language, onTranscript }) {
+function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const { t } = useLanguage();
-    const { isListening, isProcessing, error, startListening, stopListening } = 
-        useSpeechRecognition(language, onTranscript);
 
-    const listeningLabel = LISTENING_TEXT[language] || 'Recording...';
-    const processingLabel = PROCESSING_TEXT[language] || 'Processing...';
+    // Always call BOTH hooks (React Rules of Hooks — no conditional hooks).
+    // Only one will be active at a time based on browser support.
+    const streaming = useStreamingSpeech(language, onTranscript);
+    const aws = useSpeechRecognition(language, onTranscript);
 
+    const useStreaming = streaming.supported;
+    const fallbackRef = useRef(false);  // sticky: once streaming fails, stay on AWS
+
+    // Forward live partial transcripts to parent (ChatPage shows them in input field)
+    useEffect(() => {
+        if (!onPartialTranscript) return;
+        if (streaming.isListening) {
+            onPartialTranscript(streaming.partialTranscript || '');
+        } else {
+            onPartialTranscript('');
+        }
+    }, [streaming.isListening, streaming.partialTranscript, onPartialTranscript]);
+
+    const handleStart = useCallback(async () => {
+        // Try streaming first (Chrome, Safari — instant partial results)
+        if (useStreaming && !fallbackRef.current) {
+            const started = streaming.startListening();
+            if (started) return;
+            // Streaming failed to start? Sticky fallback to AWS for this page session
+            fallbackRef.current = true;
+        }
+        // Fallback: AWS Transcribe (MediaRecorder → batch upload)
+        await aws.startListening();
+    }, [useStreaming, streaming, aws]);
+
+    const handleStop = useCallback(() => {
+        if (streaming.isListening) streaming.stopListening();
+        if (aws.isListening) aws.stopListening();
+    }, [streaming, aws]);
+
+    // Combine UI states from whichever path is active
+    const isListening = streaming.isListening || aws.isListening;
+    const isProcessing = aws.isProcessing;  // only AWS has a processing phase
+    const error = streaming.error || aws.error;
     const isActive = isListening || isProcessing;
+
+    // Pick label based on which path is active
+    const listeningLabel = streaming.isListening
+        ? (LISTENING_TEXT[language] || 'Listening...')
+        : (RECORDING_TEXT[language] || 'Recording...');
+    const processingLabel = PROCESSING_TEXT[language] || 'Processing...';
 
     return (
         <div className="voice-input-group">
             <button 
                 className={`mic-btn ${isListening ? 'recording' : ''} ${isProcessing ? 'processing' : ''}`}
-                onClick={isListening ? stopListening : startListening}
+                onClick={isListening ? handleStop : handleStart}
                 disabled={isProcessing}
                 title={isListening ? (t('voiceStopListening') || 'Stop recording') : (t('voiceClickToSpeak') || 'Click to speak')}
             >
