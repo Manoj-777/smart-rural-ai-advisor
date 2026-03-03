@@ -193,6 +193,49 @@ export function signOut() {
 }
 
 /**
+ * Initiate forgot-password flow — sends an OTP to the user's phone via SMS.
+ * @param {string} phone - 10-digit phone
+ * @returns {Promise<object>} code delivery details
+ */
+export function forgotPassword(phone) {
+    return new Promise((resolve, reject) => {
+        const cognitoPhone = formatPhone(phone);
+        const cognitoUser = new CognitoUser({
+            Username: cognitoPhone,
+            Pool: userPool,
+        });
+
+        cognitoUser.forgotPassword({
+            onSuccess: (data) => resolve(data),
+            onFailure: (err) => reject(err),
+            inputVerificationCode: (data) => resolve(data),
+        });
+    });
+}
+
+/**
+ * Confirm forgot-password flow — set new PIN using the OTP code.
+ * @param {string} phone - 10-digit phone
+ * @param {string} code  - OTP received via SMS
+ * @param {string} newPin - New PIN/password (6+ chars)
+ * @returns {Promise<string>} 'SUCCESS'
+ */
+export function confirmForgotPassword(phone, code, newPin) {
+    return new Promise((resolve, reject) => {
+        const cognitoPhone = formatPhone(phone);
+        const cognitoUser = new CognitoUser({
+            Username: cognitoPhone,
+            Pool: userPool,
+        });
+
+        cognitoUser.confirmPassword(code, newPin, {
+            onSuccess: () => resolve('SUCCESS'),
+            onFailure: (err) => reject(err),
+        });
+    });
+}
+
+/**
  * Check if a user exists in the pool by attempting a forgotten password flow.
  * (Lightweight existence check without credentials.)
  * @param {string} phone - 10-digit phone

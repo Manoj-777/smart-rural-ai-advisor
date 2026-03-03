@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
+import * as cognitoAuth from '../services/cognitoAuth';
 
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
@@ -15,9 +16,15 @@ function LoginPage() {
     const [phone, setPhone] = useState('');
     const [pin, setPin] = useState('');
     const [name, setName] = useState('');
-    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning' | 'not-found'
+    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning' | 'not-found' | 'forgot-pin' | 'reset-pin'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+
+    // Forgot PIN flow state
+    const [otpCode, setOtpCode] = useState('');
+    const [newPin, setNewPin] = useState('');
+    const [confirmPin, setConfirmPin] = useState('');
 
     // Registration form fields
     const [regState, setRegState] = useState('Tamil Nadu');
@@ -65,6 +72,56 @@ function LoginPage() {
             const msg = err?.message || '';
             if (msg.includes('UsernameExistsException') || msg.includes('already exists')) {
                 setError(t('loginAlreadyRegistered'));
+            } else {
+                setError(msg || t('loginError'));
+            }
+        }
+        setLoading(false);
+    };
+
+    // ── Forgot PIN: send OTP ──
+    const handleForgotPin = async () => {
+        if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
+        setLoading(true);
+        setError('');
+        try {
+            await cognitoAuth.forgotPassword(phone);
+            setMode('reset-pin');
+            setError('');
+        } catch (err) {
+            const msg = err?.message || '';
+            if (msg.includes('UserNotFoundException') || msg.includes('does not exist')) {
+                setError(t('loginNotRegistered'));
+            } else if (msg.includes('LimitExceededException') || msg.includes('limit')) {
+                setError(t('forgotPinLimitExceeded'));
+            } else {
+                setError(msg || t('loginError'));
+            }
+        }
+        setLoading(false);
+    };
+
+    // ── Reset PIN: verify OTP + set new PIN ──
+    const handleResetPin = async () => {
+        if (!otpCode.trim()) { setError(t('forgotPinOtpRequired')); return; }
+        if (newPin.length < 6) { setError(t('loginPinRequired')); return; }
+        if (newPin !== confirmPin) { setError(t('forgotPinMismatch')); return; }
+        setLoading(true);
+        setError('');
+        try {
+            await cognitoAuth.confirmForgotPassword(phone, otpCode.trim(), newPin);
+            setMode('returning');
+            setPin('');
+            setOtpCode('');
+            setNewPin('');
+            setConfirmPin('');
+            setSuccessMsg(t('forgotPinSuccess'));
+        } catch (err) {
+            const msg = err?.message || '';
+            if (msg.includes('CodeMismatchException') || msg.includes('Invalid verification') || msg.includes('code')) {
+                setError(t('forgotPinInvalidOtp'));
+            } else if (msg.includes('ExpiredCodeException') || msg.includes('expired')) {
+                setError(t('forgotPinExpiredOtp'));
             } else {
                 setError(msg || t('loginError'));
             }
@@ -294,6 +351,7 @@ function LoginPage() {
                                 }}
                             />
                         </div>
+                        {successMsg && <div className="login-success">{successMsg}</div>}
                         {error && (
                             <div className="login-error">
                                 {error}
@@ -314,7 +372,102 @@ function LoginPage() {
                         >
                             {loading ? '⏳ ...' : `🔓 ${t('loginSignIn')}`}
                         </button>
-                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
+                        <button
+                            className="login-btn-link login-forgot-pin"
+                            onClick={() => { setMode('forgot-pin'); setError(''); setSuccessMsg(''); }}
+                        >
+                            🔑 {t('forgotPinLink')}
+                        </button>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); setSuccessMsg(''); }}>
+                            ← {t('loginBack')}
+                        </button>
+                    </div>
+                )}
+
+                {mode === 'forgot-pin' && (
+                    <div className="login-form">
+                        <h2>🔑 {t('forgotPinTitle')}</h2>
+                        <p className="login-form-hint">{t('forgotPinHint')}</p>
+                        <div className="login-form-group">
+                            <label>{t('loginPhoneLabel')}</label>
+                            <div className="login-phone-input">
+                                <span className="login-phone-prefix">+91</span>
+                                <input
+                                    type="tel"
+                                    maxLength={10}
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                                    placeholder={t('loginPhonePlaceholder')}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        {error && <div className="login-error">{error}</div>}
+                        <button
+                            className="login-btn login-btn-primary"
+                            onClick={handleForgotPin}
+                            disabled={loading || !isValidPhone}
+                        >
+                            {loading ? '⏳ ...' : `📲 ${t('forgotPinSendOtp')}`}
+                        </button>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('returning'); setError(''); }}>
+                            ← {t('loginBack')}
+                        </button>
+                    </div>
+                )}
+
+                {mode === 'reset-pin' && (
+                    <div className="login-form">
+                        <h2>🔐 {t('forgotPinResetTitle')}</h2>
+                        <p className="login-form-hint">{t('forgotPinOtpSent').replace('{phone}', phone ? `+91 ${phone}` : '...')}</p>
+                        <div className="login-form-group">
+                            <label>{t('forgotPinOtpLabel')}</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                maxLength={6}
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                placeholder={t('forgotPinOtpPlaceholder')}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="login-form-group">
+                            <label>{t('forgotPinNewLabel')}</label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                maxLength={20}
+                                value={newPin}
+                                onChange={(e) => setNewPin(e.target.value)}
+                                placeholder={t('forgotPinNewPlaceholder')}
+                            />
+                        </div>
+                        <div className="login-form-group">
+                            <label>{t('forgotPinConfirmLabel')}</label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                maxLength={20}
+                                value={confirmPin}
+                                onChange={(e) => setConfirmPin(e.target.value)}
+                                placeholder={t('forgotPinConfirmPlaceholder')}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && otpCode.length >= 4 && newPin.length >= 6 && !loading) {
+                                        handleResetPin();
+                                    }
+                                }}
+                            />
+                        </div>
+                        {error && <div className="login-error">{error}</div>}
+                        <button
+                            className="login-btn login-btn-primary"
+                            onClick={handleResetPin}
+                            disabled={loading || !otpCode.trim() || newPin.length < 6 || !confirmPin}
+                        >
+                            {loading ? '⏳ ...' : `✅ ${t('forgotPinResetBtn')}`}
+                        </button>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('forgot-pin'); setError(''); setOtpCode(''); setNewPin(''); setConfirmPin(''); }}>
                             ← {t('loginBack')}
                         </button>
                     </div>
