@@ -3305,7 +3305,15 @@ body {
         height: 28px;
     }
     .navbar-location-badge {
+        max-width: 110px;
+        padding: 3px 6px;
+        font-size: 11px;
+    }
+    .navbar-location-badge--request .navbar-loc-name {
         display: none;
+    }
+    .navbar-location-badge--request .navbar-loc-icon {
+        font-size: 14px;
     }
 
     /* Dashboard – phone optimized */

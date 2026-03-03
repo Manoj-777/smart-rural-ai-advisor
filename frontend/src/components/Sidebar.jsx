@@ -5,6 +5,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
+import { getDistrictName } from '../i18n/districtTranslations';
 
 function Sidebar() {
     const { t, language, setLanguage } = useLanguage();
@@ -75,17 +76,17 @@ function Sidebar() {
                     <button
                         className="navbar-location-badge"
                         onClick={() => { if (gpsStatus !== 'granted') requestGps(); }}
-                        title={gpsStatus === 'granted' ? `GPS: ${resolvedLocation}` : `Profile: ${resolvedLocation}`}
+                        title={gpsStatus === 'granted' ? `GPS: ${getDistrictName(resolvedLocation, language)}` : `${getDistrictName(resolvedLocation, language)}`}
                     >
                         <span className="navbar-loc-icon">{gpsStatus === 'granted' ? '📍' : '📌'}</span>
-                        <span className="navbar-loc-name">{resolvedLocation}</span>
+                        <span className="navbar-loc-name">{getDistrictName(resolvedLocation, language)}</span>
                     </button>
                 )}
                 {!resolvedLocation && gpsStatus !== 'denied' && (
                     <button
                         className="navbar-location-badge navbar-location-badge--request"
                         onClick={requestGps}
-                        title="Enable GPS location"
+                        title={t('enableLocation') || 'Enable GPS location'}
                     >
                         <span className="navbar-loc-icon">📍</span>
                         <span className="navbar-loc-name">{t('enableLocation') || 'Set location'}</span>

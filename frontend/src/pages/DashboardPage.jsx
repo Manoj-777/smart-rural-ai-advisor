@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
+import { getDistrictName } from '../i18n/districtTranslations';
 
 // Daily tips rotate based on day-of-year
 const DAILY_TIPS = {
@@ -110,7 +111,7 @@ function DashboardPage() {
                         </span>
                         {resolvedLocation && (
                             <span className="dash-meta-item">
-                                {gpsStatus === 'granted' ? '📍' : '📌'} {resolvedLocation}
+                                {gpsStatus === 'granted' ? '📍' : '📌'} {getDistrictName(resolvedLocation, language)}
                             </span>
                         )}
                         {!resolvedLocation && gpsStatus !== 'denied' && (
