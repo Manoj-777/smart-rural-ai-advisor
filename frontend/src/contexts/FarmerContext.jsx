@@ -119,38 +119,36 @@ export function FarmerProvider({ children }) {
         const id = `ph_${cleanPhone}`;
 
         // 1. Sign up in Cognito (auto-confirmed via Pre-SignUp trigger)
-        //    If user already exists (orphan from prior attempt), skip signup and try sign-in
+        //    If username already exists but no DynamoDB profile exists, treat it as
+        //    an orphaned Cognito user from an interrupted signup and clean it up.
         try {
             await cognitoAuth.signUp(cleanPhone, pin, name, email);
         } catch (signUpErr) {
             const msg = signUpErr?.message || '';
             if (msg.includes('UsernameExistsException') || msg.includes('already exists')) {
-                // User exists in Cognito — try signing in directly
-                // (handles orphaned registrations from failed prior attempts)
+                let profileExists = false;
                 try {
-                    await cognitoAuth.signIn(cleanPhone, pin);
-                } catch (signInErr) {
-                    // If sign-in also fails (wrong PIN for existing user), surface the original error
+                    const res = await apiFetch(`/profile/${id}`);
+                    const data = await res.json();
+                    profileExists = !!(data?.data && data.data.name);
+                } catch {
+                    profileExists = true; // fail safe: never auto-delete on network error
+                }
+
+                if (profileExists) {
                     throw signUpErr;
                 }
-                // Sign-in succeeded — continue with profile setup below
+
+                // Orphaned Cognito user (no profile) → delete and retry signup once
+                await apiFetch(`/profile/${id}`, { method: 'DELETE' });
+                await cognitoAuth.signUp(cleanPhone, pin, name, email);
             } else {
                 throw signUpErr;
             }
         }
 
-        // 2. Sign in to get JWT tokens (skip if already signed in above)
-        let tokens;
-        try {
-            const session = await cognitoAuth.getSession();
-            if (session && session.idToken) {
-                tokens = session;
-            } else {
-                tokens = await cognitoAuth.signIn(cleanPhone, pin);
-            }
-        } catch {
-            tokens = await cognitoAuth.signIn(cleanPhone, pin);
-        }
+        // 2. Sign in to get JWT tokens
+        const tokens = await cognitoAuth.signIn(cleanPhone, pin);
 
         // 3. Set local state
         localStorage.setItem(FARMER_ID_KEY, id);
