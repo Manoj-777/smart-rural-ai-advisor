@@ -547,17 +547,36 @@ def _execute_tool(tool_name, tool_input):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  BEDROCK RETRY WITH EXPONENTIAL BACKOFF
-#  Handles ThrottlingException, ModelTimeoutException gracefully
+#  BEDROCK RETRY WITH EXPONENTIAL BACKOFF + MODEL FALLBACK
+#  Handles ThrottlingException, ModelTimeoutException gracefully.
+#  If the primary model fails after all retries, automatically
+#  falls back to the alternate model (Pro ↔ Lite).
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MAX_RETRIES = 2  # 1 original + 2 retries = 3 total attempts
 RETRY_BASE_DELAY = 0.5  # seconds
 
+# Model fallback mapping: primary → fallback
+# Nova Pro ↔ Nova 2 Lite (bidirectional)
+MODEL_FALLBACK = {}
+
+def _init_model_fallback():
+    """Initialize the fallback map after env vars are loaded."""
+    global MODEL_FALLBACK
+    MODEL_FALLBACK = {
+        FOUNDATION_MODEL: FOUNDATION_MODEL_LITE,
+        FOUNDATION_MODEL_LITE: FOUNDATION_MODEL,
+    }
+
+_init_model_fallback()
+
 
 def _bedrock_converse_with_retry(bedrock_client, **kwargs):
     """Wrapper around bedrock_rt.converse() with exponential backoff for throttling.
+    After exhausting retries on the primary model, automatically falls back to
+    the alternate model (Pro ↔ Lite) for one final attempt.
     Returns the Bedrock response dict, or raises the last exception on exhaustion.
     """
+    primary_model = kwargs.get('modelId', '')
     last_exc = None
     for attempt in range(1 + MAX_RETRIES):
         try:
@@ -578,10 +597,34 @@ def _bedrock_converse_with_retry(bedrock_client, **kwargs):
                 _time.sleep(delay)
                 last_exc = e
             else:
-                raise
+                last_exc = e
+                break  # exhausted retries — try fallback
         except Exception:
             raise
-    raise last_exc  # unreachable, but satisfies linters
+
+    # ── MODEL FALLBACK ──
+    fallback_model = MODEL_FALLBACK.get(primary_model)
+    if fallback_model and last_exc:
+        error_code = ''
+        if isinstance(last_exc, ClientError):
+            error_code = last_exc.response.get('Error', {}).get('Code', '')
+        logger.warning(
+            f"Primary model {primary_model} failed ({error_code}) after {1+MAX_RETRIES} attempts — "
+            f"falling back to {fallback_model}"
+        )
+        try:
+            fallback_kwargs = {**kwargs, 'modelId': fallback_model}
+            response = bedrock_client.converse(**fallback_kwargs)
+            logger.info(f"Model fallback SUCCESS: {fallback_model}")
+            return response
+        except Exception as fb_err:
+            logger.error(f"Model fallback ALSO FAILED ({fallback_model}): {fb_err}")
+            # Raise the original exception — more informative
+            raise last_exc
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError('_bedrock_converse_with_retry: unreachable')
 
 
 def _build_conversation_history_context(session_id, limit=6):
