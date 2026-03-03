@@ -73,9 +73,12 @@ def convert_decimals(obj):
 
 
 dynamodb = boto3.resource('dynamodb')
+cognito = boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 table = dynamodb.Table(os.environ.get('DYNAMODB_PROFILES_TABLE', 'farmer_profiles'))
 otp_table = dynamodb.Table(os.environ.get('DYNAMODB_OTP_TABLE', 'otp_codes'))
 sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
+
+COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', 'ap-south-1_X58lNMEcn')
 
 CORS_HEADERS = {
     'Content-Type': 'application/json',
@@ -139,25 +142,52 @@ def lambda_handler(event, context):
 
 
 def delete_profile(farmer_id):
-    """Permanently delete farmer profile from DynamoDB."""
+    """Permanently delete farmer profile from DynamoDB AND Cognito user."""
+    errors = []
+
+    # 1. Delete DynamoDB profile
     try:
         table.delete_item(Key={'farmer_id': farmer_id})
-        logger.info(f"Deleted profile: {farmer_id}")
+        logger.info(f"Deleted DynamoDB profile: {farmer_id}")
+    except Exception as e:
+        logger.error(f"DynamoDB delete error: {str(e)}", exc_info=True)
+        errors.append(f"DynamoDB: {str(e)}")
+
+    # 2. Delete Cognito user (extract phone from farmer_id: ph_XXXXXXXXXX)
+    if farmer_id.startswith('ph_'):
+        phone = farmer_id[3:]  # strip "ph_"
+        cognito_username = f'+91{phone}'
+        try:
+            cognito.admin_delete_user(
+                UserPoolId=COGNITO_USER_POOL_ID,
+                Username=cognito_username
+            )
+            logger.info(f"Deleted Cognito user: {cognito_username}")
+        except cognito.exceptions.UserNotFoundException:
+            logger.info(f"Cognito user already gone: {cognito_username}")
+        except Exception as e:
+            logger.error(f"Cognito delete error: {str(e)}", exc_info=True)
+            errors.append(f"Cognito: {str(e)}")
+
+    if errors:
         return {
-            'statusCode': 200,
+            'statusCode': 207,
             'headers': CORS_HEADERS,
             'body': json.dumps({
-                'status': 'success',
-                'message': 'Profile deleted'
+                'status': 'partial',
+                'message': 'Profile partially deleted',
+                'errors': errors
             })
         }
-    except Exception as e:
-        logger.error(f"Delete profile error: {str(e)}", exc_info=True)
-        return {
-            'statusCode': 500,
-            'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Failed to delete profile'})
-        }
+
+    return {
+        'statusCode': 200,
+        'headers': CORS_HEADERS,
+        'body': json.dumps({
+            'status': 'success',
+            'message': 'Profile and account deleted'
+        })
+    }
 
 
 def get_profile(farmer_id):
