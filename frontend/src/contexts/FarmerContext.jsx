@@ -215,6 +215,28 @@ export function FarmerProvider({ children }) {
         clearGps();
     }, [clearGps]);
 
+    /**
+     * Permanently delete this farmer's account:
+     * 1. Delete DynamoDB profile
+     * 2. Delete Cognito user
+     * 3. Clear local state (logout)
+     */
+    const deleteAccount = useCallback(async () => {
+        const id = farmerId;
+        // 1. Delete profile from DynamoDB
+        try {
+            await apiFetch(`/profile/${id}`, { method: 'DELETE' });
+        } catch { /* may already be gone */ }
+
+        // 2. Delete user from Cognito
+        try {
+            await cognitoAuth.deleteUser();
+        } catch { /* force logout anyway */ }
+
+        // 3. Clear local state
+        logout();
+    }, [farmerId, logout]);
+
     // Auto-request GPS once logged in (if not already granted/denied)
     useEffect(() => {
         if (isLoggedIn && gpsStatus === 'idle') {
@@ -276,6 +298,7 @@ export function FarmerProvider({ children }) {
             signUpAndLogin,
             signInWithPin,
             logout,
+            deleteAccount,
             updateProfile,
             needsEmailVerification,
             setNeedsEmailVerification,

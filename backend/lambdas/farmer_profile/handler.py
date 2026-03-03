@@ -81,7 +81,7 @@ CORS_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'GET,PUT,POST,OPTIONS'
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,OPTIONS'
 }
 
 OTP_EXPIRY_SECONDS = 300  # 5 minutes
@@ -120,6 +120,8 @@ def lambda_handler(event, context):
         elif method == 'PUT':
             body = json.loads(event.get('body', '{}'))
             return put_profile(farmer_id, body)
+        elif method == 'DELETE':
+            return delete_profile(farmer_id)
         else:
             return {
                 'statusCode': 405,
@@ -133,6 +135,28 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Internal server error'})
+        }
+
+
+def delete_profile(farmer_id):
+    """Permanently delete farmer profile from DynamoDB."""
+    try:
+        table.delete_item(Key={'farmer_id': farmer_id})
+        logger.info(f"Deleted profile: {farmer_id}")
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({
+                'status': 'success',
+                'message': 'Profile deleted'
+            })
+        }
+    except Exception as e:
+        logger.error(f"Delete profile error: {str(e)}", exc_info=True)
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Failed to delete profile'})
         }
 
 

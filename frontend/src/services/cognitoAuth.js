@@ -354,6 +354,28 @@ export function isEmailVerified() {
 }
 
 /**
+ * Delete the currently authenticated user from Cognito.
+ * Requires an active session.
+ * @returns {Promise<string>} 'SUCCESS'
+ */
+export function deleteUser() {
+    return new Promise((resolve, reject) => {
+        const user = userPool.getCurrentUser();
+        if (!user) return reject(new Error('No authenticated user'));
+
+        user.getSession((err, session) => {
+            if (err || !session || !session.isValid()) {
+                return reject(new Error('No valid session'));
+            }
+            user.deleteUser((deleteErr, result) => {
+                if (deleteErr) return reject(deleteErr);
+                resolve(result || 'SUCCESS');
+            });
+        });
+    });
+}
+
+/**
  * Check if a user exists in the pool by attempting a forgotten password flow.
  * (Lightweight existence check without credentials.)
  * @param {string} phone - 10-digit phone

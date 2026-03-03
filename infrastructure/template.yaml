@@ -345,6 +345,11 @@ Resources:
           Properties:
             Path: /profile/{farmerId}
             Method: put
+        ProfileDeleteApi:
+          Type: Api
+          Properties:
+            Path: /profile/{farmerId}
+            Method: delete
         ProfileOptions:
           Type: Api
           Properties:
