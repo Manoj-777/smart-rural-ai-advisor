@@ -1,15 +1,12 @@
 // src/hooks/useStreamingSpeech.js
-// ChatGPT-style live speech-to-text using browser native SpeechRecognition
-// with continuous mode and interim results for real-time partial transcripts.
-// Completely separate from useSpeechRecognition (AWS Transcribe path).
-// Returns supported=false on Edge or unsupported browsers so VoiceInput
-// can seamlessly fall back to the AWS recorder hook.
+// ChatGPT-style live speech-to-text using browser native SpeechRecognition.
+// Uses continuous=false (single utterance) + interimResults=true → words appear
+// live in the input field, and the browser auto-finalises when the user pauses.
+// This is the most reliable mode across Chrome, Edge, Safari and all Chromium.
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
 
-// Detect once at module level — all modern Chromium browsers (Chrome, Edge, Opera)
-// and Safari support SpeechRecognition. No browser exclusions.
 const STREAMING_SUPPORTED =
     typeof window !== 'undefined' &&
     !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -18,165 +15,143 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     const [isListening, setIsListening] = useState(false);
     const [partialTranscript, setPartialTranscript] = useState('');
     const [error, setError] = useState('');
-    const [failed, setFailed] = useState(false);  // sticky: true if runtime error → VoiceInput switches to AWS
+    const [failed, setFailed] = useState(false);
 
     const recognitionRef = useRef(null);
     const onFinalRef = useRef(onFinalTranscript);
     const manualStopRef = useRef(false);
-    const partialRef = useRef('');           // mirror of partialTranscript for use inside callbacks
-    const autoStopTimerRef = useRef(null);
+    const deliveredRef = useRef(false);     // prevent double-delivery
+    const partialRef = useRef('');
+    const finalTextRef = useRef('');         // accumulates isFinal segments
+    const safetyTimerRef = useRef(null);
 
-    // Keep callback ref synced
     useEffect(() => { onFinalRef.current = onFinalTranscript; }, [onFinalTranscript]);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (autoStopTimerRef.current) clearTimeout(autoStopTimerRef.current);
+            if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
             if (recognitionRef.current) {
-                try { recognitionRef.current.abort(); } catch { /* noop */ }
+                try { recognitionRef.current.abort(); } catch { /* */ }
             }
         };
+    }, []);
+
+    // Helper: deliver final text exactly once and reset all state
+    const _deliver = useCallback((text) => {
+        if (deliveredRef.current) return;
+        deliveredRef.current = true;
+        setIsListening(false);
+        setPartialTranscript('');
+        partialRef.current = '';
+        finalTextRef.current = '';
+        if (safetyTimerRef.current) {
+            clearTimeout(safetyTimerRef.current);
+            safetyTimerRef.current = null;
+        }
+        if (text && onFinalRef.current) {
+            onFinalRef.current(text);
+        }
     }, []);
 
     /* ── start ─────────────────────────────────────────── */
     const startListening = useCallback(() => {
         if (!STREAMING_SUPPORTED) return false;
-
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return false;
 
-        // Tear down any previous session
+        // Tear down previous
         if (recognitionRef.current) {
-            try { recognitionRef.current.abort(); } catch { /* noop */ }
+            try { recognitionRef.current.abort(); } catch { /* */ }
         }
-        if (autoStopTimerRef.current) {
-            clearTimeout(autoStopTimerRef.current);
-            autoStopTimerRef.current = null;
+        if (safetyTimerRef.current) {
+            clearTimeout(safetyTimerRef.current);
+            safetyTimerRef.current = null;
         }
 
         setError('');
         setPartialTranscript('');
         partialRef.current = '';
+        finalTextRef.current = '';
         manualStopRef.current = false;
+        deliveredRef.current = false;
 
         try {
             const recognition = new SR();
             recognitionRef.current = recognition;
             recognition.lang = language || config.DEFAULT_LANGUAGE;
-            recognition.continuous = true;       // keep listening until stopped
-            recognition.interimResults = true;   // stream partial results
+            recognition.continuous = false;       // single utterance — reliable on ALL browsers
+            recognition.interimResults = true;    // live partial transcripts
             recognition.maxAlternatives = 1;
 
             recognition.onresult = (event) => {
-                let finalText = '';
-                let interimText = '';
+                let final = '';
+                let interim = '';
                 for (let i = 0; i < event.results.length; i++) {
-                    const result = event.results[i];
-                    if (result.isFinal) {
-                        finalText += result[0].transcript;
+                    const r = event.results[i];
+                    if (r.isFinal) {
+                        final += r[0].transcript;
                     } else {
-                        interimText += result[0].transcript;
+                        interim += r[0].transcript;
                     }
                 }
-                const fullText = finalText + interimText;
-                partialRef.current = fullText;
-                setPartialTranscript(fullText);
+                if (final) finalTextRef.current = final;
+                const display = (final || finalTextRef.current) + interim;
+                partialRef.current = display;
+                setPartialTranscript(display);
             };
 
             recognition.onerror = (event) => {
                 const code = event?.error || 'unknown';
-
-                // Ignore abort triggered by manual stop
                 if (code === 'aborted' && manualStopRef.current) return;
-
                 if (code === 'not-allowed' || code === 'service-not-allowed') {
                     setError('Microphone permission denied. Please allow mic access.');
-                    setIsListening(false);
+                    _deliver('');
                 } else if (code === 'no-speech') {
                     setError('No speech detected. Please try again.');
+                    _deliver('');
                 } else {
-                    // Any other error (network, not-supported, etc.) → mark as failed
-                    // so VoiceInput permanently switches to AWS Transcribe fallback
-                    console.warn('[StreamingSpeech] runtime error, switching to AWS fallback:', code);
+                    console.warn('[StreamingSpeech] error, falling back to AWS:', code);
                     setFailed(true);
-                    setIsListening(false);
-                    setError('');
+                    _deliver('');
                 }
             };
 
             recognition.onend = () => {
-                // Only deliver if stopListening hasn't already handled it
-                if (manualStopRef.current) {
-                    // stopListening already delivered transcript and reset state
-                    return;
-                }
-
-                setIsListening(false);
-
-                if (autoStopTimerRef.current) {
-                    clearTimeout(autoStopTimerRef.current);
-                    autoStopTimerRef.current = null;
-                }
-
-                // Deliver the accumulated transcript to the parent
-                const text = partialRef.current.trim();
-                if (text && onFinalRef.current) {
-                    onFinalRef.current(text);
-                }
-
-                // Reset partial state
-                setPartialTranscript('');
-                partialRef.current = '';
+                // Browser auto-stopped (user paused speaking) → deliver final text
+                const text = (finalTextRef.current || partialRef.current).trim();
+                _deliver(text);
             };
 
             recognition.start();
             setIsListening(true);
 
-            // Safety: auto-stop after 30 seconds to prevent infinite listening
-            autoStopTimerRef.current = setTimeout(() => {
+            // Safety: force-stop after 15s to avoid UI hanging
+            safetyTimerRef.current = setTimeout(() => {
                 if (recognitionRef.current) {
-                    try { recognitionRef.current.stop(); } catch { /* noop */ }
+                    try { recognitionRef.current.stop(); } catch { /* */ }
                 }
-            }, 30000);
+            }, 15000);
 
             return true;
         } catch (err) {
             console.error('[StreamingSpeech] start error:', err);
-            setError('Could not start speech recognition.');
+            setFailed(true);
             return false;
         }
-    }, [language]);
+    }, [language, _deliver]);
 
     /* ── stop ──────────────────────────────────────────── */
     const stopListening = useCallback(() => {
         manualStopRef.current = true;
-
-        // 1) Clear auto-stop timer
-        if (autoStopTimerRef.current) {
-            clearTimeout(autoStopTimerRef.current);
-            autoStopTimerRef.current = null;
-        }
-
-        // 2) Immediately update UI — NEVER wait for browser onend event
-        setIsListening(false);
-
-        // 3) Deliver whatever transcript we have right now
-        const text = partialRef.current.trim();
-        if (text && onFinalRef.current) {
-            onFinalRef.current(text);
-        }
-
-        // 4) Reset partial state
-        setPartialTranscript('');
-        partialRef.current = '';
-
-        // 5) Kill the recognition (abort is forceful, works even when stop() hangs)
+        const text = (finalTextRef.current || partialRef.current).trim();
+        _deliver(text);
+        // Force-kill — onend will no-op because deliveredRef is true
         if (recognitionRef.current) {
-            try { recognitionRef.current.abort(); } catch { /* noop */ }
+            try { recognitionRef.current.abort(); } catch { /* */ }
             recognitionRef.current = null;
         }
-    }, []);
+    }, [_deliver]);
 
     return {
         supported: STREAMING_SUPPORTED && !failed,
