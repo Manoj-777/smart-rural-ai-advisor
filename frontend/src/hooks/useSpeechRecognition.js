@@ -41,6 +41,10 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     }, []);
 
+    const _isEdgeBrowser = useCallback(() => {
+        return typeof navigator !== 'undefined' && /Edg\//.test(navigator.userAgent || '');
+    }, []);
+
     const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
         if (chunks.length === 0) {
             setError('No audio captured. Please try again.');
@@ -225,12 +229,13 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         manualStopRef.current = false;
 
         // Fast path: browser-native speech recognition (much lower latency)
-        if (_supportsNativeSpeech()) {
+        // Edge can be inconsistent with Web Speech in some builds, so use recorder path there.
+        if (_supportsNativeSpeech() && !_isEdgeBrowser()) {
             const started = _startNativeSpeechRecognition();
             if (started) return;
         }
         await _startAwsRecorder();
-    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
+    }, [_isEdgeBrowser, _startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
 
     const stopListening = useCallback(() => {
         manualStopRef.current = true;
