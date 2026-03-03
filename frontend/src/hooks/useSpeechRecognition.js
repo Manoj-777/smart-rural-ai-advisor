@@ -10,6 +10,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
+    const recognitionRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const chunksRef = useRef([]);
     const streamRef = useRef(null);
@@ -23,6 +24,9 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     useEffect(() => {
         return () => {
             if (autoStopTimerRef.current) clearTimeout(autoStopTimerRef.current);
+            if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch { /* */ }
+            }
             if (mediaRecorderRef.current?.state === 'recording') {
                 try { mediaRecorderRef.current.stop(); } catch { /* */ }
             }
@@ -31,6 +35,67 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             }
         };
     }, []);
+
+    const _supportsNativeSpeech = useCallback(() => {
+        return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    }, []);
+
+    const _startNativeSpeechRecognition = useCallback(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return false;
+
+        try {
+            const recognition = new SpeechRecognition();
+            recognitionRef.current = recognition;
+            recognition.lang = language || config.DEFAULT_LANGUAGE;
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = (event) => {
+                const transcript = event?.results?.[0]?.[0]?.transcript?.trim();
+                if (transcript && onResultRef.current) {
+                    onResultRef.current(transcript);
+                    setError('');
+                } else {
+                    setError('Could not understand. Please speak clearly and try again.');
+                }
+            };
+
+            recognition.onerror = (event) => {
+                const code = event?.error || 'unknown';
+                if (code === 'not-allowed' || code === 'service-not-allowed') {
+                    setError('Microphone permission denied. Please allow mic access in your browser settings.');
+                } else if (code === 'no-speech') {
+                    setError('No speech detected. Please try again.');
+                } else {
+                    setError('Speech recognition error. Please try again.');
+                }
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+                setIsProcessing(false);
+                if (autoStopTimerRef.current) {
+                    clearTimeout(autoStopTimerRef.current);
+                    autoStopTimerRef.current = null;
+                }
+            };
+
+            setIsListening(true);
+            setIsProcessing(false);
+            recognition.start();
+
+            // Hard stop native recognition after 8s so UI never hangs
+            autoStopTimerRef.current = setTimeout(() => {
+                try { recognition.stop(); } catch { /* */ }
+            }, 8000);
+
+            return true;
+        } catch {
+            return false;
+        }
+    }, [language]);
 
     const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
         if (chunks.length === 0) {
@@ -77,7 +142,17 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         setError('');
         setIsProcessing(false);
 
+        // Fast path: browser-native speech recognition (much lower latency)
+        if (_supportsNativeSpeech()) {
+            const started = _startNativeSpeechRecognition();
+            if (started) return;
+        }
+
         // Stop any previous recording
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch { /* */ }
+            recognitionRef.current = null;
+        }
         if (mediaRecorderRef.current?.state === 'recording') {
             try { mediaRecorderRef.current.stop(); } catch { /* */ }
         }
@@ -146,12 +221,15 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             }
             setIsListening(false);
         }
-    }, [language, _sendToTranscribe]);
+    }, [language, _sendToTranscribe, _startNativeSpeechRecognition, _supportsNativeSpeech]);
 
     const stopListening = useCallback(() => {
         if (autoStopTimerRef.current) {
             clearTimeout(autoStopTimerRef.current);
             autoStopTimerRef.current = null;
+        }
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch { /* */ }
         }
         if (mediaRecorderRef.current?.state === 'recording') {
             mediaRecorderRef.current.stop();
