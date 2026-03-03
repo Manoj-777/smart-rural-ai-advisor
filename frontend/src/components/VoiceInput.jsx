@@ -19,10 +19,10 @@ const PROCESSING_TEXT = {
     'ur-IN': 'پروسیسنگ...',
 };
 
-function VoiceInput({ language, onTranscript }) {
+function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const { t } = useLanguage();
     const { isListening, isProcessing, error, startListening, stopListening } = 
-        useSpeechRecognition(language, onTranscript);
+        useSpeechRecognition(language, onTranscript, onPartialTranscript);
 
     const listeningLabel = LISTENING_TEXT[language] || 'Recording...';
     const processingLabel = PROCESSING_TEXT[language] || 'Processing...';
