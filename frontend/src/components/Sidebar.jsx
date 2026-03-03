@@ -10,65 +10,43 @@ import { getDistrictName } from '../i18n/districtTranslations';
 function Sidebar() {
     const { t, language, setLanguage } = useLanguage();
     const { farmerName, farmerPhone, logout, resolvedLocation, gpsStatus, requestGps } = useFarmer();
-    const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
 
-    const closeMobile = () => setMobileOpen(false);
+    const navItems = [
+        { to: '/', end: true, icon: '\u{1F3E0}', labelKey: 'navDashboard' },
+        { to: '/chat', icon: '\u{1F4AC}', labelKey: 'navChat' },
+        { to: '/weather', icon: '\u{1F324}\uFE0F', labelKey: 'navWeather', prefetch: '../pages/WeatherPage' },
+        { to: '/schemes', icon: '\u{1F4CB}', labelKey: 'navSchemes', prefetch: '../pages/SchemesPage' },
+        { to: '/crop-doctor', icon: '\u{1F4F8}', labelKey: 'navCropDoctor', prefetch: '../pages/CropDoctorPage' },
+        { to: '/prices', icon: '\u{1F4B0}', labelKey: 'navPrices', prefetch: '../pages/PricePage' },
+        { to: '/crop-recommend', icon: '\u{1F331}', labelKey: 'navCropRec', prefetch: '../pages/CropRecommendPage' },
+        { to: '/farm-calendar', icon: '\u{1F4C5}', labelKey: 'navFarmCal', prefetch: '../pages/FarmCalendarPage' },
+        { to: '/soil-analysis', icon: '\u{1F9EA}', labelKey: 'navSoilAnalysis', prefetch: '../pages/SoilAnalysisPage' },
+    ];
 
     return (
         <>
-            {/* Mobile hamburger */}
-            <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} aria-label={t('appName')}>
-                ☰
-            </button>
-
-            {/* Overlay */}
-            {mobileOpen && <div className="sidebar-overlay" onClick={closeMobile} />}
-
-            <nav className={`top-navbar ${mobileOpen ? 'open' : ''}`}>
+            {/* ── Top navbar: brand + desktop links + location + lang + user ── */}
+            <nav className="top-navbar">
                 <div className="navbar-brand">
-                    <span className="brand-icon">🌾</span>
+                    <span className="brand-icon">{'\u{1F33E}'}</span>
                     <span className="brand-text">{t('appName')}</span>
-                    {mobileOpen && (
-                        <button className="mobile-close-btn" onClick={closeMobile} aria-label={t('loginBack')}>✕</button>
-                    )}
                 </div>
 
-                <div className="navbar-links">
-                    <NavLink to="/" end className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
-                        <span className="nav-icon">🏠</span> <span className="nav-label">{t('navDashboard')}</span>
-                    </NavLink>
-                    <NavLink to="/chat" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}>
-                        <span className="nav-icon">💬</span> <span className="nav-label">{t('navChat')}</span>
-                    </NavLink>
-                    <NavLink to="/weather" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/WeatherPage')}>
-                        <span className="nav-icon">🌤️</span> <span className="nav-label">{t('navWeather')}</span>
-                    </NavLink>
-                    <NavLink to="/schemes" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/SchemesPage')}>
-                        <span className="nav-icon">📋</span> <span className="nav-label">{t('navSchemes')}</span>
-                    </NavLink>
-                    <NavLink to="/crop-doctor" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/CropDoctorPage')}>
-                        <span className="nav-icon">📸</span> <span className="nav-label">{t('navCropDoctor')}</span>
-                    </NavLink>
-                    <NavLink to="/prices" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/PricePage')}>
-                        <span className="nav-icon">💰</span> <span className="nav-label">{t('navPrices')}</span>
-                    </NavLink>
-                    <NavLink to="/crop-recommend" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/CropRecommendPage')}>
-                        <span className="nav-icon">🌱</span> <span className="nav-label">{t('navCropRec')}</span>
-                    </NavLink>
-                    <NavLink to="/farm-calendar" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/FarmCalendarPage')}>
-                        <span className="nav-icon">📅</span> <span className="nav-label">{t('navFarmCal')}</span>
-                    </NavLink>
-                    <NavLink to="/soil-analysis" className={({isActive}) => isActive ? 'active' : ''} onClick={closeMobile}
-                        onMouseEnter={() => import('../pages/SoilAnalysisPage')}>
-                        <span className="nav-icon">🧪</span> <span className="nav-label">{t('navSoilAnalysis')}</span>
-                    </NavLink>
+                {/* Desktop/tablet nav links (hidden on phones via CSS) */}
+                <div className="navbar-links navbar-links-desktop">
+                    {navItems.map(item => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.end || false}
+                            className={({isActive}) => isActive ? 'active' : ''}
+                            onMouseEnter={item.prefetch ? () => import(item.prefetch) : undefined}
+                        >
+                            <span className="nav-icon">{item.icon}</span>
+                            <span className="nav-label">{t(item.labelKey)}</span>
+                        </NavLink>
+                    ))}
                 </div>
 
                 {/* Location indicator */}
@@ -76,9 +54,9 @@ function Sidebar() {
                     <button
                         className="navbar-location-badge"
                         onClick={() => { if (gpsStatus !== 'granted') requestGps(); }}
-                        title={gpsStatus === 'granted' ? `GPS: ${getDistrictName(resolvedLocation, language)}` : `${getDistrictName(resolvedLocation, language)}`}
+                        title={gpsStatus === 'granted' ? `GPS: ${getDistrictName(resolvedLocation, language)}` : getDistrictName(resolvedLocation, language)}
                     >
-                        <span className="navbar-loc-icon">{gpsStatus === 'granted' ? '📍' : '📌'}</span>
+                        <span className="navbar-loc-icon">{gpsStatus === 'granted' ? '\u{1F4CD}' : '\u{1F4CC}'}</span>
                         <span className="navbar-loc-name">{getDistrictName(resolvedLocation, language)}</span>
                     </button>
                 )}
@@ -88,13 +66,13 @@ function Sidebar() {
                         onClick={requestGps}
                         title={t('enableLocation') || 'Enable GPS location'}
                     >
-                        <span className="navbar-loc-icon">📍</span>
+                        <span className="navbar-loc-icon">{'\u{1F4CD}'}</span>
                         <span className="navbar-loc-name">{t('enableLocation') || 'Set location'}</span>
                     </button>
                 )}
 
                 <div className="navbar-lang">
-                    <span className="navbar-lang-icon">🌐</span>
+                    <span className="navbar-lang-icon">{'\u{1F310}'}</span>
                     <select
                         className="navbar-lang-select"
                         value={language}
@@ -106,12 +84,12 @@ function Sidebar() {
                     </select>
                 </div>
 
-                {/* User info + logout — inline in navbar */}
+                {/* User info + logout */}
                 <div className="navbar-user">
                     {farmerName && (
-                        <button className="navbar-user-name-btn" onClick={() => { closeMobile(); navigate('/profile'); }}
+                        <button className="navbar-user-name-btn" onClick={() => navigate('/profile')}
                             title={t('navProfile')}>
-                            <span className="navbar-user-avatar">👤</span>
+                            <span className="navbar-user-avatar">{'\u{1F464}'}</span>
                             <span className="navbar-user-name">{farmerName}</span>
                         </button>
                     )}
@@ -123,6 +101,21 @@ function Sidebar() {
                         </svg>
                     </button>
                 </div>
+            </nav>
+
+            {/* ── Bottom tab bar: only visible on phones (<600px) ── */}
+            <nav className="bottom-nav">
+                {navItems.map(item => (
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end || false}
+                        className={({isActive}) => `bottom-nav-item${isActive ? ' active' : ''}`}
+                    >
+                        <span className="bottom-nav-icon">{item.icon}</span>
+                        <span className="bottom-nav-label">{t(item.labelKey)}</span>
+                    </NavLink>
+                ))}
             </nav>
         </>
     );

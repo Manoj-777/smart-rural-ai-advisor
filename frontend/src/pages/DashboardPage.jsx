@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
-import { getDistrictName } from '../i18n/districtTranslations';
 
 // Daily tips rotate based on day-of-year
 const DAILY_TIPS = {
@@ -58,7 +57,7 @@ const DAILY_TIPS = {
 
 function DashboardPage() {
     const { language, t } = useLanguage();
-    const { farmerName, resolvedLocation, gpsStatus, requestGps } = useFarmer();
+    const { farmerName } = useFarmer();
     const navigate = useNavigate();
     const [greeting, setGreeting] = useState('');
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -109,16 +108,6 @@ function DashboardPage() {
                         <span className="dash-meta-item">
                             {seasonInfo.icon} {seasonInfo.name} ({seasonInfo.months})
                         </span>
-                        {resolvedLocation && (
-                            <span className="dash-meta-item">
-                                {gpsStatus === 'granted' ? '📍' : '📌'} {getDistrictName(resolvedLocation, language)}
-                            </span>
-                        )}
-                        {!resolvedLocation && gpsStatus !== 'denied' && (
-                            <button className="dash-meta-item dash-meta-btn" onClick={requestGps}>
-                                📍 {t('enableLocation') || 'Enable GPS'}
-                            </button>
-                        )}
                     </div>
                 </div>
                 <div className="dash-hero-art">🌾</div>
