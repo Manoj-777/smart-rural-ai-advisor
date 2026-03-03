@@ -23,6 +23,12 @@ OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
 MAX_LOCATION_LENGTH = 100
 LOCATION_PATTERN = re.compile(r'^[\w\s\-\.,\'()]+$', re.UNICODE)
 
+# Common India district/city spelling variants across data sources
+LOCATION_ALIASES = {
+    'Viluppuram': 'Villupuram',
+    'Villupuram': 'Viluppuram',
+}
+
 
 def _validate_location(location):
     """Validate and sanitize location input. Returns (clean_location, error_msg)."""
@@ -48,6 +54,28 @@ def clean_location(name):
         '', name, flags=re.IGNORECASE
     )
     return re.sub(r'\s{2,}', ' ', name).strip()
+
+
+def _get_location_candidates(location):
+    """Return ordered location candidates for weather lookup retries."""
+    candidates = [location]
+    alias = LOCATION_ALIASES.get(location)
+    if alias:
+        candidates.append(alias)
+    # Heuristic fallback: common double-letter variation (e.g., Viluppuram/Villupuram)
+    if 'll' in location:
+        candidates.append(location.replace('ll', 'l'))
+    elif 'l' in location:
+        candidates.append(location.replace('l', 'll', 1))
+
+    # Preserve order while removing duplicates/empties
+    seen = set()
+    ordered = []
+    for cand in candidates:
+        if cand and cand not in seen:
+            ordered.append(cand)
+            seen.add(cand)
+    return ordered
 
 
 def lambda_handler(event, context):
@@ -105,39 +133,46 @@ def lambda_handler(event, context):
             logger.error("OPENWEATHER_API_KEY not configured")
             return error_response('OpenWeather API key not configured', 500)
 
-        # Current weather with retry logic
-        current_url = (
-            f"http://api.openweathermap.org/data/2.5/weather"
-            f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric"
-        )
-        
+        # Current weather with retry logic and spelling-variant candidates
+        location_candidates = _get_location_candidates(location)
         max_retries = 2
         current = None
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Fetching current weather for {location} (attempt {attempt + 1}/{max_retries})")
-                response = requests.get(current_url, timeout=8)
-                current = response.json()
-                
-                if current.get('cod') == 200:
-                    break
-                elif current.get('cod') == 429:
-                    logger.warning(f"Rate limit hit for {location}")
-                    if attempt < max_retries - 1:
-                        import time
-                        time.sleep(1)
-                        continue
-                else:
-                    logger.error(f"OpenWeather API error: {current.get('message', 'Unknown')}")
-                    break
-            except requests.exceptions.Timeout:
-                logger.warning(f"Timeout on attempt {attempt + 1} for {location}")
-                if attempt == max_retries - 1:
-                    raise
-            except Exception as e:
-                logger.error(f"Request error on attempt {attempt + 1}: {str(e)}")
-                if attempt == max_retries - 1:
-                    raise
+        matched_location = location
+
+        for candidate in location_candidates:
+            current_url = (
+                f"http://api.openweathermap.org/data/2.5/weather"
+                f"?q={candidate},IN&appid={OPENWEATHER_API_KEY}&units=metric"
+            )
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"Fetching current weather for {candidate} (attempt {attempt + 1}/{max_retries})")
+                    response = requests.get(current_url, timeout=8)
+                    current = response.json()
+
+                    if current.get('cod') == 200:
+                        matched_location = candidate
+                        break
+                    elif current.get('cod') == 429:
+                        logger.warning(f"Rate limit hit for {candidate}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(1)
+                            continue
+                    else:
+                        logger.warning(f"OpenWeather miss for {candidate}: {current.get('message', 'Unknown')}")
+                        break
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Timeout on attempt {attempt + 1} for {candidate}")
+                    if attempt == max_retries - 1:
+                        raise
+                except Exception as e:
+                    logger.error(f"Request error on attempt {attempt + 1} for {candidate}: {str(e)}")
+                    if attempt == max_retries - 1:
+                        raise
+
+            if current and current.get('cod') == 200:
+                break
 
         # If city name lookup failed and we have lat/lon, retry with coordinates
         if (not current or current.get('cod') != 200) and lat and lon:
@@ -173,7 +208,7 @@ def lambda_handler(event, context):
         else:
             forecast_url = (
                 f"http://api.openweathermap.org/data/2.5/forecast"
-                f"?q={location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
+                f"?q={matched_location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
             )
         
         forecast_raw = None
@@ -198,7 +233,7 @@ def lambda_handler(event, context):
 
         # Build response matching API contract field names
         weather_data = {
-            "location": location,
+            "location": matched_location,
             "current": {
                 "temp_celsius": current.get("main", {}).get("temp"),
                 "humidity": current.get("main", {}).get("humidity"),
