@@ -119,10 +119,38 @@ export function FarmerProvider({ children }) {
         const id = `ph_${cleanPhone}`;
 
         // 1. Sign up in Cognito (auto-confirmed via Pre-SignUp trigger)
-        await cognitoAuth.signUp(cleanPhone, pin, name, email);
+        //    If user already exists (orphan from prior attempt), skip signup and try sign-in
+        try {
+            await cognitoAuth.signUp(cleanPhone, pin, name, email);
+        } catch (signUpErr) {
+            const msg = signUpErr?.message || '';
+            if (msg.includes('UsernameExistsException') || msg.includes('already exists')) {
+                // User exists in Cognito — try signing in directly
+                // (handles orphaned registrations from failed prior attempts)
+                try {
+                    await cognitoAuth.signIn(cleanPhone, pin);
+                } catch (signInErr) {
+                    // If sign-in also fails (wrong PIN for existing user), surface the original error
+                    throw signUpErr;
+                }
+                // Sign-in succeeded — continue with profile setup below
+            } else {
+                throw signUpErr;
+            }
+        }
 
-        // 2. Sign in to get JWT tokens
-        const tokens = await cognitoAuth.signIn(cleanPhone, pin);
+        // 2. Sign in to get JWT tokens (skip if already signed in above)
+        let tokens;
+        try {
+            const session = await cognitoAuth.getSession();
+            if (session && session.idToken) {
+                tokens = session;
+            } else {
+                tokens = await cognitoAuth.signIn(cleanPhone, pin);
+            }
+        } catch {
+            tokens = await cognitoAuth.signIn(cleanPhone, pin);
+        }
 
         // 3. Set local state
         localStorage.setItem(FARMER_ID_KEY, id);
