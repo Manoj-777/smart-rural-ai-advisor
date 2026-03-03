@@ -22,6 +22,7 @@ export function FarmerProvider({ children }) {
     const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem(FARMER_ID_KEY));
     const [authReady, setAuthReady] = useState(false); // true once Cognito session checked
     const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+    const wasLoggedInRef = useRef(false);
 
     // GPS geolocation
     const {
@@ -158,6 +159,7 @@ export function FarmerProvider({ children }) {
         setFarmerPhoneState(cleanPhone);
         setFarmerNameState(name);
         setIsLoggedIn(true);
+        requestGps();
 
         // 3.5 If email was provided, trigger email verification
         if (email && email.trim()) {
@@ -204,6 +206,7 @@ export function FarmerProvider({ children }) {
         setFarmerIdState(id);
         setFarmerPhoneState(cleanPhone);
         setIsLoggedIn(true);
+        requestGps();
 
         // 3. Load profile from DynamoDB
         try {
@@ -263,12 +266,13 @@ export function FarmerProvider({ children }) {
         logout();
     }, [farmerId, logout]);
 
-    // Auto-request GPS once logged in (if not already granted/denied)
+    // Auto-request GPS on each login transition (including session restore)
     useEffect(() => {
-        if (isLoggedIn && gpsStatus === 'idle') {
+        if (isLoggedIn && !wasLoggedInRef.current) {
             requestGps();
         }
-    }, [isLoggedIn, gpsStatus, requestGps]);
+        wasLoggedInRef.current = isLoggedIn;
+    }, [isLoggedIn, requestGps]);
 
     // ── Session timeout: periodic Cognito token refresh + auto-logout ──
     // Cognito ID/Access tokens expire after 1 hour; the SDK auto-refreshes

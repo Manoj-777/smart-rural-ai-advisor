@@ -391,7 +391,7 @@ CRITICAL RULES:
 7. For pest/disease queries with symptoms (yellow leaves, spots, wilting), always call get_pest_alert — the KB has pesticide guides, dosages, and treatment protocols
 8. When farmer context is provided, ALWAYS use it to fill missing parameters (name, state, crop, soil_type) for tool calls — DO NOT ask the farmer for information already in their profile context. NEVER ask for the farmer's name — it is already provided. Address them by name directly.
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
-10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context. If gps_location is in the context, use it as the PRIMARY location.
+10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context. If gps_location is in the context, use it as the PRIMARY fallback location. If the farmer explicitly mentions a different location in the current query, ALWAYS use the farmer-mentioned location instead of gps_location/profile location.
 11. ANSWER ONLY WHAT THE FARMER ASKED. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. Be concise and focused.
 12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
@@ -811,7 +811,7 @@ Rules:
 - ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data
 - CRITICAL: When farmer context is provided (state, crops, district, soil_type), use those values to fill NULL entities. For example, if the farmer asks 'what crops should I plant this kharif?' and context has state=Tamil Nadu, set location='Tamil Nadu', season='kharif', and ALWAYS include get_crop_advisory in tools_needed.
 - NEVER leave entities as null when the farmer context provides those values.
-- IMPORTANT: If the farmer context includes gps_location, use that as the PRIMARY location instead of state/district. GPS location is the most accurate real-time position of the farmer.
+- IMPORTANT: If the farmer context includes gps_location, use that as the PRIMARY fallback location instead of state/district. However, if the farmer explicitly mentions a location in the current query, that explicit location MUST override gps_location and profile state/district.
 - When conversation history is provided, use it to resolve follow-up references. For example, if the farmer previously asked about rice and now asks 'what about pest control?', set crop=rice and add get_pest_alert to tools_needed."""
 
 # ── Agent 3: Fact-Checking Agent ──
