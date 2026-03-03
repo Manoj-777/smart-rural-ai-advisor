@@ -41,6 +41,47 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     }, []);
 
+    const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
+        if (chunks.length === 0) {
+            setError('No audio captured. Please try again.');
+            setIsProcessing(false);
+            return;
+        }
+
+        const blob = new Blob(chunks, { type: mimeType });
+
+        // Skip tiny recordings (likely noise/silence)
+        if (blob.size < 1000) {
+            setError('Recording too short. Please hold the mic button and speak clearly.');
+            setIsProcessing(false);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64 = reader.result.split(',')[1];
+            try {
+                const res = await apiFetch(`/transcribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio: base64, language, format: mimeType })
+                });
+                const data = await res.json();
+                const transcript = data?.data?.transcript || data?.transcript;
+                if (transcript?.trim() && onResultRef.current) {
+                    onResultRef.current(transcript.trim());
+                    setError('');
+                } else {
+                    setError('Could not understand. Please speak clearly and try again.');
+                }
+            } catch {
+                setError('Connection error. Please check your internet and try again.');
+            }
+            setIsProcessing(false);
+        };
+        reader.readAsDataURL(blob);
+    }, [language]);
+
     const _startAwsRecorder = useCallback(async () => {
         // Stop any previous recording
         if (recognitionRef.current) {
@@ -177,47 +218,6 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             return false;
         }
     }, [language, _startAwsRecorder]);
-
-    const _sendToTranscribe = useCallback(async (chunks, mimeType) => {
-        if (chunks.length === 0) {
-            setError('No audio captured. Please try again.');
-            setIsProcessing(false);
-            return;
-        }
-
-        const blob = new Blob(chunks, { type: mimeType });
-
-        // Skip tiny recordings (likely noise/silence)
-        if (blob.size < 1000) {
-            setError('Recording too short. Please hold the mic button and speak clearly.');
-            setIsProcessing(false);
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            try {
-                const res = await apiFetch(`/transcribe`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio: base64, language, format: mimeType })
-                });
-                const data = await res.json();
-                const transcript = data?.data?.transcript || data?.transcript;
-                if (transcript?.trim() && onResultRef.current) {
-                    onResultRef.current(transcript.trim());
-                    setError('');
-                } else {
-                    setError('Could not understand. Please speak clearly and try again.');
-                }
-            } catch {
-                setError('Connection error. Please check your internet and try again.');
-            }
-            setIsProcessing(false);
-        };
-        reader.readAsDataURL(blob);
-    }, [language]);
 
     const startListening = useCallback(async () => {
         setError('');
