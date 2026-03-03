@@ -229,13 +229,12 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         manualStopRef.current = false;
 
         // Fast path: browser-native speech recognition (much lower latency)
-        // Edge can be inconsistent with Web Speech in some builds, so use recorder path there.
-        if (_supportsNativeSpeech() && !_isEdgeBrowser()) {
+        if (_supportsNativeSpeech()) {
             const started = _startNativeSpeechRecognition();
             if (started) return;
         }
         await _startAwsRecorder();
-    }, [_isEdgeBrowser, _startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
+    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
 
     const stopListening = useCallback(() => {
         manualStopRef.current = true;

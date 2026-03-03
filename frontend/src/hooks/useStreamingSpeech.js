@@ -8,20 +8,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
 
-// Detect once at module level — never changes at runtime
-const _hasSpeechRecognition =
+// Detect once at module level — all modern Chromium browsers (Chrome, Edge, Opera)
+// and Safari support SpeechRecognition. No browser exclusions.
+const STREAMING_SUPPORTED =
     typeof window !== 'undefined' &&
     !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-
-const _isEdge =
-    typeof navigator !== 'undefined' && /Edg\//.test(navigator.userAgent || '');
-
-const STREAMING_SUPPORTED = _hasSpeechRecognition && !_isEdge;
 
 export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTranscript) {
     const [isListening, setIsListening] = useState(false);
     const [partialTranscript, setPartialTranscript] = useState('');
     const [error, setError] = useState('');
+    const [failed, setFailed] = useState(false);  // sticky: true if runtime error → VoiceInput switches to AWS
 
     const recognitionRef = useRef(null);
     const onFinalRef = useRef(onFinalTranscript);
@@ -99,7 +96,12 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                 } else if (code === 'no-speech') {
                     setError('No speech detected. Please try again.');
                 } else {
-                    setError('Speech recognition error. Please try again.');
+                    // Any other error (network, not-supported, etc.) → mark as failed
+                    // so VoiceInput permanently switches to AWS Transcribe fallback
+                    console.warn('[StreamingSpeech] runtime error, switching to AWS fallback:', code);
+                    setFailed(true);
+                    setIsListening(false);
+                    setError('');
                 }
             };
 
@@ -156,7 +158,7 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     }, []);
 
     return {
-        supported: STREAMING_SUPPORTED,
+        supported: STREAMING_SUPPORTED && !failed,
         isListening,
         partialTranscript,
         error,
