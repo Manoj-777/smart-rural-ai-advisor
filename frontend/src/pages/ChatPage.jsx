@@ -19,7 +19,7 @@ function generateId() {
     if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
         return window.crypto.randomUUID();
     }
-    return session-+Date.now()+-+Math.random().toString(36).slice(2, 10);
+    return `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function formatSessionDate(ts, t) {
@@ -40,6 +40,7 @@ function formatSessionDate(ts, t) {
         + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/* ── Local cache (fast reads, same-browser fallback) ──────── */
 function loadSessions() {
     try { return JSON.parse(localStorage.getItem(SESSIONS_KEY)) || []; } catch { return []; }
 }
@@ -51,6 +52,51 @@ function loadSessionMessages(sessionId) {
 }
 function saveSessionMessages(sessionId, messages) {
     try { localStorage.setItem(STORAGE_KEY + '_' + sessionId, JSON.stringify(messages.slice(-MAX_STORED))); } catch { /* */ }
+}
+
+/* ── DynamoDB sync (cross-device, per-farmer) ──────────────── */
+async function dbListSessions(farmerId) {
+    try {
+        const res = await apiFetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'list_sessions', farmer_id: farmerId }),
+        });
+        const data = await res.json();
+        return data?.data?.sessions || [];
+    } catch { return []; }
+}
+
+async function dbGetSessionMessages(farmerId, sessionId) {
+    try {
+        const res = await apiFetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_session', farmer_id: farmerId, session_id: sessionId }),
+        });
+        const data = await res.json();
+        return data?.data?.messages || [];
+    } catch { return []; }
+}
+
+async function dbSaveSession(farmerId, sessionId, messages, preview) {
+    try {
+        await apiFetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save_session', farmer_id: farmerId, session_id: sessionId, messages, preview }),
+        });
+    } catch { /* fire-and-forget */ }
+}
+
+async function dbDeleteSession(farmerId, sessionId) {
+    try {
+        await apiFetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_session', farmer_id: farmerId, session_id: sessionId }),
+        });
+    } catch { /* fire-and-forget */ }
 }
 
 function ChatPage() {
@@ -76,24 +122,57 @@ function ChatPage() {
     // Track whether we're in the middle of a session switch to avoid cross-saving
     const switchingRef = useRef(false);
     const activeIdRef = useRef(activeSessionId);
+    const dbSyncedRef = useRef(false);  // has DB fetch happened this mount?
 
     // Keep ref in sync
     useEffect(() => {
         activeIdRef.current = activeSessionId;
     }, [activeSessionId]);
 
-    // Persist messages -- only when NOT switching sessions
+    // ── On mount: fetch sessions from DB and merge with local cache ──
+    useEffect(() => {
+        if (!farmerId || farmerId === 'anonymous' || dbSyncedRef.current) return;
+        dbSyncedRef.current = true;
+
+        (async () => {
+            const dbSessions = await dbListSessions(farmerId);
+            if (dbSessions.length > 0) {
+                setSessions(prev => {
+                    // Merge: DB sessions win, local-only sessions kept
+                    const dbIds = new Set(dbSessions.map(s => s.id));
+                    const localOnly = prev.filter(s => !dbIds.has(s.id));
+                    const merged = [...dbSessions, ...localOnly];
+                    saveSessions(merged);
+                    return merged;
+                });
+
+                // If current session has messages in DB but not locally, load them
+                const sid = activeIdRef.current;
+                const localMsgs = loadSessionMessages(sid);
+                if (localMsgs.length === 0) {
+                    const dbMsgs = await dbGetSessionMessages(farmerId, sid);
+                    if (dbMsgs.length > 0) {
+                        saveSessionMessages(sid, dbMsgs);
+                        setMessages(dbMsgs);
+                    }
+                }
+            }
+        })();
+    }, [farmerId]);
+
+    // Persist messages locally + sync to DB -- only when NOT switching sessions
     useEffect(() => {
         if (switchingRef.current) return;
         const sid = activeIdRef.current;
         saveSessionMessages(sid, messages);
         // Update session metadata
         if (messages.length > 0) {
+            const firstUserMsg = messages.find(m => m.role === 'user');
+            const preview = firstUserMsg?.content?.slice(0, 60) || t('newChatPreview') || 'New chat';
+            const lastTs = messages[messages.length - 1].timestamp;
+
             setSessions(prev => {
                 const existing = prev.find(s => s.id === sid);
-                const firstUserMsg = messages.find(m => m.role === 'user');
-                const preview = firstUserMsg?.content?.slice(0, 60) || t('newChatPreview') || 'New chat';
-                const lastTs = messages[messages.length - 1].timestamp;
                 if (existing) {
                     const updated = prev.map(s => s.id === sid
                         ? { ...s, preview, lastTimestamp: lastTs, messageCount: messages.length }
@@ -106,6 +185,11 @@ function ChatPage() {
                     return newSessions;
                 }
             });
+
+            // Async DB save (fire-and-forget, won't block UI)
+            if (farmerId && farmerId !== 'anonymous') {
+                dbSaveSession(farmerId, sid, messages, preview);
+            }
         }
     }, [messages]);
 
@@ -132,11 +216,21 @@ function ChatPage() {
         activeIdRef.current = sid;
         setActiveSessionId(sid);
         localStorage.setItem(ACTIVE_SESSION_KEY, sid);
-        setMessages(loadSessionMessages(sid));
+        // Load from local first, then try DB if empty
+        const localMsgs = loadSessionMessages(sid);
+        setMessages(localMsgs);
         setInput('');
-        // Allow persist again on next tick
         setTimeout(() => { switchingRef.current = false; }, 0);
-    }, []);
+        // If local is empty, try DB
+        if (localMsgs.length === 0 && farmerId && farmerId !== 'anonymous') {
+            dbGetSessionMessages(farmerId, sid).then(dbMsgs => {
+                if (dbMsgs.length > 0) {
+                    saveSessionMessages(sid, dbMsgs);
+                    if (activeIdRef.current === sid) setMessages(dbMsgs);
+                }
+            });
+        }
+    }, [farmerId]);
 
     const deleteSession = useCallback((sid, e) => {
         e.stopPropagation();
@@ -146,8 +240,12 @@ function ChatPage() {
             return updated;
         });
         localStorage.removeItem(STORAGE_KEY + '_' + sid);
+        // Also delete from DB
+        if (farmerId && farmerId !== 'anonymous') {
+            dbDeleteSession(farmerId, sid);
+        }
         if (sid === activeSessionId) startNewChat();
-    }, [activeSessionId, startNewChat]);
+    }, [activeSessionId, startNewChat, farmerId]);
 
     const clearHistory = useCallback(() => {
         setMessages([]);

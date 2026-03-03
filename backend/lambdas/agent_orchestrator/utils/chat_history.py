@@ -1,0 +1,159 @@
+# utils/chat_history.py
+# Server-side chat history persistence using DynamoDB
+# Uses existing chat_sessions table with 'hist:{farmer_id}' partition key
+# so no new tables or IAM changes are needed.
+
+import boto3
+import os
+import json
+import logging
+import time
+
+logger = logging.getLogger()
+
+SESSIONS_TABLE = os.environ.get('DYNAMODB_SESSIONS_TABLE', 'chat_sessions')
+MAX_MESSAGES_PER_SESSION = 50
+
+_dynamodb = None
+_table = None
+
+
+def _get_table():
+    global _dynamodb, _table
+    if _table is None:
+        _dynamodb = boto3.resource('dynamodb')
+        _table = _dynamodb.Table(SESSIONS_TABLE)
+    return _table
+
+
+def list_sessions(farmer_id):
+    """
+    List all chat sessions for a farmer.
+    Returns list of session metadata (no messages).
+    """
+    if not farmer_id or farmer_id == 'anonymous':
+        return []
+
+    table = _get_table()
+    pk = f'hist:{farmer_id}'
+
+    try:
+        resp = table.query(
+            KeyConditionExpression='session_id = :pk',
+            ExpressionAttributeValues={':pk': pk},
+            ProjectionExpression='#ts, sid, preview, message_count, created_at, updated_at',
+            ExpressionAttributeNames={'#ts': 'timestamp'},
+        )
+        sessions = []
+        for item in resp.get('Items', []):
+            sessions.append({
+                'id': item.get('sid', ''),
+                'preview': item.get('preview', 'New chat'),
+                'messageCount': int(item.get('message_count', 0)),
+                'createdAt': int(item.get('created_at', 0)),
+                'lastTimestamp': int(item.get('updated_at', 0)),
+            })
+        # Sort by most recent first
+        sessions.sort(key=lambda s: s['lastTimestamp'], reverse=True)
+        return sessions
+    except Exception as e:
+        logger.error(f'list_sessions error: {e}')
+        return []
+
+
+def get_session_messages(farmer_id, session_id):
+    """
+    Get all messages for a specific chat session.
+    """
+    if not farmer_id or farmer_id == 'anonymous':
+        return []
+
+    table = _get_table()
+    pk = f'hist:{farmer_id}'
+
+    try:
+        resp = table.get_item(
+            Key={'session_id': pk, 'timestamp': session_id}
+        )
+        item = resp.get('Item')
+        if not item:
+            return []
+
+        messages_json = item.get('messages', '[]')
+        if isinstance(messages_json, str):
+            return json.loads(messages_json)
+        return messages_json
+    except Exception as e:
+        logger.error(f'get_session_messages error: {e}')
+        return []
+
+
+def save_session(farmer_id, session_id, messages, preview=None):
+    """
+    Save/update a chat session with all its messages.
+    """
+    if not farmer_id or farmer_id == 'anonymous':
+        return False
+    if not session_id or not messages:
+        return False
+
+    table = _get_table()
+    pk = f'hist:{farmer_id}'
+    now = int(time.time() * 1000)
+
+    # Derive preview from first user message if not provided
+    if not preview:
+        first_user = next((m for m in messages if m.get('role') == 'user'), None)
+        preview = (first_user.get('content', '')[:60] if first_user else 'New chat')
+
+    # Get existing created_at or use now
+    created_at = now
+    try:
+        existing = table.get_item(
+            Key={'session_id': pk, 'timestamp': session_id},
+            ProjectionExpression='created_at'
+        )
+        if existing.get('Item'):
+            created_at = int(existing['Item'].get('created_at', now))
+    except Exception:
+        pass
+
+    # Trim messages to max
+    trimmed = messages[-MAX_MESSAGES_PER_SESSION:]
+
+    try:
+        table.put_item(Item={
+            'session_id': pk,
+            'timestamp': session_id,
+            'sid': session_id,
+            'farmer_id': farmer_id,
+            'messages': json.dumps(trimmed, ensure_ascii=False),
+            'preview': preview,
+            'message_count': len(trimmed),
+            'created_at': created_at,
+            'updated_at': now,
+        })
+        return True
+    except Exception as e:
+        logger.error(f'save_session error: {e}')
+        return False
+
+
+def delete_session(farmer_id, session_id):
+    """
+    Delete a chat session.
+    """
+    if not farmer_id or farmer_id == 'anonymous':
+        return False
+
+    table = _get_table()
+    pk = f'hist:{farmer_id}'
+
+    try:
+        table.delete_item(
+            Key={'session_id': pk, 'timestamp': session_id}
+        )
+        return True
+    except Exception as e:
+        logger.error(f'delete_session error: {e}')
+        return False

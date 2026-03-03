@@ -38,6 +38,7 @@ from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_cha
 # Enterprise Guardrails (Gaps #1-#4, #6-#7)
 from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_guardrails
 from utils.rate_limiter import check_rate_limit
+from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session
 from utils.audit_logger import (
     audit_request_start, audit_guardrail_block, audit_pii_detected,
     audit_tool_invocation, audit_policy_decision, audit_request_complete,
@@ -1352,6 +1353,26 @@ def lambda_handler(event, context):
 
     try:
         body = json.loads(event.get('body', '{}'))
+
+        # ── Chat History API (DB-backed, cross-device sync) ──
+        action = body.get('action')
+        if action:
+            hist_farmer = body.get('farmer_id', '')
+            hist_session = body.get('session_id', '')
+            if action == 'list_sessions':
+                sessions = list_sessions(hist_farmer)
+                return success_response({'sessions': sessions}, message='Sessions loaded')
+            elif action == 'get_session':
+                msgs = get_session_messages(hist_farmer, hist_session)
+                return success_response({'messages': msgs}, message='Messages loaded')
+            elif action == 'save_session':
+                msgs = body.get('messages', [])
+                preview = body.get('preview', None)
+                ok = save_session(hist_farmer, hist_session, msgs, preview)
+                return success_response({'saved': ok}, message='Session saved' if ok else 'Save failed')
+            elif action == 'delete_session':
+                ok = delete_chat_session(hist_farmer, hist_session)
+                return success_response({'deleted': ok}, message='Session deleted' if ok else 'Delete failed')
 
         # ── Fast path: Refresh an expired audio presigned URL ──
         refresh_key = body.get('refresh_audio_key')

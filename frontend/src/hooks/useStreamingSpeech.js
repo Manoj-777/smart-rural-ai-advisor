@@ -24,6 +24,7 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     const partialRef = useRef('');
     const finalTextRef = useRef('');         // accumulates isFinal segments
     const safetyTimerRef = useRef(null);
+    const silenceTimerRef = useRef(null);    // auto-stop after silence (Edge fix)
 
     useEffect(() => { onFinalRef.current = onFinalTranscript; }, [onFinalTranscript]);
 
@@ -31,6 +32,7 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     useEffect(() => {
         return () => {
             if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             if (recognitionRef.current) {
                 try { recognitionRef.current.abort(); } catch { /* */ }
             }
@@ -48,6 +50,10 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
         if (safetyTimerRef.current) {
             clearTimeout(safetyTimerRef.current);
             safetyTimerRef.current = null;
+        }
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
         }
         if (text && onFinalRef.current) {
             onFinalRef.current(text);
@@ -75,6 +81,10 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
         finalTextRef.current = '';
         manualStopRef.current = false;
         deliveredRef.current = false;
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+        }
 
         try {
             const recognition = new SR();
@@ -99,6 +109,15 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                 const display = (final || finalTextRef.current) + interim;
                 partialRef.current = display;
                 setPartialTranscript(display);
+
+                // Silence watchdog: if no new results for 2.5s, auto-stop.
+                // This fixes Edge which doesn't auto-finalize on silence like Chrome.
+                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                silenceTimerRef.current = setTimeout(() => {
+                    if (recognitionRef.current && !deliveredRef.current) {
+                        try { recognitionRef.current.stop(); } catch { /* */ }
+                    }
+                }, 2500);
             };
 
             recognition.onerror = (event) => {
