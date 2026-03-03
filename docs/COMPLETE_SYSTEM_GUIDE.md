@@ -478,6 +478,66 @@ flowchart TB
 
 **In plain English:** the system behaves like a well-managed farm office — one coordinator, multiple specialists, strict policy checks, and every advisory tied to concrete data sources.
 
+### 2.9 AI Is the Core — Not a Wrapper
+
+This is an **AI-native product**. The AI is not bolted onto an existing application — it IS the application. Every farmer query flows through a 4-agent AI pipeline (Understanding → Reasoning → Fact-Check → Communication) that decides what the farmer needs, selects the right tools, synthesizes raw data into advice, validates accuracy, and rewrites it in farmer-friendly language.
+
+Without AI, the tools still return raw data (weather JSON, crop CSVs, scheme lists) — but there is no intelligence to understand the question, select the right tools, combine the results, or explain them to a farmer. The AI is the brain; everything else is plumbing.
+
+| AI Function | What It Does | Without It |
+|------------|-------------|------------|
+| Understanding Agent | Parses intent from multilingual queries | System cannot interpret what the farmer is asking |
+| Reasoning Agent | Selects tools + synthesizes data into advice | Raw JSON/CSV on screen with no context |
+| Fact-Check Agent | Validates accuracy against source data | Unverified advice — risk of harmful recommendations |
+| Communication Agent | Rewrites in simple farmer-friendly language | Technical jargon unusable by rural users |
+
+Non-AI services (Translate, Polly, DynamoDB, Weather API) are independent pipes and data sources — they function on their own but provide no farming intelligence. The AI is what turns raw data into actionable, trustworthy, personalized agricultural advice.
+
+### 2.10 Why Our Pipeline Is Better Than Typical Agent Frameworks
+
+Most AI agent systems (LangChain ReAct, AutoGen, CrewAI, etc.) use a **single-agent loop**: one LLM decides what to do → calls a tool → reads the result → loops until done. Our system uses a **directed 4-agent pipeline** instead. Here is why:
+
+**1. Predictable Latency, No Infinite Loops**
+- ReAct agents can loop 5–20+ times, taking 3s to 60s+ unpredictably
+- Our pipeline: always 4 steps (or fewer under time pressure), 10–16s total, hard 22s budget cap
+- A farmer on rural 4G cannot wait for an unpredictable loop
+
+**2. Separation of Concerns — Each Agent Has One Job**
+- Typical: same LLM simultaneously parses intent, calls tools, validates output, and writes the response
+- Ours: Understanding (parse) → Reasoning (tools) → Fact-Check (validate) → Communication (tone) — each is a dedicated specialist
+
+**3. Built-In Hallucination Detection**
+- Typical frameworks have **zero** built-in fact-checking — hallucinated dosages or fake schemes go straight to the farmer
+- Our Fact-Check Agent cross-references every claim in the Reasoning Agent's draft against **raw tool data**, catching dosage errors, non-existent scheme references, and weather misquotations before they reach the farmer
+
+**4. Tiered Model Selection**
+- Typical: one expensive model for everything
+- Ours: Nova Lite for simple parsing/validation tasks, Nova Pro only when complexity requires it → ~40% lower token cost on simple queries
+
+**5. Deterministic Tool Access**
+- ReAct: LLM can call any tool at any step, same tool repeatedly, or skip tools entirely
+- Ours: only Agent 2 (Reasoning) has tool access, and Agent 1 tells it exactly which tools to call
+
+**6. Graceful Degradation**
+- Typical: either succeeds fully or returns a timeout error
+- Ours: if budget runs low, Agents 3–4 are skipped — farmer still gets the Reasoning output (accurate but less polished)
+
+**7. Fast Path for Structured Queries**
+- Feature pages (Crop Recommend, Soil Analysis, Schemes, etc.) use code-generated prompts — no need for 4 agents. Our system detects these and routes to a single `converse()` call (~4s vs ~14s)
+- No typical framework offers this dual-path optimization
+
+| Dimension | ReAct/AutoGen/CrewAI | Our 4-Agent Pipeline |
+|-----------|---------------------|---------------------|
+| Architecture | Single LLM in a loop | 4 specialized LLMs, fixed sequence |
+| Latency | 3s–60s+ unpredictable | 10–16s, hard cap 22s |
+| Tool access | Any step, any tool | Only Reasoning Agent |
+| Hallucination guard | None | Dedicated Fact-Check Agent |
+| Failure mode | Timeout or infinite loop | Graceful degradation |
+| Cost efficiency | Same model for all | Tiered (Lite/Pro) |
+| Debuggability | Opaque chain-of-thought | Separate logs per agent |
+
+**Bottom line:** For safety-critical agricultural advisory serving rural farmers on slow connections, a predictable directed pipeline with built-in fact-checking is fundamentally safer than an autonomous agent loop that can hallucinate, loop indefinitely, or timeout unpredictably.
+
 ---
 
 ## 3. How a User's Message Flows (Step by Step)
@@ -536,6 +596,20 @@ Amazon Polly converts the Tamil text to an MP3 audio file, uploads it to S3, and
 
 ### Step 10: Save Chat History
 Both the user message and AI response are saved to the `chat_sessions` DynamoDB table.
+
+For non-English conversations, each message stores **both** the local-language text (`message`) and the English translation (`message_en`). The pipeline always reads `message_en` when building conversation context, because the AI model processes everything in English internally. This dual-storage approach ensures conversation memory works equally well across all 13 supported Indian languages.
+
+**Key session & memory parameters:**
+
+| Parameter | Value | Rationale |
+|-----------|-------|----------|
+| Max exchanges per session | 50 (100 messages) | Generous limit; real farmer conversations rarely exceed 20-30 exchanges |
+| Memory window | Last 20 exchanges (40 messages) | Best tradeoff between context quality (~5,000 tokens) and latency (~50ms read) |
+| Max sessions per farmer | 20 | Oldest auto-evicted to prevent unbounded growth |
+| Session TTL | 30 days | DynamoDB TTL auto-deletes old sessions |
+| Cache key source | English translation of query | Enables cross-language cache hits (Tamil and Hindi asking the same question share one cache entry) |
+
+See the Detailed Implementation Guide (Step 11) for the full session & memory architecture including tradeoff analysis.
 
 ### Step 11: Return to Frontend
 ```json
@@ -891,8 +965,8 @@ Tamil and Telugu don't have native Polly voices, so they fall back to the Hindi 
 **Functions:**
 - `get_farmer_profile(farmer_id)` — Fetches one farmer profile from the `farmer_profiles` table
 - `put_farmer_profile(farmer_id, profile_data)` — Creates/updates a farmer profile
-- `save_chat_message(session_id, role, message, language)` — Saves one chat message to the `chat_sessions` table (used for conversation history)
-- `get_chat_history(session_id, limit=10)` — Retrieves recent messages for a session
+- `save_chat_message(session_id, role, message, language, farmer_id, message_en)` — Saves one chat message to the `chat_sessions` table. When `language != 'en'`, also stores `message_en` (English translation) for pipeline context.
+- `get_chat_history(session_id, limit=40)` — Retrieves the most recent `limit` messages for a session (sorted oldest→newest). Default limit of 40 = last 20 conversation exchanges.
 
 **Tables:**
 - `farmer_profiles` — Primary key: `farmer_id`

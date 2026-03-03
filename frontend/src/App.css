@@ -619,11 +619,43 @@ body {
     opacity: 0;
     transition: opacity 0.2s, background 0.2s;
 }
-.chat-history-item:hover .chat-history-delete {
+.chat-history-rename {
+    background: none;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+.chat-history-actions {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    flex-shrink: 0;
+}
+.chat-history-item:hover .chat-history-delete,
+.chat-history-item:hover .chat-history-rename {
     opacity: 1;
 }
 .chat-history-delete:hover {
     background: rgba(220,38,38,0.1);
+}
+.chat-history-rename:hover {
+    background: rgba(59,130,246,0.1);
+}
+.chat-history-rename-input {
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1.5px solid var(--primary, #16a34a);
+    border-radius: 6px;
+    outline: none;
+    background: var(--bg, #fff);
+    color: var(--text);
+    font-family: inherit;
 }
 @media (max-width: 768px) {
     .chat-history-panel {
@@ -949,6 +981,57 @@ body {
 .send-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* ── Session-full banner (message limit reached) ── */
+.session-full-banner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 20px;
+    margin: 16px auto;
+    max-width: 420px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+    border-radius: 16px;
+    text-align: center;
+    animation: fadeSlideUp 0.4s ease-out;
+}
+.session-full-icon {
+    font-size: 32px;
+}
+.session-full-text {
+    margin: 0;
+    font-size: 14px;
+    color: #78350f;
+    line-height: 1.5;
+}
+.session-full-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 24px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.25);
+    transition: all var(--transition);
+}
+.session-full-btn:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-darker) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+}
+.input-bar-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    filter: grayscale(40%);
+}
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Voice input group */

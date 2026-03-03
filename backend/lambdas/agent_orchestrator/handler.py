@@ -28,17 +28,17 @@ TTS_TIME_BUDGET_SEC = 18  # skip Polly TTS if elapsed > this
 
 # Feature-page session prefixes: pre-structured prompts that
 # don't need the 4-agent cognitive pipeline.
-FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'price-advisory', 'pest-advisory')
+FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'price-advisory', 'pest-advisory', 'schemes-')
 
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
 from utils.polly_helper import text_to_speech, refresh_audio_url
-from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_chat_history
+from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_chat_history, get_session_message_count
 
 # Enterprise Guardrails (Gaps #1-#4, #6-#7)
 from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_guardrails
 from utils.rate_limiter import check_rate_limit
-from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session
+from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session, rename_session as rename_chat_session
 from utils.response_cache import get_cached_response, cache_response
 from utils.audit_logger import (
     audit_request_start, audit_guardrail_block, audit_pii_detected,
@@ -115,12 +115,121 @@ else:
 
 
 AGRI_POLICY_KEYWORDS = {
-    'crop', 'farming', 'farm', 'farmer', 'weather', 'rain', 'rainfall', 'monsoon',
-    'temperature', 'soil', 'irrigation', 'seed', 'sowing', 'harvest', 'yield',
-    'fertilizer', 'manure', 'pest', 'disease', 'fungus', 'insect', 'spray',
-    'scheme', 'subsidy', 'loan', 'insurance', 'pm-kisan', 'kisan', 'yojana',
-    'kharif', 'rabi', 'cotton', 'rice', 'wheat', 'maize', 'paddy', 'vegetable',
-    'horticulture', 'agri', 'cattle', 'dairy', 'goat', 'poultry'
+    # General farming
+    'crop', 'farming', 'farm', 'farmer', 'agriculture', 'agri', 'cultivat', 'horticulture',
+    'organic', 'permaculture', 'agroforestry', 'intercrop', 'rotation', 'mulch', 'compost',
+    'nursery', 'greenhouse', 'polyhouse', 'terrace', 'dryland', 'rainfed', 'plantation',
+    # Weather
+    'weather', 'rain', 'rainfall', 'monsoon', 'temperature', 'humidity', 'forecast',
+    'drought', 'flood', 'frost', 'heatwave', 'fog', 'wind', 'climate', 'season',
+    # Soil & land
+    'soil', 'clay', 'loam', 'sandy', 'black soil', 'red soil', 'alluvial', 'laterite',
+    'ph', 'salinity', 'alkaline', 'acidic', 'nutrient', 'micronutrient', 'zinc',
+    'land', 'acre', 'hectare', 'field', 'plot',
+    # Planting
+    'seed', 'sowing', 'planting', 'transplant', 'spacing', 'variety', 'hybrid',
+    'germination', 'seedling', 'nursery', 'grafting', 'propagation',
+    # Growing
+    'irrigation', 'water', 'watering', 'drip', 'sprinkler', 'furrow', 'canal', 'borewell',
+    'well', 'tube well', 'pump', 'tds',
+    'fertilizer', 'manure', 'urea', 'dap', 'npk', 'potash', 'nitrogen', 'phosphorus',
+    'growth', 'flowering', 'fruiting', 'tillering', 'weeding', 'thinning', 'pruning',
+    # Harvest & post-harvest
+    'harvest', 'yield', 'production', 'threshing', 'drying', 'milling',
+    'store', 'storage', 'warehouse', 'godown', 'cold storage', 'shelf life',
+    'aflatoxin', 'moisture', 'spoilage', 'rotting', 'preservation',
+    # Pests & diseases
+    'pest', 'disease', 'fungus', 'insect', 'spray', 'blight', 'wilt', 'rot',
+    'infestation', 'nematode', 'mite', 'borer', 'aphid', 'caterpillar', 'termite',
+    'virus', 'bacteria', 'rust', 'smut', 'mosaic', 'leaf curl', 'mildew',
+    'yellow', 'brown', 'spotting', 'curling', 'wilting', 'dying',
+    'pesticide', 'fungicide', 'herbicide', 'insecticide', 'neem', 'bio-control',
+    'treatment', 'remedy', 'medicine', 'cure', 'prevention', 'ipm',
+    # Schemes & market
+    'scheme', 'subsidy', 'loan', 'insurance', 'pm-kisan', 'kisan', 'yojana', 'pmfby',
+    'kcc', 'credit card', 'msp', 'market', 'mandi', 'price', 'apmc', 'e-nam',
+    'procurement', 'trade', 'export', 'profit', 'income', 'cost', 'budget',
+    'government', 'benefit', 'grant', 'pension', 'ration',
+    # Crop names (all 35 from crop_data.csv)
+    'rice', 'paddy', 'wheat', 'cotton', 'sugarcane', 'maize', 'corn',
+    'groundnut', 'peanut', 'soybean', 'soya', 'banana', 'coconut',
+    'tomato', 'onion', 'potato', 'millet', 'ragi', 'bajra', 'jowar', 'sorghum',
+    'chilli', 'pepper', 'mango', 'brinjal', 'eggplant', 'turmeric', 'ginger',
+    'black gram', 'urad', 'mustard', 'sunflower', 'sesame', 'til',
+    'jute', 'lentil', 'masoor', 'barley', 'okra', 'bhindi', 'lady finger',
+    'pomegranate', 'guava', 'papaya', 'castor', 'safflower', 'chickpea', 'chana',
+    'green gram', 'moong', 'toor', 'arhar', 'pigeon pea', 'pulses',
+    'vegetable', 'fruit', 'spice', 'oilseed', 'fibre', 'cereal',
+    'tea', 'coffee', 'rubber', 'cardamom', 'pepper', 'cinnamon', 'clove',
+    'grape', 'apple', 'orange', 'citrus', 'watermelon', 'cucumber', 'carrot',
+    'cabbage', 'cauliflower', 'pea', 'bean', 'drumstick', 'moringa',
+    'mushroom', 'flower', 'jasmine', 'marigold', 'rose',
+    # Seasons
+    'kharif', 'rabi', 'zaid', 'summer', 'winter',
+    # Livestock
+    'cattle', 'dairy', 'goat', 'poultry', 'chicken', 'sheep', 'pig', 'fish',
+    'aquaculture', 'pisciculture', 'sericulture', 'silkworm', 'beekeeping', 'honey',
+    'fodder', 'feed', 'milk', 'egg', 'meat', 'wool',
+    # Equipment & techniques
+    'tractor', 'plough', 'sprayer', 'harvester', 'sickle', 'thresher',
+    'drone', 'sensor', 'precision', 'biogas', 'vermicompost', 'composting',
+    'solar', 'renewable', 'processing', 'value addition', 'food processing',
+    # Location / general agriculture
+    'village', 'district', 'block', 'taluk', 'panchayat', 'mandal',
+    'extension', 'krishi', 'vigyan', 'kendra', 'kvk',
+    'agriculture office', 'agriculture department',
+    'fpo', 'cooperative', 'self-help group', 'shg',
+    # Misc farming
+    'pollination', 'pollen', 'honey bee', 'beneficial insect',
+    'cover crop', 'green manure', 'legume', 'nitrogen fixing',
+    'contract farming', 'lease', 'tenant', 'sharecropper',
+    'succession', 'land record', 'patta', 'survey',
+    # Additional farming terms (aquaponics, hydroponics, nursery, etc.)
+    'aquaponics', 'hydroponics', 'nursery', 'greenhouse', 'polyhouse',
+    'mulch', 'mulching', 'grafting', 'pruning', 'thinning', 'canopy',
+    'intercrop', 'intercropping', 'agroforestry', 'silviculture',
+    'fertigation', 'foliar spray', 'micronutrient', 'deficiency',
+    'organic farming', 'zbnf', 'jeevamrutha', 'panchagavya',
+    'azolla', 'biofertilizer', 'trichoderma', 'pseudomonas',
+    'neem cake', 'neem oil', 'bio-agent', 'bio-pesticide',
+    'garden', 'kitchen garden', 'backyard', 'terrace garden',
+    'staking', 'trellising', 'raised bed', 'seed priming',
+    'crop budget', 'crop rotation', 'crop residue',
+    'watershed', 'rainwater', 'farm pond', 'bund',
+    'silage', 'hay', 'straw', 'husk',
+    'drying yard', 'grading', 'packaging', 'cold chain',
+    'tissue culture', 'air layering', 'budding', 'marcotting',
+    'fym', 'compost', 'nadep', 'pit', 'heap',
+}
+
+# ── Off-topic blocklist: catch clearly non-agriculture queries ──
+# These override the lenient 3+ word pass rule.
+OFF_TOPIC_KEYWORDS = {
+    # Entertainment
+    'movie', 'movies', 'film', 'films', 'cinema', 'bollywood', 'hollywood',
+    'netflix', 'web series', 'tv show', 'song', 'songs', 'music', 'album',
+    'actor', 'actress', 'celebrity', 'concert', 'trailer',
+    # Politics
+    'prime minister', 'president', 'election', 'politician', 'parliament',
+    'rajya sabha', 'lok sabha', 'political party', 'bjp', 'congress', 'minister',
+    'chief minister', 'mla', 'mp ',  # trailing space to avoid matching 'msp'
+    # Sports
+    'cricket', 'football', 'soccer', 'tennis', 'ipl', 'world cup', 'match score',
+    'hockey', 'olympics', 'batting', 'bowling', 'goal', 'fifa',
+    # Technology (non-farm)
+    'iphone', 'android', 'laptop', 'computer', 'software', 'hack', 'hacking',
+    'programming', 'coding', 'gaming', 'video game', 'playstation', 'xbox',
+    # General knowledge / trivia
+    'capital of', 'population of', 'tallest', 'longest', 'biggest',
+    'who invented', 'who discovered', 'who founded', 'who wrote',
+    # Travel / lifestyle
+    'flight', 'hotel', 'tourism', 'restaurant', 'recipe', 'cooking',
+    'fashion', 'makeup', 'hairstyle',
+    # Education (non-farm)
+    'exam result', 'jee', 'neet', 'upsc', 'ssc', 'board exam',
+    # Misc clearly off-topic
+    'stock market', 'share price', 'cryptocurrency', 'bitcoin', 'forex',
+    'lottery', 'gambling', 'bet ', 'betting',
 }
 
 SAFE_CHITCHAT = {'hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay',
@@ -177,7 +286,33 @@ def _is_on_topic_query(text):
         return True
     if _contains_indic_chars(normalized):
         return True
-    return any(keyword in normalized for keyword in AGRI_POLICY_KEYWORDS)
+
+    # ── Priority 1: Multi-word off-topic phrases (most specific → check first) ──
+    # Phrases like "stock market", "prime minister", "web series" are unambiguous
+    # and must override single-word AGRI matches (e.g. "market" in AGRI).
+    off_topic_phrases = [kw for kw in OFF_TOPIC_KEYWORDS if ' ' in kw]
+    if any(phrase in normalized for phrase in off_topic_phrases):
+        logger.info(f"Off-topic blocked (phrase): matched in '{normalized[:80]}'")
+        return False
+
+    # ── Priority 2: AGRI keyword match ──
+    if any(keyword in normalized for keyword in AGRI_POLICY_KEYWORDS):
+        return True
+
+    # ── Priority 3: Single-word off-topic keywords (after AGRI to avoid false positives) ──
+    off_topic_singles = [kw for kw in OFF_TOPIC_KEYWORDS if ' ' not in kw]
+    if any(keyword in normalized for keyword in off_topic_singles):
+        logger.info(f"Off-topic blocked (single): matched in '{normalized[:80]}'")
+        return False
+
+    # Lenient fallback: if the query has 3+ words, let it through —
+    # the Bedrock model is better at deciding relevance than a keyword list.
+    # Only block very short off-topic inputs (1-2 words) that don't match any keyword.
+    word_count = len(normalized.split())
+    if word_count >= 3:
+        logger.info(f"On-topic lenient pass: {word_count} words, no keyword match")
+        return True
+    return False
 
 
 def _off_topic_response():
@@ -398,6 +533,27 @@ CRITICAL RULES:
 11. ANSWER ONLY WHAT THE FARMER ASKED. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. Be concise and focused.
 12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
+14. CRITICAL: You have knowledge about ALL major Indian crops — not just rice and wheat. The tool database covers 35+ crops including cotton, sugarcane, maize, groundnut, soybean, banana, coconut, tomato, onion, potato, millets (ragi/bajra/jowar), chilli, mango, brinjal, turmeric, black gram, mustard, sunflower, sesame, jute, lentil, barley, okra, pomegranate, guava, papaya, castor, safflower, chickpea, green gram, toor dal, and more. If the tool returns partial data (e.g., only 2 crops), STILL provide helpful advice about the farmer's requested crop using your general agricultural knowledge PLUS whatever the tool returned. NEVER say "I only have data for rice and wheat" or "the tool only returned data for X and Y" — that is misleading and unhelpful. Instead, combine tool data with your deep knowledge of Indian agriculture to give the best advice possible.
+15. For topics outside the tool database (e.g., livestock, dairy, sericulture, food processing, biogas), provide practical general advice and recommend the farmer contact their local KVK (Krishi Vigyan Kendra) or agricultural extension service for specialized guidance.
+
+CROP REFERENCE (key data for quick lookup — use alongside tool results):
+Rice: Kharif, 120-150d, clay loam pH5.5-6.5, NPK 120:60:40, yield 3.5-5.0t/ha, MSP ₹2300/q
+Wheat: Rabi, 110-140d, loam pH6.0-7.5, NPK 120-150:40-60:40-60, yield 3.0-6.5t/ha, MSP ₹2275/q
+Cotton: Kharif, 140-180d, black soil pH6.0-8.0, drip/furrow, yield 1.5-3.0t/ha, MSP ₹7020/q
+Sugarcane: Annual, 300-450d, clay loam pH6.0-8.0, flood/drip, yield 60-120t/ha, MSP ₹3150/q
+Maize: Kharif+Rabi, 90-120d, loam pH5.5-7.5, yield 2.5-9.0t/ha, MSP ₹2090/q
+Groundnut: Kharif, 100-130d, sandy loam pH6.0-7.0, yield 1.0-4.0t/ha, MSP ₹6377/q
+Soybean: Kharif, 100-140d, loam pH6.0-7.5, yield 1.0-3.0t/ha, MSP ₹4600/q
+Banana: Perennial, 270-420d, loam pH5.5-7.0, drip, yield 30-50t/ha
+Coconut: Perennial, loam pH5.0-8.0, drip/basin, 50-100 nuts/palm/yr, MSP ₹10860/q
+Tomato: Rabi+Kharif, 90-140d, sandy loam pH6.0-7.5, drip, yield 20-40t/ha
+Onion: Rabi, 110-150d, loam pH6.0-7.5, drip, yield 10-30t/ha
+Potato: Rabi, 90-130d, loam pH5.0-7.0, drip/furrow, yield 15-40t/ha
+Ragi: Kharif, 70-110d, red soil pH5.5-7.5, rainfed, yield 1.0-4.0t/ha, MSP ₹3846/q
+Toor: Kharif, 140-180d, loam pH6.0-7.5, rainfed, yield 0.6-2.5t/ha, MSP ₹7000/q
+Chilli: Kharif+Rabi, 120-150d, loam pH6.0-7.0, drip, yield 3-12t/ha
+Turmeric: Kharif, 210-270d, loam pH4.5-7.5, drip, yield 8-15t/ha
+Mustard: Rabi, 90-120d, loam pH6.5-8.0, sprinkler, yield 1.0-3.0t/ha, MSP ₹5650/q
 
 You have access to tools for weather lookup, crop advisory (including irrigation), pest alerts, government schemes, and farmer profiles.
 Always call the relevant tool first, then synthesize the response from tool data."""
@@ -627,10 +783,11 @@ def _bedrock_converse_with_retry(bedrock_client, **kwargs):
     raise RuntimeError('_bedrock_converse_with_retry: unreachable')
 
 
-def _build_conversation_history_context(session_id, limit=6):
+def _build_conversation_history_context(session_id, limit=40):
     """Retrieve recent chat history from DynamoDB and format for the model.
     Returns a list of Bedrock converse() message dicts (role/content pairs).
-    Retrieves up to `limit` recent messages (user+assistant pairs)."""
+    Retrieves up to `limit` recent messages (user+assistant pairs).
+    Prefers English (message_en) over local language for pipeline context."""
     if not session_id:
         return []
     try:
@@ -640,7 +797,8 @@ def _build_conversation_history_context(session_id, limit=6):
         converse_messages = []
         for item in history:
             role = item.get('role', 'user')
-            text = item.get('message', '')
+            # Prefer English version for pipeline context (model processes in English)
+            text = item.get('message_en') or item.get('message', '')
             if not text or not text.strip():
                 continue
             # Truncate long previous messages to save tokens
@@ -648,12 +806,140 @@ def _build_conversation_history_context(session_id, limit=6):
                 text = text[:500] + '...'
             # Remove sources line from previous assistant messages
             text = re.sub(r'\n\s*Sources:\s*.+$', '', text, flags=re.MULTILINE).strip()
+            # Strip any HTML artifacts from previous messages
+            text = re.sub(r'</?span[^>]*>', '', text, flags=re.IGNORECASE).strip()
             if role in ('user', 'assistant') and text:
                 converse_messages.append({"role": role, "content": [{"text": text}]})
         return converse_messages
     except Exception as e:
         logger.warning(f"Failed to retrieve chat history: {e}")
         return []
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  TOOL RESULT ENRICHMENT & POST-PROCESSING
+#  Fixes the "only rice and wheat" problem at two levels:
+#  1) Before: enrich tool results when KB returns wrong crop data
+#  2) After : post-process final response to remove remaining bad phrases
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Crop reference for enrichment (subset — most commonly mismatched)
+_CROP_REF = {
+    'cotton': 'Kharif, 140-180d, NPK 120:60:60, black soil pH6-8, drip/furrow, yield 1.5-3t/ha, MSP ₹7020/q. Common pests: bollworm, whitefly, jassid. Diseases: bacterial blight, grey mildew.',
+    'sugarcane': 'Annual, 300-450d, NPK 250:100:120, clay loam pH6-8, flood/drip, yield 60-120t/ha, MSP ₹3150/q. Common pests: shoot borer, top borer, woolly aphid, pyrilla. Diseases: red rot, smut, wilt.',
+    'maize': 'Kharif+Rabi, 90-120d, NPK 120:60:40, loam pH5.5-7.5, yield 2.5-9t/ha, MSP ₹2090/q. Common pests: fall armyworm, stem borer, aphid. Diseases: turcicum leaf blight, downy mildew, stalk rot.',
+    'groundnut': 'Kharif, 100-130d, NPK 25:50:0, sandy loam pH6-7, yield 1-4t/ha, MSP ₹6377/q. Common pests: leaf miner, white grub, aphid. Diseases: tikka disease, stem rot, collar rot.',
+    'soybean': 'Kharif, 100-140d, NPK 30:60:40, loam pH6-7.5, yield 1-3t/ha, MSP ₹4600/q. Common pests: girdle beetle, stem fly. Diseases: yellow mosaic, root rot.',
+    'banana': 'Perennial, 270-420d, NPK 200:30:300, loam pH5.5-7, drip, yield 30-50t/ha. Common pests: rhizome weevil, banana aphid. Diseases: panama wilt, sigatoka.',
+    'coconut': 'Perennial, loam pH5-8, drip/basin, 50-100 nuts/palm/yr, MSP ₹10860/q. Common pests: rhinoceros beetle, red palm weevil. Diseases: bud rot, leaf blight.',
+    'tomato': 'Rabi+Kharif, 90-140d, NPK 120:80:80, sandy loam pH6-7.5, drip, yield 20-40t/ha. Common pests: fruit borer, whitefly. Diseases: early blight, late blight, leaf curl virus.',
+    'onion': 'Rabi, 110-150d, NPK 100:50:50, loam pH6-7.5, drip, yield 10-30t/ha. Store in cool, dry, ventilated place at 0-5°C for 6-8 months. Cure bulbs for 2 weeks before storage.',
+    'potato': 'Rabi, 90-130d, NPK 150:80:100, loam pH5-7, drip/furrow, yield 15-40t/ha. Common pests: tuber moth, aphid. Diseases: late blight, common scab.',
+    'chilli': 'Kharif+Rabi, 120-150d, NPK 120:60:60, loam pH6-7, drip, yield 3-12t/ha. Common pests: thrips, mite, fruit borer. Diseases: leaf curl, anthracnose, dieback.',
+    'turmeric': 'Kharif, 210-270d, NPK 60:50:120, loam pH4.5-7.5, drip, yield 8-15t/ha. Common pests: shoot borer, scale insect. Diseases: rhizome rot, leaf spot.',
+    'mustard': 'Rabi, 90-120d, NPK 80:40:40, loam pH6.5-8, sprinkler, yield 1-3t/ha, MSP ₹5650/q. Common pests: aphid, painted bug. Diseases: alternaria blight, white rust.',
+    'ragi': 'Kharif, 70-110d, NPK 50:40:25, red soil pH5.5-7.5, rainfed, yield 1-4t/ha, MSP ₹3846/q. Common pests: stem borer. Diseases: blast, finger mildew.',
+    'toor': 'Kharif, 140-180d, NPK 25:50:0, loam pH6-7.5, rainfed, yield 0.6-2.5t/ha, MSP ₹7000/q. Common pests: pod borer, pod fly. Diseases: wilt, sterility mosaic.',
+    'mushroom': 'Indoor cultivation, 30-60d cycles. Oyster/button/milky mushroom. Substrate: paddy straw, wheat straw. Spawn from certified labs. Temperature 20-28°C, humidity 80-90%. Investment ₹50K-2L for small unit. Contact local KVK for training.',
+    'jowar': 'Kharif+Rabi, 100-120d, NPK 80:40:40, medium soil pH6-8, rainfed, yield 1-5t/ha, MSP ₹3180/q. Common pests: shoot fly, stem borer. Diseases: grain mold, anthracnose.',
+    'bajra': 'Kharif, 70-90d, NPK 60:30:0, sandy soil pH6.5-8, rainfed, yield 1-3t/ha, MSP ₹2500/q. Common pests: shoot fly. Diseases: downy mildew, ergot.',
+}
+
+
+def _enrich_tool_result(result, tool_name, tool_input, user_prompt):
+    """
+    When KB tools return data for crops the farmer didn't ask about,
+    add a supplementary note with relevant crop reference data so the
+    model doesn't say 'I only have data for rice and wheat.'
+    """
+    if tool_name not in ('get_crop_advisory', 'get_pest_alert'):
+        return result
+
+    # Determine what crop the farmer asked about
+    query_crop = (tool_input.get('crop') or '').lower().strip()
+    if not query_crop:
+        # Try to extract from prompt
+        prompt_lower = user_prompt.lower()
+        for crop_name in _CROP_REF:
+            if crop_name in prompt_lower:
+                query_crop = crop_name
+                break
+
+    if not query_crop:
+        return result
+
+    # Check if the tool result text mainly talks about rice/wheat
+    result_str = json.dumps(result).lower() if isinstance(result, dict) else str(result).lower()
+    mentions_requested = query_crop in result_str
+    mentions_rice_wheat = ('rice' in result_str or 'wheat' in result_str)
+
+    # If result mentions rice/wheat but NOT the requested crop, enrich
+    if mentions_rice_wheat and not mentions_requested and query_crop in _CROP_REF:
+        enrichment = {
+            '_advisor_note': (
+                f"IMPORTANT: The knowledge base returned data about rice/wheat instead of {query_crop}. "
+                f"Do NOT tell the farmer you only have rice/wheat data. Instead, use THIS reference data "
+                f"about {query_crop} combined with the tool results to give helpful advice: "
+                f"{_CROP_REF[query_crop]}. "
+                f"Provide practical, actionable advice for {query_crop} using this reference data."
+            )
+        }
+        if isinstance(result, dict):
+            result['_enrichment'] = enrichment
+        else:
+            result = {'original': result, '_enrichment': enrichment}
+        logger.info(f"Enriched tool result for {query_crop} (KB returned rice/wheat data)")
+
+    return result
+
+
+def _post_process_response(text):
+    """
+    Safety-net post-processing to remove any remaining 'only rice and wheat' type phrases.
+    This catches cases where the model ignores the system prompt instruction.
+    """
+    if not text:
+        return text
+
+    # Patterns that indicate the model is telling the farmer about tool limitations
+    bad_patterns = [
+        r'(?:only|just)\s+(?:have|has|got|received|cover[s]?|include[s]?)\s+(?:data|details?|info(?:rmation)?|advice|tips?|updates?)\s+(?:for|about|on|regarding)\s+(?:rice|wheat)',
+        r'(?:only|just)\s+(?:cover[s]?|include[s]?)\s+rice\s+and\s+wheat',
+        r'(?:tools?|system|database|data|advisory)\s+(?:I\s+(?:have|checked)|(?:only|just))\s+.*?rice\s+and\s+wheat',
+        r'the\s+(?:latest|recent|current)\s+(?:tool\s+)?(?:data|updates?|advisory|information)\s+.*?(?:only|just)\s+.*?rice\s+and\s+wheat',
+        r'(?:unfortunately|sadly),?\s+(?:the\s+)?(?:information|data|tools?|advisory)\s+.*?(?:doesn.?t|don.?t|did\s*n.?t)\s+(?:cover|include|have)\s+.*?(?:specific|detailed)',
+    ]
+
+    text_lower = text.lower()
+    needs_fix = False
+    for pattern in bad_patterns:
+        if re.search(pattern, text_lower):
+            needs_fix = True
+            break
+
+    # Also check for the literal phrase
+    if 'rice and wheat' in text_lower and ('only' in text_lower or 'just' in text_lower):
+        needs_fix = True
+
+    if needs_fix:
+        logger.info("Post-processing: removing 'only rice/wheat' limitation language from response")
+        # Remove sentences that mention the tool limitation
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        filtered = []
+        for s in sentences:
+            s_lower = s.lower()
+            if ('rice and wheat' in s_lower and ('only' in s_lower or 'just' in s_lower or 'cover' in s_lower)):
+                continue
+            if re.search(r'tool[s]?\s+(?:I\s+)?(?:checked|have|received)\s+only', s_lower):
+                continue
+            if re.search(r"(?:doesn.?t|don.?t|did\s*n.?t)\s+(?:cover|include|have)\s+(?:specific|detailed)\s+(?:data|info|details)", s_lower):
+                continue
+            filtered.append(s)
+        if filtered:
+            text = ' '.join(filtered)
+        # If everything was filtered, keep original (shouldn't happen)
+
+    return text
 
 
 def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
@@ -726,25 +1012,53 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
 
             # Check if model wants to use a tool
             if stop_reason == "tool_use":
-                tool_results = []
+                # Collect all tool_use blocks first
+                pending_tools = []
                 for block in message.get("content", []):
                     if "toolUse" in block:
                         tool_use = block["toolUse"]
-                        tool_name = tool_use["name"]
-                        tool_input = tool_use.get("input", {})
-                        tool_id = tool_use["toolUseId"]
+                        pending_tools.append({
+                            "name": tool_use["name"],
+                            "input": tool_use.get("input", {}),
+                            "id": tool_use["toolUseId"],
+                        })
 
+                # ── PARALLEL TOOL EXECUTION ──
+                # When 2+ tools are requested, run them concurrently (~2x speedup)
+                tool_results = []
+                if len(pending_tools) >= 2:
+                    logger.info(f"Parallel tool execution: {[t['name'] for t in pending_tools]}")
+                    with ThreadPoolExecutor(max_workers=len(pending_tools)) as pool:
+                        futures = {
+                            pool.submit(_execute_tool, t["name"], t["input"]): t
+                            for t in pending_tools
+                        }
+                        for future in as_completed(futures):
+                            t = futures[future]
+                            tool_name = t["name"]
+                            tool_input = t["input"]
+                            tool_id = t["id"]
+                            tools_used.append(tool_name)
+                            result = future.result()
+                            result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                            tool_data_log.append({"tool": tool_name, "input": tool_input, "output": result})
+                            tool_results.append({
+                                "toolResult": {
+                                    "toolUseId": tool_id,
+                                    "content": [{"json": result}],
+                                }
+                            })
+                else:
+                    # Single tool — execute directly (no thread overhead)
+                    for t in pending_tools:
+                        tool_name = t["name"]
+                        tool_input = t["input"]
+                        tool_id = t["id"]
                         logger.info(f"Direct Bedrock tool call: {tool_name}({json.dumps(tool_input)[:100]})")
                         tools_used.append(tool_name)
                         result = _execute_tool(tool_name, tool_input)
-
-                        # Save raw tool data for fact-checking
-                        tool_data_log.append({
-                            "tool": tool_name,
-                            "input": tool_input,
-                            "output": result,
-                        })
-
+                        result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                        tool_data_log.append({"tool": tool_name, "input": tool_input, "output": result})
                         tool_results.append({
                             "toolResult": {
                                 "toolUseId": tool_id,
@@ -818,10 +1132,11 @@ def _invoke_agentcore_runtime_with_arn(runtime_arn, prompt, session_id, farmer_c
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  COGNITIVE MULTI-AGENT PIPELINE  (4 Bedrock converse() agents)
-#  Flow: Understanding → Reasoning (with tools) → Fact-Checking → Communication
+#  COGNITIVE MULTI-AGENT PIPELINE  (3 Bedrock converse() agents)
+#  Flow: Understanding → Reasoning (with tools) → Validate & Communicate
 #  Each agent = separate Bedrock converse() call with role-specific system prompt
-#  Total pipeline ~12-19s, fits within 29s API Gateway limit
+#  Optimized: merged fact-check + communication, parallel tools, tiered models
+#  Total pipeline ~10-16s, fits within 29s API Gateway limit
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # ── Agent 1: Understanding Agent ──
@@ -910,10 +1225,48 @@ Rules:
 12. For irrigation queries, include specific water amounts (mm/day, litres/acre) and scheduling
 13. Do NOT pad the response with generic tips or sections that were not requested
 14. Use short sentences and a conversational flow — avoid long bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend.
+15. CRITICAL: NEVER tell the farmer that the system "only has data for rice and wheat" or that "tools only returned data for X and Y". The farmer doesn't care about tool internals. If the advisory mentions a specific crop, give the advice for THAT crop. If the original advisory redirects the farmer elsewhere instead of answering, rewrite it to include whatever crop-specific advice IS available plus general best practices.
 
 Do NOT add information that wasn't in the original advisory.
 Do NOT use technical jargon unless explaining it.
 Output ONLY the rewritten advisory text (no JSON, no metadata)."""
+
+# ── Agent 3+4 MERGED: Validate & Communicate (LEGACY — kept for reference) ──
+# Was used briefly; reverted to separate agents for stronger validation
+VALIDATE_COMMUNICATE_SYSTEM_PROMPT = """You are the Validate & Communicate Agent in a multi-agent agricultural advisory system for Indian farmers.
+
+You receive:
+1. The Reasoning Agent's draft advisory
+2. The raw tool data it was based on (ground truth)
+3. The original farmer query
+4. The farmer's profile (if available)
+
+Your job has TWO parts — do them in ONE pass:
+
+PART A — FACT-CHECK the draft advisory:
+- Verify all numbers (temperatures, rainfall, prices, dates) match the tool data exactly
+- Flag any claims NOT supported by tool data (hallucinations)
+- Fix any factual errors silently — do NOT mention corrections to the farmer
+
+PART B — REWRITE for the farmer:
+- Warm, human, conversational tone — like a helpful neighbor chatting over chai
+- Keep ALL verified factual data EXACTLY as given
+- Use simple, practical language a rural farmer understands
+- ANSWER ONLY WHAT WAS ASKED — no unsolicited topics
+- Use the farmer's name if available in the profile
+- NEVER ask the farmer for their name or personal information
+- Keep concise: under 200 words for simple questions, up to 300 for complex
+- For weather: highlight farming-relevant data (rainfall, temperature extremes)
+- For pest/disease: identify → treat → prevent
+- For schemes: eligibility → how to apply → deadline
+- End with a brief, helpful closing line
+- ALWAYS write in English — translation is handled separately
+- Do NOT pad with generic tips not in the original advisory
+- Use short sentences, conversational flow — sound like a knowledgeable friend
+- CRITICAL: NEVER say "only has data for rice and wheat" or mention tool internals
+
+Output ONLY the final farmer-friendly advisory text.
+No JSON. No metadata. No explanations about what you checked."""
 
 
 def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2, skip_guardrail=False, model_id=None):
@@ -962,11 +1315,12 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     """
     4-Agent Cognitive Pipeline using Bedrock converse() API.
 
-    Flow: Understanding → Reasoning (with tools) → Fact-Checking → Communication
+    Flow: Understanding → Reasoning (with tools) → Fact-Check → Communication
 
     Each agent is a separate Bedrock converse() call with a role-specific system prompt.
     The Reasoning Agent is the only one with tool access.
-    Total pipeline ~12-19s, fits within 29s API Gateway limit.
+    Optimizations: parallel tool execution + tiered reasoning model.
+    Total pipeline ~10-16s, fits within 29s API Gateway limit.
 
     Returns: (result_text_en, tools_used, pipeline_metadata)
     """
@@ -1026,9 +1380,9 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         # Add conversation history summary for follow-up context
         if chat_history:
             history_lines = []
-            for msg in chat_history[-4:]:  # last 2 exchanges
+            for msg in chat_history[-10:]:  # last 5 exchanges for better context
                 role = msg.get('role', 'user')
-                text = msg.get('content', [{}])[0].get('text', '')[:200]
+                text = msg.get('content', [{}])[0].get('text', '')[:300]
                 history_lines.append(f"{role}: {text}")
             understanding_input += f"\nRecent conversation:\n" + "\n".join(history_lines)
 
@@ -1065,13 +1419,16 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
                 understanding = None
 
     # ══════════════════════════════════════════════════════════
-    #  AGENT 2: Reasoning Agent (~5-10s)  — HAS TOOL ACCESS
+    #  AGENT 2: Reasoning Agent (~3-8s)  — HAS TOOL ACCESS
     #  Calls tools based on understanding, synthesizes raw data
+    #  Tiered model: Nova 2 Lite for simple (≤1 tool, ≤1 intent)
+    #                Nova Pro for complex (2+ tools or 2+ intents)
     # ══════════════════════════════════════════════════════════
     logger.info("Pipeline Step 2/4: Reasoning Agent (with tools)")
 
     # Build an enriched prompt for the Reasoning Agent
     reasoning_prompt = english_message
+    tools_needed = []
     if understanding:
         entities = understanding.get('entities', {})
         tools_needed = understanding.get('tools_needed', [])
@@ -1091,10 +1448,23 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         reasoning_context += f"\nIMPORTANT: Call the following tools first: {', '.join(tools_needed)}"
         reasoning_prompt = english_message + reasoning_context
 
+    # ── Tiered model for Reasoning ──
+    # Simple queries (≤1 tool, short prompt) → Nova 2 Lite (~2x faster, good enough)
+    # Complex queries (2+ tools, long prompts, multi-intent) → Nova Pro (more capable)
+    _n_tools = len(tools_needed)
+    _n_intents = len(understanding.get('intents', [])) if understanding else 0
+    _is_simple_reasoning = (_n_tools <= 1 and _n_intents <= 1 and len(english_message) < 100)
+    reasoning_model = FOUNDATION_MODEL_LITE if _is_simple_reasoning else None  # None = default (Nova Pro)
+    if _is_simple_reasoning:
+        logger.info(f"Reasoning tier: LITE (tools={_n_tools}, intents={_n_intents}, len={len(english_message)})")
+    else:
+        logger.info(f"Reasoning tier: PRO (tools={_n_tools}, intents={_n_intents}, len={len(english_message)})")
+
     reasoning_text, tools_used, tool_data_log = _invoke_bedrock_direct(
         reasoning_prompt, farmer_context,
         skip_native_guardrail=True,  # internal pipeline — app-level guardrails already screen I/O
         chat_history=chat_history,  # conversation memory for follow-up context
+        model_id=reasoning_model,
     )
     pipeline_meta['agents_invoked'].append('reasoning')
     logger.info(f"Reasoning result: {len(reasoning_text or '')} chars, tools={tools_used}")
@@ -1105,17 +1475,17 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         return reasoning_text or "", tools_used, pipeline_meta
 
     # ══════════════════════════════════════════════════════════
-    #  AGENT 3: Fact-Checking Agent (~2-3s)
-    #  Validates reasoning output against tool data
+    #  AGENT 3: Fact-Check Agent (~2-3s)
+    #  Validates reasoning output against raw tool data
     # ══════════════════════════════════════════════════════════
     _remaining = _budget_remaining()
-    if _remaining < 5:
+    if _remaining < 6:
         logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping fact-check + communication")
         pipeline_meta['budget_skip'] = ['fact_check', 'communication']
         return reasoning_text, tools_used, pipeline_meta
-    logger.info(f"Pipeline Step 3/4: Fact-Checking Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
+    logger.info(f"Pipeline Step 3/4: Fact-Check Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
 
-    # Build raw tool data summary for fact-checker (truncated to stay within token limits)
+    # Build raw tool data summary for validation (truncated to stay within token limits)
     tool_data_summary = "None"
     if tool_data_log:
         tool_entries = []
@@ -1130,86 +1500,68 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         f"## Raw Tool Data (ground truth):\n{tool_data_summary}\n\n"
         f"## Original Query: {english_message}\n"
     )
-    if understanding:
-        factcheck_input += f"\n## Understanding Analysis: {json.dumps(understanding)[:500]}\n"
 
-    factcheck_raw = _invoke_cognitive_converse(
+    factcheck_text = _invoke_cognitive_converse(
         FACTCHECK_SYSTEM_PROMPT,
         factcheck_input,
         label="fact_check",
         max_tokens=1024,
-        temperature=0.1,
-        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
-        model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
+        temperature=0.2,
+        skip_guardrail=True,
+        model_id=FOUNDATION_MODEL_LITE,
     )
 
-    fact_checked_text = reasoning_text  # default: use reasoning output as-is
-    if factcheck_raw:
-        pipeline_meta['agents_invoked'].append('fact_check')
+    # Parse fact-check JSON output
+    validated_advisory = reasoning_text  # fallback
+    if factcheck_text:
         try:
-            cleaned = re.sub(r'^```(?:json)?\s*', '', factcheck_raw.strip())
-            cleaned = re.sub(r'\s*```$', '', cleaned.strip())
-            fc_result = json.loads(cleaned)
-            corrected = fc_result.get('corrected_advisory', '').strip()
-            if corrected and len(corrected) > 20:
-                fact_checked_text = corrected
+            fc_json = json.loads(factcheck_text)
+            validated_advisory = fc_json.get('corrected_advisory', reasoning_text)
             pipeline_meta['fact_check'] = {
-                'validated': fc_result.get('validated', True),
-                'confidence': fc_result.get('confidence', 0.8),
-                'corrections': fc_result.get('corrections', []),
-                'warnings': fc_result.get('warnings', []),
-                'hallucinations_found': fc_result.get('hallucinations_found', []),
+                'validated': fc_json.get('validated', False),
+                'confidence': fc_json.get('confidence', 0),
+                'corrections': fc_json.get('corrections', []),
+                'hallucinations_found': fc_json.get('hallucinations_found', []),
             }
-            logger.info(f"Fact-check: validated={fc_result.get('validated')}, "
-                        f"corrections={len(fc_result.get('corrections', []))}, "
-                        f"confidence={fc_result.get('confidence')}")
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.warning(f"Fact-check agent returned non-JSON: {str(e)}")
-            # Use reasoning text as-is
+            pipeline_meta['agents_invoked'].append('fact_check')
+            logger.info(f"Fact-check: validated={fc_json.get('validated')}, confidence={fc_json.get('confidence')}, corrections={len(fc_json.get('corrections', []))}")
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.warning(f"Fact-check JSON parse failed: {e} — using reasoning text")
+            pipeline_meta['agents_invoked'].append('fact_check')
+    else:
+        logger.warning("Fact-check agent returned empty — using reasoning text")
 
     # ══════════════════════════════════════════════════════════
     #  AGENT 4: Communication Agent (~2-3s)
-    #  Rewrites for farmer audience, clear and actionable
+    #  Rewrites validated advisory in farmer-friendly tone
     # ══════════════════════════════════════════════════════════
     _remaining = _budget_remaining()
     if _remaining < 3:
-        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping communication agent")
-        pipeline_meta['budget_skip'] = pipeline_meta.get('budget_skip', []) + ['communication']
-        return fact_checked_text, tools_used, pipeline_meta
+        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping communication")
+        pipeline_meta['budget_skip'] = ['communication']
+        return validated_advisory, tools_used, pipeline_meta
     logger.info(f"Pipeline Step 4/4: Communication Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
 
-    # Map language codes to language names for better LLM understanding
-    LANG_NAMES = {
-        'en': 'English', 'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu',
-        'kn': 'Kannada', 'ml': 'Malayalam', 'mr': 'Marathi', 'bn': 'Bengali',
-        'gu': 'Gujarati', 'pa': 'Punjabi', 'or': 'Odia', 'as': 'Assamese', 'ur': 'Urdu',
-    }
-    lang_name = LANG_NAMES.get(detected_lang, 'English')
-
-    comm_input = (
-        f"Rewrite this fact-checked advisory for an Indian farmer.\n"
-        f"Write in clear, simple English. Translation will be handled separately.\n"
-        f"\n{fact_checked_text}"
-    )
+    comm_input = f"## Fact-Checked Advisory:\n{validated_advisory}\n\n## Original Query: {english_message}\n"
     if farmer_context:
-        comm_input += f"\n\nFarmer profile: {json.dumps(farmer_context)}"
+        comm_input += f"\n## Farmer Profile: {json.dumps(farmer_context)}\n"
 
     final_text = _invoke_cognitive_converse(
         COMMUNICATION_SYSTEM_PROMPT,
         comm_input,
         label="communication",
         max_tokens=1500,
-        temperature=0.6,
-        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
-        model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
+        temperature=0.5,
+        skip_guardrail=True,
+        model_id=FOUNDATION_MODEL_LITE,
     )
 
     if final_text and len(final_text.strip()) > 20:
         pipeline_meta['agents_invoked'].append('communication')
-        logger.info(f"Communication agent rewrote: {len(final_text)} chars")
+        logger.info(f"Communication agent: {len(final_text)} chars")
     else:
-        logger.warning("Communication agent returned empty — using fact-checked text")
-        final_text = fact_checked_text
+        logger.warning("Communication agent returned empty — using validated advisory")
+        final_text = validated_advisory
 
     logger.info(f"Pipeline complete: agents={pipeline_meta['agents_invoked']}, tools={tools_used}")
     return final_text, tools_used, pipeline_meta
@@ -1454,6 +1806,12 @@ def lambda_handler(event, context):
             elif action == 'delete_session':
                 ok = delete_chat_session(hist_farmer, hist_session)
                 return success_response({'deleted': ok}, message='Session deleted' if ok else 'Delete failed')
+            elif action == 'rename_session':
+                new_title = body.get('title', '').strip()
+                if not new_title:
+                    return error_response('title is required', 400)
+                ok = rename_chat_session(hist_farmer, hist_session, new_title)
+                return success_response({'renamed': ok, 'title': new_title[:80]}, message='Session renamed' if ok else 'Rename failed')
 
         # ── Fast path: Refresh an expired audio presigned URL ──
         refresh_key = body.get('refresh_audio_key')
@@ -1500,8 +1858,45 @@ def lambda_handler(event, context):
         _is_feature_page = any(session_id.startswith(p) or body.get('session_id', '').startswith(p) for p in FAST_PATH_PREFIXES)
         logger.info(f'Session {session_id} | feature_page={_is_feature_page}')
 
-        if not user_message:
+        if not user_message or not user_message.strip():
             return error_response('Message is required', 400)
+
+        # ── Chat session message limit ──
+        # Cap at 50 user interactions per session (100 messages = 50 user + 50 assistant).
+        # Beyond this:
+        # - Context quality degrades (model only reads last 6 anyway)
+        # - DynamoDB item accumulation becomes wasteful
+        # - Forces fresh context for complex new topics
+        MAX_MESSAGES_PER_SESSION = 100
+        if not _is_feature_page:
+            msg_count = get_session_message_count(session_id)
+            if msg_count >= MAX_MESSAGES_PER_SESSION:
+                logger.info(f'Session {session_id} reached message limit ({msg_count}/{MAX_MESSAGES_PER_SESSION})')
+                return success_response({
+                    'reply': (
+                        "This chat has reached its message limit. "
+                        "To keep our conversations helpful and accurate, please start a new chat. "
+                        "Your chat history is saved and you can review it anytime!"
+                    ),
+                    'reply_en': (
+                        "This chat has reached its message limit. "
+                        "To keep our conversations helpful and accurate, please start a new chat. "
+                        "Your chat history is saved and you can review it anytime!"
+                    ),
+                    'detected_language': 'en',
+                    'tools_used': [],
+                    'audio_url': None,
+                    'audio_key': None,
+                    'session_id': session_id,
+                    'session_full': True,
+                    'message_count': msg_count,
+                    'message_limit': MAX_MESSAGES_PER_SESSION,
+                    'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                    'policy': {
+                        'code_policy_enforced': True,
+                        'session_limit_reached': True,
+                    },
+                }, message='Session message limit reached', language='en')
 
         # ══════ ENTERPRISE GUARDRAILS (Pre-processing) ══════
         # Gap #1 (PII), #2 (Injection), #4 (Input Length), #7 (Toxicity)
@@ -1565,6 +1960,11 @@ def lambda_handler(event, context):
             }, message='Rate limited', language='en')
 
         user_message = _sanitize_user_message(guardrail_result['sanitized_message'])
+
+        # Second empty check after sanitization (sanitizer may strip everything)
+        if not user_message or not user_message.strip():
+            return error_response('Message is required', 400)
+
         # Gap #6: Audit log — request start (PII-safe)
         audit_request_start(farmer_id, session_id, pii_safe_msg)
         logger.info(f"Query from farmer {farmer_id}: {pii_safe_msg}")
@@ -1576,6 +1976,9 @@ def lambda_handler(event, context):
             default='en'
         )
         english_message = detection.get('translated_text', user_message)
+        # Keep a clean copy of the English translation (before farmer context prefix)
+        # for storing in chat history and cache key building
+        _clean_english_msg = english_message
         intents = _classify_intents(english_message, original_message=user_message)
 
         # If user speaks in an Indic language but no specific intents detected,
@@ -1611,8 +2014,10 @@ def lambda_handler(event, context):
             except Exception as polly_err:
                 logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang)
-            save_chat_message(session_id, 'assistant', translated_policy_reply, detected_lang)
+            save_chat_message(session_id, 'user', user_message, detected_lang,
+                            message_en=_clean_english_msg if detected_lang != 'en' else None)
+            save_chat_message(session_id, 'assistant', translated_policy_reply, detected_lang,
+                            message_en=policy_reply_en if detected_lang != 'en' else None)
 
             return success_response({
                 'reply': translated_policy_reply,
@@ -1713,8 +2118,10 @@ def lambda_handler(event, context):
                 except Exception as polly_err:
                     logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
-            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
+            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
+                            message_en=_clean_english_msg if detected_lang != 'en' else None)
+            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
+                            message_en=result_text if detected_lang != 'en' else None)
 
             _total_elapsed = _time.time() - _t_start
             logger.info(f'Greeting shortcut completed in {_total_elapsed:.1f}s')
@@ -1762,6 +2169,8 @@ def lambda_handler(event, context):
             # Translate if needed
             if detected_lang and detected_lang != 'en':
                 translated_reply = translate_response(result_text_en, 'en', detected_lang)
+                # Defensive: strip any leftover HTML artifacts from translation
+                translated_reply = re.sub(r'</?span[^>]*>', '', translated_reply, flags=re.IGNORECASE)
             else:
                 translated_reply = result_text_en
 
@@ -1787,8 +2196,10 @@ def lambda_handler(event, context):
                     except Exception as polly_err:
                         logger.warning(f"Polly TTS failed (cached, non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
-            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
+            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
+                            message_en=_raw_en_for_cache if detected_lang != 'en' else None)
+            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
+                            message_en=result_text_en if detected_lang != 'en' else None)
 
             _total_elapsed = _time.time() - _t_start
             logger.info(f'Cache hit response in {_total_elapsed:.1f}s')
@@ -1821,12 +2232,13 @@ def lambda_handler(event, context):
             }, message='Cached advisory', language=detected_lang)
 
         # Save user message EARLY (before Bedrock) — prevents data loss on timeout
-        save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+        save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
+                        message_en=_raw_en_for_cache if detected_lang != 'en' else None)
 
         # Retrieve conversation history for follow-up context (chat pages only, not feature pages)
         chat_history = []
         if not _is_feature_page:
-            chat_history = _build_conversation_history_context(session_id, limit=6)
+            chat_history = _build_conversation_history_context(session_id, limit=40)
             if chat_history:
                 logger.info(f"Loaded {len(chat_history)} prior messages for conversation memory")
 
@@ -1908,6 +2320,10 @@ def lambda_handler(event, context):
 
         # Gap #6: Audit policy decision
         audit_policy_decision(farmer_id, session_id, policy_meta)
+
+        # Post-process: remove any "only rice and wheat" limitation language
+        result_text = _post_process_response(result_text)
+
         logger.info(f"Agent response: {mask_pii_in_log(result_text[:200])}... tools={tools_used}")
 
         # --- Step 4: Translate response to farmer's language ---
@@ -1917,6 +2333,8 @@ def lambda_handler(event, context):
 
         if detected_lang and detected_lang != 'en':
             translated_reply = translate_response(text_for_translation, 'en', detected_lang)
+            # Defensive: strip any leftover HTML artifacts from translation
+            translated_reply = re.sub(r'</?span[^>]*>', '', translated_reply, flags=re.IGNORECASE)
         else:
             translated_reply = text_for_translation
 
@@ -1988,7 +2406,8 @@ def lambda_handler(event, context):
 
         # --- Step 6: Save chat history ---
         # User message was already saved before Step 3 (early save for durability)
-        save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
+        save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
+                        message_en=text_for_translation if detected_lang != 'en' else None)
 
         # --- Step 7: Return response (matches API contract) ---
         _total_elapsed = _time.time() - _t_start

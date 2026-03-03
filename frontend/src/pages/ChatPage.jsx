@@ -99,6 +99,16 @@ async function dbDeleteSession(farmerId, sessionId) {
     } catch { /* fire-and-forget */ }
 }
 
+async function dbRenameSession(farmerId, sessionId, title) {
+    try {
+        await apiFetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'rename_session', farmer_id: farmerId, session_id: sessionId, title }),
+        });
+    } catch { /* fire-and-forget */ }
+}
+
 function ChatPage() {
     const { language, t } = useLanguage();
     const { farmerId, resolvedLocation, resolvedCoords } = useFarmer();
@@ -117,6 +127,9 @@ function ChatPage() {
     const [input, setInput] = useState('');
     const [liveTranscript, setLiveTranscript] = useState('');  // streaming partial text
     const [loading, setLoading] = useState(false);
+    const [sessionFull, setSessionFull] = useState(false);  // true when session hits message limit
+    const [renamingSessionId, setRenamingSessionId] = useState(null);  // session being renamed
+    const [renameValue, setRenameValue] = useState('');  // current rename input value
     const chatEndRef = useRef(null);
 
     // Track whether we're in the middle of a session switch to avoid cross-saving
@@ -206,6 +219,7 @@ function ChatPage() {
         localStorage.setItem(ACTIVE_SESSION_KEY, id);
         setMessages([]);
         setInput('');
+        setSessionFull(false);  // Reset session-full state for new chat
         // Allow persist again on next tick
         setTimeout(() => { switchingRef.current = false; }, 0);
     }, []);
@@ -220,6 +234,7 @@ function ChatPage() {
         const localMsgs = loadSessionMessages(sid);
         setMessages(localMsgs);
         setInput('');
+        setSessionFull(false);  // Will be re-detected on next send if still full
         setTimeout(() => { switchingRef.current = false; }, 0);
         // If local is empty, try DB
         if (localMsgs.length === 0 && farmerId && farmerId !== 'anonymous') {
@@ -246,6 +261,35 @@ function ChatPage() {
         }
         if (sid === activeSessionId) startNewChat();
     }, [activeSessionId, startNewChat, farmerId]);
+
+    const startRenaming = useCallback((sid, currentPreview, e) => {
+        e.stopPropagation();
+        setRenamingSessionId(sid);
+        setRenameValue(currentPreview || '');
+    }, []);
+
+    const confirmRename = useCallback((sid) => {
+        const trimmed = renameValue.trim().slice(0, 80);
+        if (!trimmed) {
+            setRenamingSessionId(null);
+            return;
+        }
+        setSessions(prev => {
+            const updated = prev.map(s => s.id === sid ? { ...s, preview: trimmed } : s);
+            saveSessions(updated);
+            return updated;
+        });
+        setRenamingSessionId(null);
+        // Sync to DB
+        if (farmerId && farmerId !== 'anonymous') {
+            dbRenameSession(farmerId, sid, trimmed);
+        }
+    }, [renameValue, farmerId]);
+
+    const cancelRename = useCallback(() => {
+        setRenamingSessionId(null);
+        setRenameValue('');
+    }, []);
 
     const clearHistory = useCallback(() => {
         setMessages([]);
@@ -333,6 +377,11 @@ function ChatPage() {
 
             let assistantMsg;
             if (data.status === 'success') {
+                // Check if session has hit its message limit
+                if (data.data?.session_full) {
+                    setSessionFull(true);
+                }
+
                 // Strip any leftover "Sources: ..." from AI reply
                 let reply = (data.data.reply || '').replace(/\n\s*Sources:\s*.+$/m, '').trim();
                 assistantMsg = {
@@ -439,18 +488,44 @@ function ChatPage() {
                             onClick={() => switchToSession(session.id)}
                         >
                             <div className="chat-history-item-content">
-                                <span className="chat-history-preview">{session.preview}</span>
+                                {renamingSessionId === session.id ? (
+                                    <input
+                                        className="chat-history-rename-input"
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') { e.preventDefault(); confirmRename(session.id); }
+                                            if (e.key === 'Escape') cancelRename();
+                                        }}
+                                        onBlur={() => confirmRename(session.id)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        autoFocus
+                                        maxLength={80}
+                                        placeholder={t('chatRenameChat') || 'Rename chat'}
+                                    />
+                                ) : (
+                                    <span className="chat-history-preview">{session.preview}</span>
+                                )}
                                 <span className="chat-history-meta">
                                     {formatSessionDate(session.lastTimestamp, t)} · {session.messageCount} {t('chatMsgs')}
                                 </span>
                             </div>
-                            <button
-                                className="chat-history-delete"
-                                onClick={(e) => deleteSession(session.id, e)}
-                                title={t('chatDeleteChat')}
-                            >
-                                🗑️
-                            </button>
+                            <div className="chat-history-actions">
+                                <button
+                                    className="chat-history-rename"
+                                    onClick={(e) => startRenaming(session.id, session.preview, e)}
+                                    title={t('chatRenameChat') || 'Rename chat'}
+                                >
+                                    ✏️
+                                </button>
+                                <button
+                                    className="chat-history-delete"
+                                    onClick={(e) => deleteSession(session.id, e)}
+                                    title={t('chatDeleteChat')}
+                                >
+                                    🗑️
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -494,11 +569,22 @@ function ChatPage() {
                         <span className="typing-dots">🤖 {t('chatThinking')}</span>
                     </div>
                 )}
+                {sessionFull && (
+                    <div className="session-full-banner">
+                        <div className="session-full-icon">💬</div>
+                        <p className="session-full-text">
+                            {t('sessionFullMessage') || 'This chat has reached its message limit. Start a new chat to continue your conversation.'}
+                        </p>
+                        <button className="session-full-btn" onClick={startNewChat}>
+                            ➕ {t('startNewChat') || 'Start New Chat'}
+                        </button>
+                    </div>
+                )}
                 <div ref={chatEndRef} />
             </div>
 
             {/* Input bar with voice */}
-            <div className="input-bar">
+            <div className={`input-bar ${sessionFull ? 'input-bar-disabled' : ''}`}>
                 <VoiceInput 
                     language={language} 
                     onTranscript={handleVoiceResult}
@@ -510,14 +596,14 @@ function ChatPage() {
                     value={liveTranscript || input}
                     onChange={(e) => { if (!liveTranscript) setInput(e.target.value); }}
                     onKeyDown={handleKeyDown}
-                    placeholder={liveTranscript ? '' : t('chatPlaceholder')}
-                    disabled={loading}
+                    placeholder={sessionFull ? (t('sessionFullPlaceholder') || 'Chat limit reached — start a new chat ↑') : (liveTranscript ? '' : t('chatPlaceholder'))}
+                    disabled={loading || sessionFull}
                     readOnly={!!liveTranscript}
                 />
                 <button 
                     className="send-btn" 
                     onClick={() => sendMessage(input)}
-                    disabled={loading || !input.trim()}
+                    disabled={loading || !input.trim() || sessionFull}
                 >
                     {t('send')}
                 </button>

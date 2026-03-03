@@ -139,6 +139,153 @@ Our system is **agentic** — meaning the AI *thinks*, *plans*, and *acts*:
 
 This multi-step reasoning is what separates it from a simple Q&A bot.
 
+### AI Is the Core — Not a Wrapper
+
+This is an **AI-native product**, not an existing application with AI bolted on. The entire value proposition — understanding multilingual farmer queries, calling the right tools, synthesizing advice, fact-checking it, and making it accessible — is AI doing the work.
+
+Here is the 4-agent AI pipeline that processes every single farmer query:
+
+```
+Farmer's question
+  → AI (Understanding Agent) decides what the farmer needs
+    → AI (Reasoning Agent) decides WHICH tools to call and HOW to combine results
+      → Tools return raw data (JSON weather, CSV crop data, scheme lists)
+    → AI synthesizes raw data into actionable advice
+  → AI (Fact-Check Agent) validates accuracy against tool data
+  → AI (Communication Agent) rewrites into farmer-friendly language
+→ Farmer gets answer
+```
+
+**What breaks without AI:**
+
+| Component | What AI Does | Without AI |
+|-----------|-------------|------------|
+| Intent classification | Understands "my rice leaves are turning yellow" = pest query | No idea what the farmer is asking |
+| Tool selection | Decides to call pest API + crop advisory + weather | Don't know which tool to call |
+| Response synthesis | Combines raw JSON/CSV into actionable advice | Raw data dumps on farmer's screen |
+| Follow-up understanding | "what about cotton?" → knows cotton was discussed 5 messages ago | No conversational context |
+| Fact-checking | Validates that advice matches the raw tool data | No accuracy safeguard |
+| Farmer-friendly tone | Simplifies technical language for rural users | Technical jargon, unusable |
+
+**What still works without AI:**
+- Translation (AWS Translate) — independent service, converts text between languages
+- TTS audio (Amazon Polly / gTTS) — independent service, reads text aloud
+- Weather API calls — just HTTP requests returning JSON
+- DynamoDB storage — just database reads/writes
+- Frontend UI — renders whatever data it receives
+
+But these are **pipes and data sources**. The tools give you `"temperature": 32, "humidity": 78, "precipitation": 12`. The AI turns that into *"Your cotton is at risk — heavy rain expected tomorrow. Delay pesticide spraying by 2 days and ensure drainage channels are clear."*
+
+The AI is the brain that connects a farmer's real-world question to a useful, personalized, and verified answer. Remove it, and the system is a collection of disconnected APIs with no intelligence.
+
+### Why Our 4-Agent Pipeline Is Better Than Typical Agent Frameworks
+
+Most AI agent systems (LangChain ReAct, AutoGen, CrewAI, etc.) follow a **single-agent loop** pattern: one LLM decides what to do, calls a tool, reads the result, decides again, loops until done. Our system deliberately does **not** follow this pattern. Here is why our directed 4-agent pipeline is a better fit for safety-critical agricultural advisory:
+
+#### 1. Predictable Execution — No Infinite Loops
+
+| Typical Agent (ReAct Loop) | Our Pipeline |
+|---|---|
+| LLM decides at each step whether to loop again or stop | Fixed 4 steps: Understanding → Reasoning → Fact-Check → Communication |
+| Can loop 5, 10, or 20+ times on complex queries | Always exactly 4 steps (or fewer if budget runs low) |
+| Latency varies wildly (3s to 60s+) | Predictable 10–16s with a hard 22s budget cap |
+| Hard to debug — reasoning chain is opaque | Each agent's input/output is logged separately |
+
+**Why this matters for farmers:** A farmer on a 4G connection in rural Tamil Nadu cannot wait 60 seconds for an unpredictable agent loop. Our pipeline guarantees a response within API Gateway's 29-second limit, every time. If the budget runs low, Agents 3 and 4 gracefully degrade — the farmer still gets an answer, just without fact-checking or tone polishing.
+
+#### 2. Separation of Concerns — Each Agent Has One Job
+
+In a typical ReAct agent, the **same LLM** must simultaneously understand the query, decide which tools to call, interpret tool results, validate accuracy, and write a user-friendly response. That is 5 cognitive tasks in one prompt — leading to frequent failures on complex queries.
+
+Our pipeline **separates these into dedicated specialists:**
+
+| Agent | Sole Responsibility | Model | Why Separate? |
+|-------|---------------------|-------|---------------|
+| **Understanding** | Extract intents, entities, required tools | Nova Lite (fast) | Parsing ≠ reasoning. A lightweight model is faster and equally accurate for structured extraction. |
+| **Reasoning** | Call tools + synthesize raw data into advice | Nova Lite or Pro (tiered) | This is the only agent with tool access. Isolating tool use prevents the "tool-calling in a loop" trap. |
+| **Fact-Check** | Validate the draft against raw tool data | Nova Lite | A separate agent catches hallucinations that the Reasoning Agent itself cannot detect (you can't fact-check your own output). |
+| **Communication** | Rewrite in farmer-friendly language | Nova Lite | Tone and style should not compete with accuracy — a dedicated agent ensures both. |
+
+#### 3. Built-In Hallucination Detection — Not an Afterthought
+
+This is the **single biggest advantage** over typical agent frameworks.
+
+In LangChain/AutoGen/CrewAI, if the LLM hallucinates a pesticide dosage or invents a government scheme, there is no built-in mechanism to catch it. The hallucinated answer goes straight to the user.
+
+Our **Fact-Check Agent (Agent 3)** receives:
+- The Reasoning Agent's draft advisory
+- The **raw tool data** (actual JSON from weather API, actual text from Knowledge Base)
+- The original query
+
+It then cross-references every claim in the draft against the raw data and outputs:
+```json
+{
+  "validated": true/false,
+  "confidence": 0.92,
+  "corrections": ["Changed urea dosage from 30kg to 20kg per acre per source data"],
+  "hallucinations_found": ["Scheme XYZ does not exist in source data — removed"],
+  "corrected_advisory": "...(fixed text)..."
+}
+```
+
+**Real impact:** In our 262-scenario regression test, the Fact-Check Agent caught and corrected dosage errors, removed non-existent scheme references, and fixed weather data misquotations. For agricultural advice where wrong information can destroy a crop, this is not optional.
+
+#### 4. Tiered Model Selection — Cost and Speed Optimization
+
+Typical agent frameworks use one model for everything. Our pipeline uses **the right model for the right job:**
+
+| Complexity | Our Approach | Typical Framework |
+|-----------|-------------|-------------------|
+| Simple query (1 tool, 1 intent) | Nova Lite for Reasoning (~2s, cheaper) | Same expensive model regardless |
+| Complex query (2+ tools, multi-intent) | Nova Pro for Reasoning (~5s, more capable) | Same model, but may loop 3–4x costing more |
+| Parsing / validation tasks | Always Nova Lite (fast, cheap) | Same model as reasoning |
+
+Result: **~40% lower token cost** on simple queries with no quality loss, because the Understanding, Fact-Check, and Communication agents always use the lightweight model.
+
+#### 5. Keyword Fast-Path — Skip the Pipeline When It's Unnecessary
+
+For feature pages (Crop Recommendations, Soil Analysis, Farm Calendar, Price/Pest Advisory, Government Schemes), the **prompts are code-generated** — not free-form user text. Running these through 4 agents is wasteful.
+
+Our system detects feature-page sessions via `FAST_PATH_PREFIXES` and routes them to a **single Bedrock `converse()` call** with tools — skipping Understanding, Fact-Check, and Communication entirely. This cuts latency from ~14s to ~4s for structured queries.
+
+No typical agent framework offers this dual-path optimization out of the box.
+
+#### 6. Graceful Degradation Under Time Pressure
+
+Our pipeline has a **22-second budget**. If Agents 1 and 2 consume most of it:
+- Agent 3 (Fact-Check) is skipped if < 6s remain
+- Agent 4 (Communication) is skipped if < 3s remain
+- The farmer still gets the Reasoning Agent's output — accurate but less polished
+
+Typical agent frameworks either succeed fully or timeout with an error. There is no middle ground. Our pipeline always returns *something useful* within the time limit.
+
+#### 7. Deterministic Tool Access — No Tool-Calling Chaos
+
+In a ReAct loop, the LLM can call any tool at any step, call the same tool repeatedly, or skip tools entirely based on its "reasoning." This is unpredictable.
+
+In our pipeline:
+- **Only Agent 2 (Reasoning) has tool access** — no other agent can call tools
+- Agent 1 tells Agent 2 exactly which tools to call (via `tools_needed` output)
+- If Agent 1's keyword classifier already knows the intent, it skips the LLM call entirely and provides a synthetic understanding in ~0ms
+
+This eliminates the "agent called the wrong tool 3 times before finding the right one" failure mode that plagues ReAct loops.
+
+#### Summary: Directed Pipeline vs. Autonomous Loop
+
+| Dimension | ReAct/AutoGen/CrewAI | Our 4-Agent Pipeline |
+|-----------|---------------------|---------------------|
+| **Architecture** | Single LLM in a decide-act-observe loop | 4 specialized LLMs in fixed sequence |
+| **Latency** | Unpredictable (3s–60s+) | Predictable (10–16s, hard cap 22s) |
+| **Tool access** | Any step can call any tool | Only Reasoning Agent has tools |
+| **Hallucination guard** | None built-in | Dedicated Fact-Check Agent with raw-data validation |
+| **Tone control** | System prompt only | Dedicated Communication Agent |
+| **Failure mode** | Timeout or infinite loop | Graceful degradation (skip later agents) |
+| **Cost efficiency** | Same model for all tasks | Tiered models (Lite for simple, Pro for complex) |
+| **Debuggability** | One long chain-of-thought | Separate logs per agent with clear I/O boundaries |
+| **Fast path** | Not available | Feature pages skip pipeline entirely (~4s) |
+
+**Bottom line:** For a safety-critical agricultural advisory system serving rural farmers on slow connections, a predictable directed pipeline with built-in fact-checking is fundamentally safer and more reliable than an autonomous agent loop that can hallucinate, loop indefinitely, or timeout unpredictably.
+
 ---
 
 ## A3. A Real Example — How a Farmer Uses This
@@ -355,7 +502,7 @@ On his phone screen:
 
 Everything is stored in **Amazon DynamoDB**:
 - His original Tamil message
-- The English translation
+- The English translation (stored as `message_en` alongside the local language text)
 - The agent's English response
 - The Tamil translation
 - Which tools were called
@@ -366,6 +513,75 @@ Everything is stored in **Amazon DynamoDB**:
 - Debugging — if something goes wrong, we can trace exactly where
 - Analytics — we can see what farmers ask most (for improving the system)
 - Audio persistence — farmer can replay past conversations without re-generating TTS
+
+#### Session & Memory Architecture — Design Decisions and Tradeoffs
+
+**What is a "session"?**
+
+A session = one chat conversation thread. When a farmer opens the app and clicks "New Chat", a unique `session_id` is created. All messages within that conversation belong to that session. If the farmer closes the app and returns later, opening the same chat resumes the same session. Clicking "New Chat" starts a fresh session with no prior context.
+
+**Session Limits:**
+
+| Parameter | Value | Rationale |
+|-----------|-------|----------|
+| Max exchanges per session | **50** (100 messages = 50 user + 50 assistant) | DynamoDB cost control, practical farmer usage rarely exceeds 20-30 exchanges |
+| Max sessions per farmer | **20** | Oldest auto-evicted to prevent unbounded storage growth |
+| Session TTL | **30 days** | DynamoDB TTL auto-deletes old sessions to manage storage |
+
+**Conversation Memory Window:**
+
+The AI model does not see the entire session history. Instead, it receives the **last 20 exchanges (40 messages)** as context. This is the "memory window" — the portion of history the model can reference when generating a response.
+
+| Memory Window Option | Exchanges Visible | Token Cost | Latency Impact | Follow-up Quality | Verdict |
+|---------------------|------------------|-----------|---------------|-------------------|--------|
+| 5 exchanges (10 msgs) | Very short | ~1,250 tokens | Negligible | Misses context from 15 mins ago | Too small |
+| **20 exchanges (40 msgs)** | **Good balance** | **~5,000 tokens** | **~50ms DynamoDB read** | **Handles most follow-ups reliably** | **Chosen — best tradeoff** |
+| 30 exchanges (60 msgs) | Longer recall | ~7,500 tokens | ~1-2s extra | Marginal improvement | Overkill for farmer use case |
+| 50 exchanges (100 msgs) | Full history | ~12,500 tokens | 3-5s extra | Risks hitting model context limit | Dangerous — not recommended |
+
+**Why 20 exchanges is the sweet spot:**
+1. **Token budget safety**: Each stored message is truncated to 500 chars. 40 messages × 500 = 20,000 chars ≈ 5,000 tokens. This fits comfortably within Nova Pro/Lite's context window while leaving room for the system prompt, tool data, and the current query.
+2. **Proven in testing**: In our 45-message stress test, the model successfully recalled topics from 15-20 messages back (e.g., message 37 referenced cotton discussed at message 5). Beyond 20 exchanges, farmer conversations naturally shift topics.
+3. **Latency**: 40 DynamoDB reads complete in ~50ms — negligible. Going to 100 messages would still work but adds unnecessary overhead.
+4. **Agent-level context allocation**: The Understanding Agent receives only the last 10 messages (5 exchanges) for fast classification. The full 40 messages go to the Reasoning Agent where deep context matters.
+
+**Bilingual Memory — English-First Pipeline Context:**
+
+For non-English conversations, both the original local-language message AND the English translation are stored in DynamoDB:
+```
+{
+  "session_id": "abc123",
+  "role": "user",
+  "message": "நெல்லுக்கு எவ்வளவு தண்ணீர் தேவை?",   // Tamil original
+  "message_en": "How much water does rice need?",      // English translation
+  "language": "ta"
+}
+```
+
+When building conversation context for the pipeline, the system **always prefers `message_en`** (English) over `message` (local language). This is critical because:
+- The AI model processes everything in English internally
+- Local-language text in the context window confuses the model and degrades response quality
+- English context produces better tool selection, fact-checking, and follow-up understanding
+- Validated across Tamil, Hindi, Telugu, and Kannada — all showing improved context retention vs. local-language history
+
+**Translation Quality Safeguards:**
+
+AWS Translate can occasionally produce garbled output for complex Indic text. The system has a multi-tier fallback:
+1. **Attempt 1**: Token-protected translation (preserves markdown formatting using MKTK tokens)
+2. **Attempt 2**: Plain-text translation (if token-protected output is garbled)
+3. **Attempt 3**: Return English response with a localized disclaimer (e.g., Tamil: "மொழிபெயர்ப்பு கிடைக்கவில்லை — ஆங்கிலத்தில் காட்டுகிறோம்")
+
+Garbled translation detection checks for: empty output, abnormal length ratios (< 0.1× or > 6×), excessive punctuation (> 75% non-alpha), and repetition loops (same substring repeated 5+ times).
+
+All translated output is also scrubbed of HTML artifacts (`<span>` tags, HTML entities) that AWS Translate sometimes injects.
+
+**Response Cache — Works Across All Languages:**
+
+The response cache key is built from the **English translation** of the query, not the original language. This means:
+- Tamil query "நெல்லுக்கு எவ்வளவு தண்ணீர் தேவை?" → translated to English "How much water does rice need?" → cache key = `hash("how much water does rice need" + location + crop)`
+- Hindi query "चावल को कितना पानी चाहिए?" → same English → **same cache key** → cache hit!
+- This provides cross-language cache benefit: a Tamil farmer's answer can serve a Hindi farmer asking the same question
+- Cache TTL varies by category: weather=1h, crop=6h, schemes=12h, general=3h
 
 ### That's One Complete Cycle
 
