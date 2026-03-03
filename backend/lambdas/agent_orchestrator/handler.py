@@ -39,6 +39,7 @@ from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_cha
 from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_guardrails
 from utils.rate_limiter import check_rate_limit
 from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session
+from utils.response_cache import get_cached_response, cache_response
 from utils.audit_logger import (
     audit_request_start, audit_guardrail_block, audit_pii_detected,
     audit_tool_invocation, audit_policy_decision, audit_request_complete,
@@ -87,6 +88,7 @@ AGENT_ALIAS_ID = os.environ.get('BEDROCK_AGENT_ALIAS_ID', '')
 USE_AGENTCORE = bool(AGENTCORE_RUNTIME_ARN)
 
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
+FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', 'smart-rural-ai-WeatherFunction-dilSoHSLlXGN')
 LAMBDA_CROP = os.environ.get('LAMBDA_CROP', 'smart-rural-ai-CropAdvisoryFunction-Z8jAKbsH7mkY')
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', 'smart-rural-ai-GovtSchemesFunction-BgTy36y4fgGv')
@@ -611,13 +613,14 @@ def _build_conversation_history_context(session_id, limit=6):
         return []
 
 
-def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None):
+def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
     """
     Call Bedrock model directly with tool use (converse API).
     Fallback when AgentCore runtimes are cold-starting.
     skip_native_guardrail: True for feature-page fast paths (internal prompts
     are code-generated, already screened by application-level guardrails).
     chat_history: list of previous converse() message dicts for conversation memory.
+    model_id: optional override — use FOUNDATION_MODEL_LITE for simple queries.
     Returns: (result_text, tools_used, tool_data_log)
     """
     tools_used = []
@@ -657,7 +660,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
         # Multi-turn tool use loop (max 5 turns)
         for turn in range(5):
             converse_kwargs = {
-                "modelId": FOUNDATION_MODEL,
+                "modelId": model_id or FOUNDATION_MODEL,
                 "messages": messages,
                 "system": [{"text": system_prompt}],
                 "toolConfig": {"tools": DIRECT_TOOLS},
@@ -870,17 +873,18 @@ Do NOT use technical jargon unless explaining it.
 Output ONLY the rewritten advisory text (no JSON, no metadata)."""
 
 
-def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2, skip_guardrail=False):
+def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2, skip_guardrail=False, model_id=None):
     """
     Invoke a cognitive agent via Bedrock converse() API.
     No tools — just system prompt + user prompt → text response.
     skip_guardrail: True for internal pipeline agents whose meta-instructions
     (e.g. 'Output STRICT JSON') trigger the NonAgriculturalTopics deny filter.
     Application-level guardrails already screen input/output.
+    model_id: optional override — use FOUNDATION_MODEL_LITE for fast agents.
     """
     try:
         converse_kwargs = {
-            "modelId": FOUNDATION_MODEL,
+            "modelId": model_id or FOUNDATION_MODEL,
             "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
             "system": [{"text": system_prompt}],
             "inferenceConfig": {"maxTokens": max_tokens, "temperature": temperature},
@@ -938,52 +942,84 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
     }
 
     # ══════════════════════════════════════════════════════════
-    #  AGENT 1: Understanding Agent (~2-3s)
+    #  AGENT 1: Understanding Agent  (Nova 2 Lite — fast ~1-2s)
     #  Analyzes query → extracts intents, entities, tools needed
+    #  SKIP if keyword classifier already found clear intents (saves ~2s)
     # ══════════════════════════════════════════════════════════
-    logger.info("Pipeline Step 1/4: Understanding Agent")
-    understanding_input = f"Farmer query: {english_message}"
-    if farmer_context:
-        understanding_input += f"\nFarmer context: {json.dumps(farmer_context)}"
-    # Add conversation history summary for follow-up context
-    if chat_history:
-        history_lines = []
-        for msg in chat_history[-4:]:  # last 2 exchanges
-            role = msg.get('role', 'user')
-            text = msg.get('content', [{}])[0].get('text', '')[:200]
-            history_lines.append(f"{role}: {text}")
-        understanding_input += f"\nRecent conversation:\n" + "\n".join(history_lines)
 
-    understanding_raw = _invoke_cognitive_converse(
-        UNDERSTANDING_SYSTEM_PROMPT,
-        understanding_input,
-        label="understanding",
-        max_tokens=512,
-        temperature=0.1,
-        skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
-    )
+    # Fast-path: if keyword classifier found intents, build a synthetic
+    # understanding result and skip the LLM call entirely (~2s saved)
+    _keyword_intents = _classify_intents(english_message, original_message=user_message)
+    if _keyword_intents and len(_keyword_intents) <= 2:
+        logger.info(f"Understanding SKIP — keyword intents={_keyword_intents}")
+        # Build synthetic understanding from keywords + farmer_context
+        _fc = farmer_context or {}
+        _tool_map = {
+            'weather': 'get_weather', 'crop': 'get_crop_advisory',
+            'pest': 'get_pest_alert', 'irrigation': 'get_crop_advisory',
+            'schemes': 'search_schemes', 'profile': 'get_farmer_profile',
+        }
+        _tools_needed = list(dict.fromkeys(_tool_map.get(i, '') for i in _keyword_intents if i in _tool_map))
+        understanding = {
+            'intents': _keyword_intents,
+            'entities': {
+                'location': _fc.get('gps_location') or _fc.get('district') or _fc.get('state'),
+                'crop': (_fc.get('crops') or [None])[0] if isinstance(_fc.get('crops'), list) else _fc.get('crops'),
+                'season': None,
+                'state': _fc.get('state'),
+                'pest_symptom': None,
+            },
+            'tools_needed': _tools_needed,
+            'urgency': 'medium',
+            'summary': f"Keyword-classified: {', '.join(_keyword_intents)}",
+        }
+        pipeline_meta['understanding'] = understanding
+        pipeline_meta['agents_invoked'].append('understanding(keyword-skip)')
+    else:
+        logger.info("Pipeline Step 1/4: Understanding Agent (Nova 2 Lite)")
+        understanding_input = f"Farmer query: {english_message}"
+        if farmer_context:
+            understanding_input += f"\nFarmer context: {json.dumps(farmer_context)}"
+        # Add conversation history summary for follow-up context
+        if chat_history:
+            history_lines = []
+            for msg in chat_history[-4:]:  # last 2 exchanges
+                role = msg.get('role', 'user')
+                text = msg.get('content', [{}])[0].get('text', '')[:200]
+                history_lines.append(f"{role}: {text}")
+            understanding_input += f"\nRecent conversation:\n" + "\n".join(history_lines)
 
-    understanding = None
-    if understanding_raw:
-        pipeline_meta['agents_invoked'].append('understanding')
-        try:
-            # Strip markdown code fences if present
-            cleaned = re.sub(r'^```(?:json)?\s*', '', understanding_raw.strip())
-            cleaned = re.sub(r'\s*```$', '', cleaned.strip())
-            understanding = json.loads(cleaned)
-            pipeline_meta['understanding'] = {
-                'intents': understanding.get('intents', []),
-                'entities': understanding.get('entities', {}),
-                'tools_needed': understanding.get('tools_needed', []),
-                'urgency': understanding.get('urgency', 'medium'),
-                'summary': understanding.get('summary', ''),
-            }
-            logger.info(f"Understanding: intents={understanding.get('intents')}, "
-                        f"tools={understanding.get('tools_needed')}, "
-                        f"entities={json.dumps(understanding.get('entities', {}))[:150]}")
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.warning(f"Understanding agent returned non-JSON: {str(e)}")
-            understanding = None
+        understanding_raw = _invoke_cognitive_converse(
+            UNDERSTANDING_SYSTEM_PROMPT,
+            understanding_input,
+            label="understanding",
+            max_tokens=512,
+            temperature=0.1,
+            skip_guardrail=True,
+            model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
+        )
+
+        understanding = None
+        if understanding_raw:
+            pipeline_meta['agents_invoked'].append('understanding')
+            try:
+                # Strip markdown code fences if present
+                cleaned = re.sub(r'^```(?:json)?\s*', '', understanding_raw.strip())
+                cleaned = re.sub(r'\s*```$', '', cleaned.strip())
+                understanding = json.loads(cleaned)
+                pipeline_meta['understanding'] = {
+                    'intents': understanding.get('intents', []),
+                    'entities': understanding.get('entities', {}),
+                    'tools_needed': understanding.get('tools_needed', []),
+                    'urgency': understanding.get('urgency', 'medium'),
+                    'summary': understanding.get('summary', ''),
+                }
+                logger.info(f"Understanding: intents={understanding.get('intents')}, "
+                            f"tools={understanding.get('tools_needed')}, "
+                            f"entities={json.dumps(understanding.get('entities', {}))[:150]}")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"Understanding agent returned non-JSON: {str(e)}")
+                understanding = None
 
     # ══════════════════════════════════════════════════════════
     #  AGENT 2: Reasoning Agent (~5-10s)  — HAS TOOL ACCESS
@@ -1034,7 +1070,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping fact-check + communication")
         pipeline_meta['budget_skip'] = ['fact_check', 'communication']
         return reasoning_text, tools_used, pipeline_meta
-    logger.info(f"Pipeline Step 3/4: Fact-Checking Agent (budget {_remaining:.0f}s left)")
+    logger.info(f"Pipeline Step 3/4: Fact-Checking Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
 
     # Build raw tool data summary for fact-checker (truncated to stay within token limits)
     tool_data_summary = "None"
@@ -1061,6 +1097,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         max_tokens=1024,
         temperature=0.1,
         skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
+        model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
     )
 
     fact_checked_text = reasoning_text  # default: use reasoning output as-is
@@ -1096,7 +1133,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping communication agent")
         pipeline_meta['budget_skip'] = pipeline_meta.get('budget_skip', []) + ['communication']
         return fact_checked_text, tools_used, pipeline_meta
-    logger.info(f"Pipeline Step 4/4: Communication Agent (budget {_remaining:.0f}s left)")
+    logger.info(f"Pipeline Step 4/4: Communication Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
 
     # Map language codes to language names for better LLM understanding
     LANG_NAMES = {
@@ -1121,6 +1158,7 @@ def _run_cognitive_pipeline(user_message, english_message, session_id,
         max_tokens=1500,
         temperature=0.6,
         skip_guardrail=True,  # internal pipeline — meta-instructions trigger topic filter
+        model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
     )
 
     if final_text and len(final_text.strip()) > 20:
@@ -1662,6 +1700,83 @@ def lambda_handler(event, context):
         # --- Step 3: Invoke AI Agent ---
         pipeline_meta_extra = {}
 
+        # ══════ RESPONSE CACHE CHECK ══════
+        # If the same query (normalized) was answered recently, return cached result instantly.
+        # Cache key = hash(query + location + crop + season). TTL varies by category.
+        _fc = farmer_context or {}
+        _cache_location = _fc.get('gps_location') or _fc.get('district') or _fc.get('state') or ''
+        _cache_crop = (_fc.get('crops') or [''])[0] if isinstance(_fc.get('crops'), list) else str(_fc.get('crops', ''))
+        _raw_en_for_cache = detection.get('translated_text', user_message)
+
+        cached = get_cached_response(_raw_en_for_cache, _cache_location, _cache_crop, intents=intents)
+        if cached:
+            logger.info(f"CACHE HIT — returning cached response (key={cached.get('_cache_key')})")
+            # Use cached English reply
+            result_text_en = cached.get('reply_en', '')
+            cached_tools = cached.get('tools_used', [])
+            cached_sources = cached.get('sources')
+
+            # Translate if needed
+            if detected_lang and detected_lang != 'en':
+                translated_reply = translate_response(result_text_en, 'en', detected_lang)
+            else:
+                translated_reply = result_text_en
+
+            # TTS
+            audio_url = None
+            audio_key = None
+            audio_pending = False
+            polly_text_truncated = False
+            _lang = detected_lang or 'en'
+            if _lang not in ('en', 'hi'):
+                audio_pending = True
+            else:
+                _elapsed_cache = _time.time() - _t_start
+                if _elapsed_cache < TTS_TIME_BUDGET_SEC:
+                    try:
+                        polly_result = text_to_speech(translated_reply, _lang, return_metadata=True)
+                        if isinstance(polly_result, dict):
+                            audio_url = polly_result.get('audio_url')
+                            audio_key = polly_result.get('audio_key')
+                            polly_text_truncated = bool(polly_result.get('truncated', False))
+                        else:
+                            audio_url = polly_result
+                    except Exception as polly_err:
+                        logger.warning(f"Polly TTS failed (cached, non-fatal): {polly_err}")
+
+            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
+            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id)
+
+            _total_elapsed = _time.time() - _t_start
+            logger.info(f'Cache hit response in {_total_elapsed:.1f}s')
+            audit_request_complete(
+                farmer_id=farmer_id, session_id=session_id,
+                tools_used=cached_tools, pipeline_mode='cache_hit',
+                response_length=len(translated_reply), elapsed_seconds=_total_elapsed,
+                bedrock_guardrail_triggered=False,
+            )
+            return success_response({
+                'reply': translated_reply,
+                'reply_en': result_text_en,
+                'detected_language': detected_lang,
+                'tools_used': cached_tools,
+                'sources': cached_sources,
+                'audio_url': audio_url,
+                'audio_key': audio_key,
+                'audio_pending': audio_pending,
+                'polly_text_truncated': polly_text_truncated,
+                'session_id': session_id,
+                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'pipeline_mode': 'cache_hit',
+                'policy': {
+                    'code_policy_enforced': True,
+                    'off_topic_blocked': False,
+                    'grounding_required': False,
+                    'grounding_satisfied': True,
+                    'cache_hit': True,
+                },
+            }, message='Cached advisory', language=detected_lang)
+
         # Save user message EARLY (before Bedrock) — prevents data loss on timeout
         save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id)
 
@@ -1766,6 +1881,21 @@ def lambda_handler(event, context):
         # Do NOT append sources to translated_reply — frontend shows sources separately
         if sources_line:
             result_text = f"{text_for_translation}\n\nSources: {sources_line}"
+
+        # ══════ CACHE STORE (fire-and-forget) ══════
+        # Store the English response for future cache hits on similar queries.
+        try:
+            cache_response(
+                _raw_en_for_cache, _cache_location, _cache_crop, None,
+                {
+                    'reply_en': text_for_translation,
+                    'tools_used': tools_used,
+                    'sources': sources_line,
+                },
+                intents=intents,
+            )
+        except Exception as _cache_err:
+            logger.warning(f"Cache store failed (non-fatal): {_cache_err}")
 
         # --- Step 4b: Output guardrails (PII leakage, prompt leakage, length cap) ---
         output_guard = run_output_guardrails(translated_reply, context={

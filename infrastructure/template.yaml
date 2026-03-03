@@ -36,6 +36,7 @@ Globals:
         BEDROCK_GUARDRAIL_VERSION: !Ref BedrockGuardrailVersion
         ENABLE_RATE_LIMITING: 'true'
         DYNAMODB_RATE_LIMIT_TABLE: rate_limits
+        FOUNDATION_MODEL_LITE: 'global.amazon.nova-2-lite-v1:0'
 
 Parameters:
   BedrockAgentId:
