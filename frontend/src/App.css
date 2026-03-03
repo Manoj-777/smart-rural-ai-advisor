@@ -2509,21 +2509,21 @@ body {
     background: rgba(255,255,255,0.98);
     backdrop-filter: blur(20px);
     border-radius: 24px;
-    padding: 48px 40px;
+    padding: 32px 40px 40px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.5);
 }
 .login-lang {
     position: absolute;
-    top: 24px;
-    right: 24px;
+    top: 16px;
+    right: 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 6px;
+    font-size: 13px;
     z-index: 10;
     background: var(--primary-50);
-    padding: 8px 14px;
+    padding: 6px 12px;
     border-radius: 20px;
     border: 2px solid var(--primary-light);
 }
@@ -2545,18 +2545,19 @@ body {
     border-color: var(--primary);
 }
 .login-logo {
-    margin-bottom: 40px;
-    margin-top: 8px;
+    margin-bottom: 32px;
+    margin-top: 48px;
 }
 .login-logo-icon {
-    font-size: 72px;
+    font-size: 64px;
     display: block;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     animation: bounce 2s ease-in-out infinite;
+    line-height: 1;
 }
 @keyframes bounce {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    50% { transform: translateY(-8px); }
 }
 .login-logo h1 {
     font-size: 28px;
@@ -3025,14 +3026,28 @@ body {
         grid-template-columns: 1fr;
     }
     .login-container {
-        padding: 32px 24px;
+        padding: 24px 18px 32px;
+    }
+    .login-lang {
+        top: 12px;
+        right: 12px;
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    .login-logo {
+        margin-top: 40px;
+        margin-bottom: 24px;
     }
 }
+.login-form-register {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
 .login-form-register .login-form-group {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 .login-form-register h2 {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 .login-form-register .login-form-row {
     margin-bottom: 2px;
@@ -3587,6 +3602,21 @@ body {
     }
     .login-logo h1 {
         font-size: 20px;
+    }
+    .login-logo {
+        margin-top: 36px;
+        margin-bottom: 20px;
+    }
+    .login-lang {
+        top: 10px;
+        right: 10px;
+        padding: 4px 8px;
+        font-size: 11px;
+        gap: 4px;
+    }
+    .login-lang select {
+        padding: 3px 8px;
+        font-size: 11px;
     }
     .login-welcome-art {
         grid-template-columns: 1fr;

@@ -31,7 +31,7 @@ function LoginPage() {
     const [regState, setRegState] = useState('Tamil Nadu');
     const [regDistrict, setRegDistrict] = useState('');
     const [regCrops, setRegCrops] = useState([]);
-    const [regSoilType, setRegSoilType] = useState('Alluvial');
+    const [regSoilType, setRegSoilType] = useState('Alluvial Soil');
     const [regLandSize, setRegLandSize] = useState('');
     const [regLanguage, setRegLanguage] = useState(language);
     const [regEmail, setRegEmail] = useState('');
