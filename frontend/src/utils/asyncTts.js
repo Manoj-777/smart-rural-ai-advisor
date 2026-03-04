@@ -13,23 +13,33 @@ import { apiFetch } from './apiFetch';
  */
 export async function generateAsyncTts(text, language) {
     if (!text) return null;
-    try {
-        const res = await apiFetch(`/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                generate_tts: true,
-                tts_text: text,
-                tts_language: language || 'en'
-            })
-        });
-        const data = await res.json();
-        if (data.status === 'success' && data.data?.audio_url) {
-            return {
-                audioUrl: data.data.audio_url,
-                audioKey: data.data.audio_key
-            };
+    const maxAttempts = 3;
+    const retryDelayMs = 1200;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            const res = await apiFetch(`/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    generate_tts: true,
+                    tts_text: text,
+                    tts_language: language || 'en'
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'success' && data.data?.audio_url) {
+                return {
+                    audioUrl: data.data.audio_url,
+                    audioKey: data.data.audio_key
+                };
+            }
+        } catch { /* silent */ }
+
+        if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
         }
-    } catch { /* silent */ }
+    }
+
     return null;
 }

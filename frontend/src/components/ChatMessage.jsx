@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import config from '../config';
 import { formatAndSanitize } from '../utils/sanitize';
 import { apiFetch } from '../utils/apiFetch';
+import { generateAsyncTts as generateAsyncTtsRequest } from '../utils/asyncTts';
 
 function formatMessage(text) {
     return formatAndSanitize(text);
@@ -32,24 +33,16 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
         if (!message.audioPending || !message.content) return;
         ttsRequestedRef.current = true;
         setAudioLoading(true);
-        try {
-            const res = await apiFetch(`/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    generate_tts: true,
-                    tts_text: message.content,
-                    tts_language: message.detected_language || 'en'
-                })
-            });
-            const data = await res.json();
-            if (data.status === 'success' && data.data?.audio_url) {
-                setRefreshedUrl(data.data.audio_url);
-                if (onUpdateAudioUrl) {
-                    onUpdateAudioUrl(message.timestamp, data.data.audio_url, data.data.audio_key);
-                }
+        const ttsResult = await generateAsyncTtsRequest(
+            message.content,
+            message.detected_language || 'en'
+        );
+        if (ttsResult?.audioUrl) {
+            setRefreshedUrl(ttsResult.audioUrl);
+            if (onUpdateAudioUrl) {
+                onUpdateAudioUrl(message.timestamp, ttsResult.audioUrl, ttsResult.audioKey);
             }
-        } catch { /* silent */ }
+        }
         setAudioLoading(false);
     }, [message.audioPending, message.content, message.detected_language, message.timestamp, currentAudioUrl, onUpdateAudioUrl]);
 

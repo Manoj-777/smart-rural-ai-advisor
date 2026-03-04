@@ -389,7 +389,7 @@ function ChatPage() {
                     content: reply,
                     audioUrl: data.data.audio_url,
                     audioKey: data.data.audio_key,
-                    audioPending: data.data.audio_pending || false,
+                    audioPending: Boolean(data.data.audio_pending || (!data.data.audio_url && reply)),
                     detected_language: data.data.detected_language,
                     timestamp: Date.now()
                 };

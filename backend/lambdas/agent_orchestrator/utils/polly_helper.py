@@ -8,13 +8,12 @@ import os
 import uuid
 import io
 import re
+import time
 
 polly = boto3.client('polly')
 s3 = boto3.client('s3')
 
 S3_BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-knowledge-base')
-POLLY_FORCE_HINDI_FALLBACK = os.environ.get('POLLY_FORCE_HINDI_FALLBACK', 'false').lower() == 'true'
-TTS_FAILOVER_TO_POLLY = os.environ.get('TTS_FAILOVER_TO_POLLY', 'true').lower() == 'true'
 
 LANGUAGE_ALIASES = {
     'en-in': 'en',
@@ -53,6 +52,8 @@ POLLY_NATIVE_LANGS = {'en', 'hi'}
 # No API key needed. Used as primary path for non-Polly languages.
 GTTS_SUPPORTED_LANGS = {'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'or', 'as', 'ur'}
 USE_GTTS = os.environ.get('USE_GTTS', 'true').lower() == 'true'
+GTTS_RETRY_ATTEMPTS = max(1, int(os.environ.get('GTTS_RETRY_ATTEMPTS', '3')))
+GTTS_RETRY_BACKOFF_SEC = float(os.environ.get('GTTS_RETRY_BACKOFF_SEC', '0.6'))
 
 
 def normalize_language_code(language_code, default='en'):
@@ -162,12 +163,21 @@ def _gtts_tts(safe_text, language_code):
     except ImportError:
         raise RuntimeError('gTTS not installed in Lambda package')
 
-    print(f'gTTS: {len(safe_text)} chars for lang={language_code}')
-    tts = gTTS(text=safe_text, lang=language_code, slow=False)
-    buf = io.BytesIO()
-    tts.write_to_fp(buf)
-    buf.seek(0)
-    return _upload_audio_bytes(buf.read())
+    last_error = None
+    for attempt in range(1, GTTS_RETRY_ATTEMPTS + 1):
+        try:
+            print(f'gTTS: {len(safe_text)} chars for lang={language_code}, attempt={attempt}/{GTTS_RETRY_ATTEMPTS}')
+            tts = gTTS(text=safe_text, lang=language_code, slow=False)
+            buf = io.BytesIO()
+            tts.write_to_fp(buf)
+            buf.seek(0)
+            return _upload_audio_bytes(buf.read())
+        except Exception as err:
+            last_error = err
+            if attempt < GTTS_RETRY_ATTEMPTS:
+                time.sleep(GTTS_RETRY_BACKOFF_SEC * attempt)
+
+    raise RuntimeError(f'gTTS failed after {GTTS_RETRY_ATTEMPTS} attempts: {last_error}')
 
 
 def text_to_speech(text, language_code='en', voice_id=None, return_metadata=False):
@@ -197,15 +207,13 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
 
         if language_code in POLLY_NATIVE_LANGS:
             result = _polly_tts(safe_text, language_code, voice_id=voice_id)
-        elif POLLY_FORCE_HINDI_FALLBACK:
-            result = _polly_tts(safe_text, 'hi', voice_id='Kajal')
-        elif USE_GTTS and language_code in GTTS_SUPPORTED_LANGS:
-            try:
-                result = _gtts_tts(safe_text, language_code)
-            except Exception as gtts_err:
-                print(f"gTTS error ({language_code}): {gtts_err}")
-                if TTS_FAILOVER_TO_POLLY:
-                    result = _polly_tts(safe_text, 'hi', voice_id='Kajal')
+        elif language_code in GTTS_SUPPORTED_LANGS:
+            if USE_GTTS:
+                try:
+                    result = _gtts_tts(safe_text, language_code)
+                except Exception as gtts_err:
+                    print(f"gTTS error ({language_code}): {gtts_err}")
+
 
         # Unpack result — _upload_audio_bytes now returns {'url': ..., 'key': ...}
         if isinstance(result, dict):
