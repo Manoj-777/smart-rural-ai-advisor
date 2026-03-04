@@ -42,37 +42,50 @@ LAMBDAS = {
 }
 
 
+def _collect_zip_entries(source_dir, deps_dir=None, utils_dir=None):
+    """Collect files for ZIP with deterministic overwrite precedence.
+
+    Precedence: deps < source < shared utils
+    """
+    entries = {}
+
+    if deps_dir and os.path.isdir(deps_dir):
+        for root, _, files in os.walk(deps_dir):
+            for file_name in files:
+                if file_name.endswith(('.py', '.pem', '.txt', '.typed')):
+                    file_path = os.path.join(root, file_name)
+                    arcname = os.path.relpath(file_path, deps_dir).replace('\\', '/')
+                    entries[arcname] = file_path
+
+    for root, _, files in os.walk(source_dir):
+        for file_name in files:
+            if file_name.endswith(('.py', '.json', '.txt')):
+                file_path = os.path.join(root, file_name)
+                arcname = os.path.relpath(file_path, source_dir).replace('\\', '/')
+                entries[arcname] = file_path
+
+    if utils_dir and os.path.isdir(utils_dir):
+        for file_name in os.listdir(utils_dir):
+            if file_name.endswith('.py'):
+                file_path = os.path.join(utils_dir, file_name)
+                arcname = f'utils/{file_name}'
+                entries[arcname] = file_path
+
+    return entries
+
+
 def build_zip(source_dir, extra_deps_dir=None):
     """Build deployment zip from source directory + shared utils overlay.
     If extra_deps_dir is set, also include all files from that directory
     (used for Lambdas that need bundled pip packages like 'requests').
     """
     shared_utils = os.path.join('backend', 'utils')
+    entries = _collect_zip_entries(source_dir, deps_dir=extra_deps_dir, utils_dir=shared_utils)
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Add bundled pip dependencies first (if any)
-        if extra_deps_dir and os.path.isdir(extra_deps_dir):
-            for root, dirs, files in os.walk(extra_deps_dir):
-                for f in files:
-                    if f.endswith(('.py', '.pem', '.txt', '.typed')):
-                        fp = os.path.join(root, f)
-                        arcname = os.path.relpath(fp, extra_deps_dir)
-                        zf.write(fp, arcname)
-
-        # Add Lambda source code (overwrites any same-named files from deps)
-        for root, dirs, files in os.walk(source_dir):
-            for f in files:
-                if f.endswith(('.py', '.json', '.txt')):
-                    fp = os.path.join(root, f)
-                    arcname = os.path.relpath(fp, source_dir)
-                    zf.write(fp, arcname)
-
-        # Overlay shared utils (backend/utils/) — these may have newer
-        # versions of helpers than the Lambda-local copies
-        if os.path.isdir(shared_utils):
-            for f in os.listdir(shared_utils):
-                if f.endswith('.py'):
-                    zf.write(os.path.join(shared_utils, f), f'utils/{f}')
+        for arcname in sorted(entries.keys()):
+            zf.write(entries[arcname], arcname)
     return buf.getvalue()
 
 

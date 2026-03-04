@@ -21,7 +21,7 @@ def handle_errors(func):
             return func(event, context)
         except KeyError as e:
             logger.error(f"Missing required field: {e}")
-            return error_response(f"Missing required field: {e}", 400)
+            return error_response("Missing required request field.", 400)
         except Exception as e:
             logger.error(f"Unhandled error: {str(e)}")
             logger.error(traceback.format_exc())

@@ -610,7 +610,7 @@ def _execute_tool(tool_name, tool_input):
         return resp_payload
     except Exception as e:
         logger.error(f"Tool execution error ({tool_name}): {str(e)}")
-        return {"error": str(e)}
+        return {"error": "Tool invocation failed"}
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1305,11 +1305,19 @@ def lambda_handler(event, context):
             try:
                 polly_result = text_to_speech(tts_text, tts_lang, return_metadata=True)
                 if isinstance(polly_result, dict):
+                    if not polly_result.get('audio_url'):
+                        _tts_err = polly_result.get('error') or f'No audio generated for language={tts_lang}'
+                        logger.warning(f'Async TTS unavailable: {_tts_err}')
+                        return error_response('Audio is temporarily unavailable. Please try again.', 503)
                     return success_response({
                         'audio_url': polly_result.get('audio_url'),
                         'audio_key': polly_result.get('audio_key'),
                         'truncated': polly_result.get('truncated', False),
                     }, message='TTS generated')
+                if not polly_result:
+                    _tts_err = f'No audio generated for language={tts_lang}'
+                    logger.warning(f'Async TTS unavailable: {_tts_err}')
+                    return error_response('Audio is temporarily unavailable. Please try again.', 503)
                 return success_response({'audio_url': polly_result}, message='TTS generated')
             except Exception as tts_err:
                 logger.warning(f'Async TTS failed: {tts_err}')

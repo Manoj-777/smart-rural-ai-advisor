@@ -202,6 +202,8 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
             return {'audio_url': None, 'audio_key': None, 'truncated': False}
         return None
 
+    tts_error = None
+
     try:
         result = None  # will be {'url': ..., 'key': ...} or None
 
@@ -212,7 +214,14 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
                 try:
                     result = _gtts_tts(safe_text, language_code)
                 except Exception as gtts_err:
-                    print(f"gTTS error ({language_code}): {gtts_err}")
+                    tts_error = f"gTTS error ({language_code}): {gtts_err}"
+                    print(tts_error)
+            else:
+                tts_error = f"gTTS disabled by USE_GTTS for language={language_code}"
+                print(tts_error)
+        else:
+            tts_error = f"No TTS engine configured for language={language_code}"
+            print(tts_error)
 
 
         # Unpack result — _upload_audio_bytes now returns {'url': ..., 'key': ...}
@@ -223,12 +232,26 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
             audio_url = result
             audio_key = None
 
+        if not audio_url and not tts_error:
+            tts_error = f"TTS produced no audio for language={language_code}"
+
         if return_metadata:
-            return {'audio_url': audio_url, 'audio_key': audio_key, 'truncated': was_truncated}
+            return {
+                'audio_url': audio_url,
+                'audio_key': audio_key,
+                'truncated': was_truncated,
+                'error': tts_error,
+            }
         return audio_url
 
     except Exception as e:
-        print(f"Polly error: {e}")
+        tts_error = f"TTS fatal error: {e}"
+        print(tts_error)
         if return_metadata:
-            return {'audio_url': None, 'audio_key': None, 'truncated': was_truncated}
+            return {
+                'audio_url': None,
+                'audio_key': None,
+                'truncated': was_truncated,
+                'error': tts_error,
+            }
         return None
