@@ -1,7 +1,43 @@
 // src/utils/sanitize.js
-// Shared HTML sanitizer using DOMPurify — prevents XSS from AI-generated content
+// Shared HTML sanitizer using DOMPurify + marked — prevents XSS from AI-generated content
 
 import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+
+// Configure marked for chat-friendly output
+marked.setOptions({
+    gfm: true,          // GitHub-Flavoured Markdown (tables, strikethrough, etc.)
+    breaks: true,        // Convert \n → <br> (chat messages aren't wrapped in <p>)
+    headerIds: false,    // No auto-generated IDs on headings
+    mangle: false,       // Don't mangle email addresses
+});
+
+// Custom renderer to add chat-friendly CSS classes
+const renderer = new marked.Renderer();
+
+// All headings render as compact h3 inside chat bubbles
+renderer.heading = function (text, level) {
+    const tag = level <= 3 ? 'h3' : level === 4 ? 'h4' : 'h5';
+    return `<${tag} class="chat-heading">${text}</${tag}>`;
+};
+
+// Add classes to list items for styling
+renderer.listitem = function (text) {
+    return `<li class="chat-list-item">${text}</li>\n`;
+};
+
+// Tables get a wrapper class
+renderer.table = function (header, body) {
+    return `<table class="chat-table"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+};
+
+// Links open in new tab
+renderer.link = function (href, title, text) {
+    const titleAttr = title ? ` title="${title}"` : '';
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${text}</a>`;
+};
+
+marked.use({ renderer });
 
 // Allow only safe HTML tags and attributes for formatted AI responses
 const PURIFY_CONFIG = {
@@ -9,7 +45,7 @@ const PURIFY_CONFIG = {
         'strong', 'b', 'em', 'i', 'br', 'span', 'p', 'div',
         'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'pre', 'code',
-        'a', 'audio', 'source'
+        'a', 'audio', 'source', 'blockquote', 'del', 'input', 'img'
     ],
     ALLOWED_ATTR: [
         'class', 'id', 'href', 'target', 'rel', 'src', 'alt',
@@ -32,35 +68,14 @@ export function sanitizeHtml(dirty) {
 }
 
 /**
- * Format markdown-like text to HTML and sanitize.
- * Shared formatter for all feature pages.
- *
- * Supports: **bold**, *italic*, ### headers (h3–h5), numbered lists,
- * dash/bullet lists (- or •), horizontal rules (---), and line breaks.
+ * Format markdown text to HTML and sanitize.
+ * Uses 'marked' for full markdown support — handles headers, bold, italic,
+ * lists, tables, code blocks, links, blockquotes, horizontal rules, and more.
+ * DOMPurify strips any unsafe HTML the LLM might inject.
  */
 export function formatAndSanitize(text) {
     if (!text) return '';
-    const html = text
-        // Markdown headers: ### → <h3>, #### → <h4>, ##### → <h5>
-        // Must run BEFORE bold/italic so ** inside headers still works
-        .replace(/^#{5}\s+(.+)$/gm, '<h5 class="chat-heading">$1</h5>')
-        .replace(/^#{4}\s+(.+)$/gm, '<h4 class="chat-heading">$1</h4>')
-        .replace(/^#{3}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
-        .replace(/^#{2}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
-        .replace(/^#{1}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
-        // Horizontal rule
-        .replace(/^---+$/gm, '<hr/>')
-        // Bold
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic (but not inside words like "don*t")
-        .replace(/(?<!\w)\*(.*?)\*(?!\w)/g, '<em>$1</em>')
-        // Numbered list items
-        .replace(/^(\d+)\.\s/gm, '<span class="list-num">$1.</span> ')
-        // Bullet list items with dash
-        .replace(/^-\s(.+)/gm, '<span class="list-bullet">•</span> $1')
-        // Bullet list items with • character (sent by some LLMs)
-        .replace(/^•\s*(.+)/gm, '<span class="list-bullet">•</span> $1')
-        // Line breaks (but not after block-level elements we just created)
-        .replace(/\n(?!<\/h[1-6]>|<hr)/g, '<br/>');
-    return sanitizeHtml(html);
+    // marked.parse outputs full HTML from any standard markdown
+    const rawHtml = marked.parse(text);
+    return sanitizeHtml(rawHtml);
 }

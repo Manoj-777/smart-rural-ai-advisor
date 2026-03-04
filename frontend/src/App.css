@@ -902,6 +902,88 @@ body {
     margin: 10px 0;
 }
 
+/* Markdown lists inside chat */
+.message-text ul,
+.message-text ol {
+    margin: 6px 0 6px 8px;
+    padding-left: 18px;
+}
+.message-text li {
+    margin-bottom: 3px;
+    line-height: 1.45;
+}
+.message-text ul li {
+    list-style: disc;
+}
+.message-text ol li {
+    list-style: decimal;
+}
+.message-text ul li::marker,
+.message-text ol li::marker {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+/* Markdown paragraphs — tighter spacing in chat */
+.message-text p {
+    margin: 4px 0;
+}
+.message-text p:first-child {
+    margin-top: 0;
+}
+.message-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* Markdown tables inside chat */
+.message-text .chat-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 0.92em;
+}
+.message-text .chat-table th,
+.message-text .chat-table td {
+    border: 1px solid var(--border);
+    padding: 5px 8px;
+    text-align: left;
+}
+.message-text .chat-table th {
+    background: var(--bg-secondary, #f5f5f5);
+    font-weight: 600;
+}
+
+/* Markdown code inside chat */
+.message-text code {
+    background: var(--bg-secondary, #f0f0f0);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+.message-text pre {
+    background: var(--bg-secondary, #f0f0f0);
+    padding: 10px 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 6px 0;
+    font-size: 0.88em;
+}
+.message-text pre code {
+    background: transparent;
+    padding: 0;
+}
+
+/* Markdown blockquotes inside chat */
+.message-text blockquote {
+    border-left: 3px solid var(--primary);
+    margin: 6px 0;
+    padding: 4px 12px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary, #f9f9f9);
+    border-radius: 0 6px 6px 0;
+}
+
 .message.assistant .thinking {
     display: flex;
     align-items: center;
