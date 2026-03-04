@@ -238,6 +238,7 @@ const translations = {
         stateOD: 'Odisha',
         statePY: 'Puducherry',
         statePB: 'Punjab',
+        statePY: 'Puducherry',
         stateRJ: 'Rajasthan',
         stateSK: 'Sikkim',
         stateTN: 'Tamil Nadu',
@@ -558,6 +559,8 @@ const translations = {
         drainageHours: 'Drains in a few hours',
         drainageQuick: 'Drains quickly',
         drainageDryCracks: 'Very dry, cracks easily',
+        ttsGenerating: 'Generating audio...',
+        schemesNoState: 'Set your state in Profile to see state schemes',
     },
     'ta-IN': {
         // App & sidebar
@@ -719,6 +722,7 @@ const translations = {
         stateOD: 'ஒடிஷா',
         statePY: 'புதுச்சேரி',
         statePB: 'பஞ்சாப்',
+        statePY: 'புதுச்சேரி',
         stateRJ: 'ராஜஸ்தான்',
         stateSK: 'சிக்கிம்',
         stateTN: 'தமிழ்நாடு',
@@ -979,6 +983,11 @@ const translations = {
         nutrientLow: 'குறைவு', nutrientMedium: 'நடுத்தரம்', nutrientHigh: 'அதிகம்', nutrientDontKnow: 'தெரியாது',
         colorDarkBrown: 'கரும் பழுப்பு/கருப்பு', colorRed: 'சிவப்பு/சிவப்பான', colorYellow: 'மஞ்சள்/வெளிர் பழுப்பு', colorGrey: 'சாம்பல்', colorWhiteSalt: 'வெள்ளை (உப்பு படலம்)',
         drainageStands: 'நீர் பல நாட்கள் தேங்குகிறது', drainageHours: 'சில மணி நேரத்தில் வடிகிறது', drainageQuick: 'விரைவாக வடிகிறது', drainageDryCracks: 'மிகவும் வறண்டு, எளிதில் வெடிக்கிறது',
+        ttsGenerating: 'ஆடியோ உருவாக்கப்படுகிறது...',
+        schemesNoState: 'மாநில திட்டங்களைக் காண சுயவிவரத்தில் உங்கள் மாநிலத்தை அமைக்கவும்',
+        sessionFullMessage: 'இந்த அரட்டையின் செய்தி வரம்பு முடிந்தது. உரையாடலைத் தொடர புதிய அரட்டையைத் தொடங்கவும்.',
+        startNewChat: 'புதிய அரட்டை தொடங்கு',
+        sessionFullPlaceholder: 'அரட்டை வரம்பு முடிந்தது — மேலே புதிய அரட்டை தொடங்கவும் ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1144,6 +1153,7 @@ const translations = {
         stateOD: 'ओडिशा',
         statePY: 'पुडुचेरी',
         statePB: 'पंजाब',
+        statePY: 'पुदुच्चेरी',
         stateRJ: 'राजस्थान',
         stateSK: 'सिक्किम',
         stateTN: 'तमिलनाडु',
@@ -1403,6 +1413,11 @@ const translations = {
         nutrientLow: 'कम', nutrientMedium: 'मध्यम', nutrientHigh: 'अधिक', nutrientDontKnow: 'पता नहीं',
         colorDarkBrown: 'गहरा भूरा/काला', colorRed: 'लाल/लालिमा', colorYellow: 'पीला/हल्का भूरा', colorGrey: 'भूरा', colorWhiteSalt: 'सफेद (नमक की परत)',
         drainageStands: 'पानी कई दिनों तक खड़ा रहता है', drainageHours: 'कुछ घंटों में निकल जाता है', drainageQuick: 'जल्दी निकल जाता है', drainageDryCracks: 'बहुत सूखी, आसानी से दरारें पड़ती हैं',
+        ttsGenerating: 'ऑडियो बन रहा है...',
+        schemesNoState: 'राज्य की योजनाएँ देखने के लिए प्रोफ़ाइल में अपना राज्य सेट करें',
+        sessionFullMessage: 'इस चैट की संदेश सीमा पूरी हो गई है। बातचीत जारी रखने के लिए नई चैट शुरू करें।',
+        startNewChat: 'नई चैट शुरू करें',
+        sessionFullPlaceholder: 'चैट सीमा पूरी — ऊपर नई चैट शुरू करें ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1568,6 +1583,7 @@ const translations = {
         stateOD: 'ఒడిశా',
         statePY: 'పుదుచ్చేరి',
         statePB: 'పంజాబ్',
+        statePY: 'పుదుచ్చేరి',
         stateRJ: 'రాజస్థాన్',
         stateSK: 'సిక్కిం',
         stateTN: 'తమిళనాడు',
@@ -1824,6 +1840,11 @@ const translations = {
         nutrientLow: 'తక్కువ', nutrientMedium: 'మధ్యస్థం', nutrientHigh: 'ఎక్కువ', nutrientDontKnow: 'తెలియదు',
         colorDarkBrown: 'ముదురు గోధుమ/నలుపు', colorRed: 'ఎరుపు/ఎర్రటి', colorYellow: 'పసుపు/లేత గోధుమ', colorGrey: 'బూడిద', colorWhiteSalt: 'తెలుపు (ఉప్పు పొర)',
         drainageStands: 'నీరు రోజుల తరబడి నిలుస్తుంది', drainageHours: 'కొన్ని గంటల్లో ఖాళీ అవుతుంది', drainageQuick: 'త్వరగా ఖాళీ అవుతుంది', drainageDryCracks: 'చాలా ఎండిపోయి, సులభంగా బీటలు వారుతుంది',
+        ttsGenerating: 'ఆడియో రూపొందిస్తోంది...',
+        schemesNoState: 'రాష్ట్ర పథకాలను చూడటానికి ప్రొఫైల్‌లో మీ రాష్ట్రాన్ని సెట్ చేయండి',
+        sessionFullMessage: 'ఈ చాట్ సందేశ పరిమితి చేరుకుంది. సంభాషణ కొనసాగించడానికి కొత్త చాట్ ప్రారంభించండి.',
+        startNewChat: 'కొత్త చాట్ ప్రారంభించు',
+        sessionFullPlaceholder: 'చాట్ పరిమితి చేరుకుంది — పైన కొత్త చాట్ ప్రారంభించండి ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1976,6 +1997,7 @@ const translations = {
         stateOD: 'ಒಡಿಶಾ',
         statePY: 'ಪುದುಚ್ಚೇರಿ',
         statePB: 'ಪಂಜಾಬ್',
+        statePY: 'ಪುದುಚ್ಚೇರಿ',
         stateRJ: 'ರಾಜಸ್ಥಾನ',
         stateSK: 'ಸಿಕ್ಕಿಂ',
         stateTN: 'ತಮಿಳುನಾಡು',
@@ -2230,6 +2252,11 @@ const translations = {
         nutrientLow: 'ಕಡಿಮೆ', nutrientMedium: 'ಮಧ್ಯಮ', nutrientHigh: 'ಹೆಚ್ಚು', nutrientDontKnow: 'ತಿಳಿದಿಲ್ಲ',
         colorDarkBrown: 'ಗಾಢ ಕಂದು/ಕಪ್ಪು', colorRed: 'ಕೆಂಪು/ಎರೆ', colorYellow: 'ಹಳದಿ/ತಿಳಿ ಕಂದು', colorGrey: 'ಬೂದು', colorWhiteSalt: 'ಬಿಳಿ (ಉಪ್ಪು ಪದರ)',
         drainageStands: 'ನೀರು ದಿನಗಟ್ಟಲೆ ನಿಲ್ಲುತ್ತದೆ', drainageHours: 'ಕೆಲವು ಗಂಟೆಗಳಲ್ಲಿ ಬರಿದಾಗುತ್ತದೆ', drainageQuick: 'ತ್ವರಿತವಾಗಿ ಬರಿದಾಗುತ್ತದೆ', drainageDryCracks: 'ತುಂಬಾ ಒಣಗಿ ಸುಲಭವಾಗಿ ಬಿರುಕು ಬಿಡುತ್ತದೆ',
+        ttsGenerating: 'ಆಡಿಯೋ ರಚಿಸಲಾಗುತ್ತಿದೆ...',
+        schemesNoState: 'ರಾಜ್ಯ ಯೋಜನೆಗಳನ್ನು ನೋಡಲು ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ನಿಮ್ಮ ರಾಜ್ಯವನ್ನು ಹೊಂದಿಸಿ',
+        sessionFullMessage: 'ಈ ಚಾಟ್ ಸಂದೇಶ ಮಿತಿ ತಲುಪಿದೆ. ಸಂಭಾಷಣೆ ಮುಂದುವರಿಸಲು ಹೊಸ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ.',
+        startNewChat: 'ಹೊಸ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ',
+        sessionFullPlaceholder: 'ಚಾಟ್ ಮಿತಿ ತಲುಪಿದೆ — ಮೇಲೆ ಹೊಸ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2382,6 +2409,7 @@ const translations = {
         stateOD: 'ഒഡീഷ',
         statePY: 'പുതുച്ചേരി',
         statePB: 'പഞ്ചാബ്',
+        statePY: 'പുദുച്ചേരി',
         stateRJ: 'രാജസ്ഥാൻ',
         stateSK: 'സിക്കിം',
         stateTN: 'തമിഴ്നാട്',
@@ -2636,6 +2664,11 @@ const translations = {
         nutrientLow: 'കുറവ്', nutrientMedium: 'മധ്യമം', nutrientHigh: 'ഉയർന്നത്', nutrientDontKnow: 'അറിയില്ല',
         colorDarkBrown: 'കടും തവിട്ട്/കറുപ്പ്', colorRed: 'ചുവപ്പ്/ചെമ്മണ്ണ്', colorYellow: 'മഞ്ഞ/ഇളം തവിട്ട്', colorGrey: 'ചാരനിറം', colorWhiteSalt: 'വെളുപ്പ് (ഉപ്പ് പാളി)',
         drainageStands: 'വെള്ളം ദിവസങ്ങൾ നിൽക്കുന്നു', drainageHours: 'ഏതാനും മണിക്കൂറിൽ ഒഴുകിപ്പോകുന്നു', drainageQuick: 'വേഗം ഒഴുകിപ്പോകുന്നു', drainageDryCracks: 'വളരെ ഉണങ്ങി, എളുപ്പം വിള്ളൽ വരുന്നു',
+        ttsGenerating: 'ഓഡിയോ സൃഷ്ടിക്കുന്നു...',
+        schemesNoState: 'സംസ്ഥാന പദ്ധതികൾ കാണാൻ പ്രൊഫൈലിൽ നിങ്ങളുടെ സംസ്ഥാനം സജ്ജമാക്കുക',
+        sessionFullMessage: 'ഈ ചാറ്റിന്റെ സന്ദേശ പരിധി എത്തി. സംഭാഷണം തുടരാൻ പുതിയ ചാറ്റ് ആരംഭിക്കുക.',
+        startNewChat: 'പുതിയ ചാറ്റ് ആരംഭിക്കുക',
+        sessionFullPlaceholder: 'ചാറ്റ് പരിധി എത്തി — മുകളിൽ പുതിയ ചാറ്റ് ആരംഭിക്കുക ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2788,6 +2821,7 @@ const translations = {
         statePY: 'পুদুচ্চেরি',
         stateOD: 'ওড়িশা',
         statePB: 'পাঞ্জাব',
+        statePY: 'পুদুচ্চেরি',
         stateRJ: 'রাজস্থান',
         stateSK: 'সিকিম',
         stateTN: 'তামিলনাড়ু',
@@ -3042,6 +3076,11 @@ const translations = {
         nutrientLow: 'কম', nutrientMedium: 'মাঝারি', nutrientHigh: 'বেশি', nutrientDontKnow: 'জানি না',
         colorDarkBrown: 'গাঢ় বাদামি/কালো', colorRed: 'লাল/লালচে', colorYellow: 'হলুদ/হালকা বাদামি', colorGrey: 'ধূসর', colorWhiteSalt: 'সাদা (লবণ স্তর)',
         drainageStands: 'জল কয়েক দিন জমে থাকে', drainageHours: 'কয়েক ঘণ্টায় নিষ্কাশন হয়', drainageQuick: 'দ্রুত নিষ্কাশন হয়', drainageDryCracks: 'খুব শুকনো, সহজে ফাটল ধরে',
+        ttsGenerating: 'অডিও তৈরি হচ্ছে...',
+        schemesNoState: 'রাজ্যের প্রকল্প দেখতে প্রোফাইলে আপনার রাজ্য সেট করুন',
+        sessionFullMessage: 'এই চ্যাটের বার্তা সীমা পূর্ণ হয়েছে। কথোপকথন চালিয়ে যেতে নতুন চ্যাট শুরু করুন।',
+        startNewChat: 'নতুন চ্যাট শুরু করুন',
+        sessionFullPlaceholder: 'চ্যাট সীমা পূর্ণ — উপরে নতুন চ্যাট শুরু করুন ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3194,6 +3233,7 @@ const translations = {
         stateOD: 'ओडिशा',
         statePY: 'पुडुचेरी',
         statePB: 'पंजाब',
+        statePY: 'पुदुच्चेरी',
         stateRJ: 'राजस्थान',
         stateSK: 'सिक्कीम',
         stateTN: 'तमिळनाडू',
@@ -3439,6 +3479,11 @@ const translations = {
         soilAnalyzeBtn: 'माती विश्लेषण करा आणि शिफारसी मिळवा',
         soilResultTitle: 'माती आरोग्य विश्लेषण अहवाल',
         soilDisclaimer: '⚠️ AI-निर्मित विश्लेषण. अचूक निकालांसाठी सरकारी माती चाचणी प्रयोगशाळेत (₹50-100) चाचणी करा.',
+        ttsGenerating: 'ऑडिओ तयार होत आहे...',
+        schemesNoState: 'राज्य योजना पाहण्यासाठी प्रोफाइलमध्ये तुमचे राज्य सेट करा',
+        sessionFullMessage: 'या चॅटची संदेश मर्यादा संपली आहे. संभाषण सुरू ठेवण्यासाठी नवीन चॅट सुरू करा.',
+        startNewChat: 'नवीन चॅट सुरू करा',
+        sessionFullPlaceholder: 'चॅट मर्यादा संपली — वर नवीन चॅट सुरू करा ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3591,6 +3636,7 @@ const translations = {
         stateOD: 'ઓડિશા',
         statePY: 'પુડુચેરી',
         statePB: 'પંજાબ',
+        statePY: 'પુડુચેરી',
         stateRJ: 'રાજસ્થાન',
         stateSK: 'સિક્કિમ',
         stateTN: 'તમિલનાડુ',
@@ -3836,6 +3882,11 @@ const translations = {
         soilAnalyzeBtn: 'માટીનું વિશ્લેષણ કરો અને ભલામણો મેળવો',
         soilResultTitle: 'માટી સ્વાસ્થ્ય વિશ્લેષણ અહેવાલ',
         soilDisclaimer: '⚠️ AI-નિર્મિત વિશ્લેષણ. સચોટ પરિણામો માટે સરકારી માટી પરીક્ષણ લેબમાં (₹50-100) પરીક્ષણ કરાવો.',
+        ttsGenerating: 'ઑડિયો બનાવવામાં આવી રહ્યું છે...',
+        schemesNoState: 'રાજ્ય યોજનાઓ જોવા માટે પ્રોફાઇલમાં તમારું રાજ્ય સેટ કરો',
+        sessionFullMessage: 'આ ચેટની સંદેશ મર્યાદા પૂર્ણ થઈ છે. વાતચીત ચાલુ રાખવા નવી ચેટ શરૂ કરો.',
+        startNewChat: 'નવી ચેટ શરૂ કરો',
+        sessionFullPlaceholder: 'ચેટ મર્યાદા પૂર્ણ — ઉપર નવી ચેટ શરૂ કરો ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3988,6 +4039,7 @@ const translations = {
         statePY: 'ਪੁਡੂਚੇਰੀ',
         stateOD: 'ਓਡੀਸ਼ਾ',
         statePB: 'ਪੰਜਾਬ',
+        statePY: 'ਪੁਡੂਚੇਰੀ',
         stateRJ: 'ਰਾਜਸਥਾਨ',
         stateSK: 'ਸਿੱਕਿਮ',
         stateTN: 'ਤਾਮਿਲਨਾਡੂ',
@@ -4233,6 +4285,11 @@ const translations = {
         soilAnalyzeBtn: 'ਮਿੱਟੀ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ ਅਤੇ ਸਿਫ਼ਾਰਸ਼ਾਂ ਪ੍ਰਾਪਤ ਕਰੋ',
         soilResultTitle: 'ਮਿੱਟੀ ਸਿਹਤ ਵਿਸ਼ਲੇਸ਼ਣ ਰਿਪੋਰਟ',
         soilDisclaimer: '⚠️ AI-ਨਿਰਮਿਤ ਵਿਸ਼ਲੇਸ਼ਣ. ਸਹੀ ਨਤੀਜਿਆਂ ਲਈ ਸਰਕਾਰੀ ਮਿੱਟੀ ਪਰੀਖਿਆ ਲੈਬ ਵਿੱਚ (₹50-100) ਪਰੀਖਿਆ ਕਰਾਓ.',
+        ttsGenerating: 'ਆਡੀਓ ਬਣਾਈ ਜਾ ਰਹੀ ਹੈ...',
+        schemesNoState: 'ਰਾਜ ਦੀਆਂ ਸਕੀਮਾਂ ਵੇਖਣ ਲਈ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਆਪਣਾ ਰਾਜ ਸੈੱਟ ਕਰੋ',
+        sessionFullMessage: 'ਇਸ ਚੈਟ ਦੀ ਸੁਨੇਹਾ ਸੀਮਾ ਪੂਰੀ ਹੋ ਗਈ ਹੈ। ਗੱਲਬਾਤ ਜਾਰੀ ਰੱਖਣ ਲਈ ਨਵੀਂ ਚੈਟ ਸ਼ੁਰੂ ਕਰੋ।',
+        startNewChat: 'ਨਵੀਂ ਚੈਟ ਸ਼ੁਰੂ ਕਰੋ',
+        sessionFullPlaceholder: 'ਚੈਟ ਸੀਮਾ ਪੂਰੀ — ਉੱਪਰ ਨਵੀਂ ਚੈਟ ਸ਼ੁਰੂ ਕਰੋ ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -4385,6 +4442,7 @@ const translations = {
         stateOD: 'ଓଡ଼ିଶା',
         statePY: 'ପୁଦୁଚ୍ଚେରୀ',
         statePB: 'ପଞ୍ଜାବ',
+        statePY: 'ପୁଡୁଚେରୀ',
         stateRJ: 'ରାଜସ୍ଥାନ',
         stateSK: 'ସିକ୍କିମ',
         stateTN: 'ତାମିଲନାଡୁ',
@@ -4630,6 +4688,11 @@ const translations = {
         soilAnalyzeBtn: 'ମାଟି ବିଶ୍ଳେଷଣ କରନ୍ତୁ ଓ ସୁପାରିଶ ପାଆନ୍ତୁ',
         soilResultTitle: 'ମାଟି ସ୍ୱାସ୍ଥ୍ୟ ବିଶ୍ଳେଷଣ ରିପୋର୍ଟ',
         soilDisclaimer: '⚠️ AI-ନିର୍ମିତ ବିଶ୍ଳେଷଣ. ସଠିକ୍ ଫଳାଫଳ ପାଇଁ ସରକାରୀ ମାଟି ପରୀକ୍ଷା ଲ୍ୟାବରେ (₹50-100) ପରୀକ୍ଷା କରନ୍ତୁ.',
+        ttsGenerating: 'ଅଡିଓ ତିଆରି ହେଉଛି...',
+        schemesNoState: 'ରାଜ୍ୟ ଯୋଜନା ଦେଖିବା ପାଇଁ ପ୍ରୋଫାଇଲରେ ଆପଣଙ୍କ ରାଜ୍ୟ ସେଟ୍ କରନ୍ତୁ',
+        sessionFullMessage: 'ଏହି ଚାଟ୍‌ର ସନ୍ଦେଶ ସୀମା ସମାପ୍ତ ହୋଇଛି। କଥୋପକଥନ ଜାରି ରଖିବାକୁ ନୂଆ ଚାଟ୍ ଆରମ୍ଭ କରନ୍ତୁ।',
+        startNewChat: 'ନୂଆ ଚାଟ୍ ଆରମ୍ଭ କରନ୍ତୁ',
+        sessionFullPlaceholder: 'ଚାଟ୍ ସୀମା ସମାପ୍ତ — ଉପରେ ନୂଆ ଚାଟ୍ ଆରମ୍ଭ କରନ୍ତୁ ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -4782,6 +4845,7 @@ const translations = {
         statePY: 'পুদুচ্চেৰী',
         stateOD: 'ওড়িশা',
         statePB: 'পঞ্জাব',
+        statePY: 'পুডুচেৰী',
         stateRJ: 'ৰাজস্থান',
         stateSK: 'ছিক্কিম',
         stateTN: 'তামিলনাডু',
@@ -5028,6 +5092,11 @@ const translations = {
         soilAnalyzeBtn: 'মাটি বিশ্লেষণ কৰক আৰু পৰামৰ্শ লাভ কৰক',
         soilResultTitle: 'মাটি স্বাস্থ্য বিশ্লেষণ প্ৰতিবেদন',
         soilDisclaimer: '⚠️ AI-নিৰ্মিত বিশ্লেষণ। সঠিক ফলাফলৰ বাবে চৰকাৰী মাটি পৰীক্ষা লেবত (₹50-100) পৰীক্ষা কৰাওক।',
+        ttsGenerating: 'অডিঅ\' তৈয়াৰ হৈ আছে...',
+        schemesNoState: 'ৰাজ্যৰ আঁচনি চাবলৈ প্ৰ\'ফাইলত আপোনাৰ ৰাজ্য ছেট কৰক',
+        sessionFullMessage: 'এই চেটৰ বাৰ্তা সীমা পূৰ্ণ হৈছে। কথোপকথন চলাই যাবলৈ নতুন চেট আৰম্ভ কৰক।',
+        startNewChat: 'নতুন চেট আৰম্ভ কৰক',
+        sessionFullPlaceholder: 'চেট সীমা পূৰ্ণ — ওপৰত নতুন চেট আৰম্ভ কৰক ↑',
     },
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -5284,6 +5353,7 @@ const translations = {
         stateOD: 'اوڈیشا',
         statePY: 'پدوچیری',
         statePB: 'پنجاب',
+        statePY: 'پدوچیری',
         stateRJ: 'راجستھان',
         stateSK: 'سکم',
         stateTN: 'تمل ناڈو',
@@ -5429,6 +5499,11 @@ const translations = {
         soilAnalyzeBtn: 'مٹی کا تجزیہ کریں اور سفارشات حاصل کریں',
         soilResultTitle: 'مٹی صحت تجزیہ رپورٹ',
         soilDisclaimer: '⚠️ AI-تیار تجزیہ۔ درست نتائج کے لیے سرکاری مٹی ٹیسٹ لیب میں (₹50-100) ٹیسٹ کرائیں۔',
+        ttsGenerating: 'آڈیو تیار ہو رہی ہے...',
+        schemesNoState: 'ریاستی اسکیمیں دیکھنے کے لیے پروفائل میں اپنی ریاست سیٹ کریں',
+        sessionFullMessage: 'اس چیٹ کی پیغام حد پوری ہو گئی ہے۔ بات چیت جاری رکھنے کے لیے نئی چیٹ شروع کریں۔',
+        startNewChat: 'نئی چیٹ شروع کریں',
+        sessionFullPlaceholder: 'چیٹ حد پوری — اوپر نئی چیٹ شروع کریں ↑',
     },
 };
 

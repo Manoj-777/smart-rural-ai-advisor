@@ -7,8 +7,41 @@ import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
-import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, DISTRICT_MAP } from '../i18n/translations';
+import { getDistrictName } from '../i18n/districtTranslations';
 import * as cognitoAuth from '../services/cognitoAuth';
+// State options with translation keys for localized display
+const STATE_OPTION_OBJECTS = [
+    { value: 'Andhra Pradesh', key: 'stateAP' },
+    { value: 'Arunachal Pradesh', key: 'stateAR' },
+    { value: 'Assam', key: 'stateAS' },
+    { value: 'Bihar', key: 'stateBR' },
+    { value: 'Chhattisgarh', key: 'stateCG' },
+    { value: 'Goa', key: 'stateGA' },
+    { value: 'Gujarat', key: 'stateGJ' },
+    { value: 'Haryana', key: 'stateHR' },
+    { value: 'Himachal Pradesh', key: 'stateHP' },
+    { value: 'Jharkhand', key: 'stateJH' },
+    { value: 'Karnataka', key: 'stateKA' },
+    { value: 'Kerala', key: 'stateKL' },
+    { value: 'Madhya Pradesh', key: 'stateMP' },
+    { value: 'Maharashtra', key: 'stateMH' },
+    { value: 'Manipur', key: 'stateMN' },
+    { value: 'Meghalaya', key: 'stateML' },
+    { value: 'Mizoram', key: 'stateMZ' },
+    { value: 'Nagaland', key: 'stateNL' },
+    { value: 'Odisha', key: 'stateOD' },
+    { value: 'Puducherry', key: 'statePY' },
+    { value: 'Punjab', key: 'statePB' },
+    { value: 'Rajasthan', key: 'stateRJ' },
+    { value: 'Sikkim', key: 'stateSK' },
+    { value: 'Tamil Nadu', key: 'stateTN' },
+    { value: 'Telangana', key: 'stateTS' },
+    { value: 'Tripura', key: 'stateTR' },
+    { value: 'Uttar Pradesh', key: 'stateUP' },
+    { value: 'Uttarakhand', key: 'stateUK' },
+    { value: 'West Bengal', key: 'stateWB' },
+];
 
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
@@ -261,7 +294,7 @@ function LoginPage() {
                                 <label>{t('profileState')} <span className="required-star">*</span></label>
                                 <select className="form-input" value={regState}
                                     onChange={(e) => { setRegState(e.target.value); setRegDistrict(''); }}>
-                                    {STATE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                                 </select>
                             </div>
                             <div className="login-form-group">
@@ -270,7 +303,7 @@ function LoginPage() {
                                     onChange={(e) => setRegDistrict(e.target.value)}>
                                     <option value="" disabled>{t('loginSelectDistrict')}</option>
                                     {(DISTRICT_MAP[regState] || []).map(d =>
-                                        <option key={d} value={d}>{d}</option>
+                                        <option key={d} value={d}>{getDistrictName(d, language)}</option>
                                     )}
                                 </select>
                             </div>

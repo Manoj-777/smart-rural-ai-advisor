@@ -58,6 +58,7 @@ const STATE_OPTIONS = [
     { value: 'Mizoram', key: 'stateMZ' },
     { value: 'Nagaland', key: 'stateNL' },
     { value: 'Odisha', key: 'stateOD' },
+    { value: 'Puducherry', key: 'statePY' },
     { value: 'Punjab', key: 'statePB' },
     { value: 'Rajasthan', key: 'stateRJ' },
     { value: 'Sikkim', key: 'stateSK' },

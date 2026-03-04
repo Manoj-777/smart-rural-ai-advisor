@@ -92,6 +92,11 @@ const AI_LABELS = {
     'ml-IN': { ask: '🤖 AI ചോദിക്കൂ', asking: '⏳ AI ചോദിക്കുന്നു...', titleCrop: 'AI വില ഉപദേശം', titlePest: 'AI കീടനാശിനി ഗൈഡ്', source: 'ഉറവிടം', close: '✕ അടയ്ക്കുക' },
     'bn-IN': { ask: '🤖 AI জিজ্ঞাসা', asking: '⏳ AI জিজ্ঞাসা করছে...', titleCrop: 'AI মূল্য পরামর্শ', titlePest: 'AI কীটনাশক গাইড', source: 'উৎস', close: '✕ বন্ধ' },
     'mr-IN': { ask: '🤖 AI ला विचारा', asking: '⏳ AI ला विचारत आहे...', titleCrop: 'AI किंमत सल्ला', titlePest: 'AI कीटकनाशक मार्गदर्शक', source: 'स्रोत', close: '✕ बंद करा' },
+    'gu-IN': { ask: '🤖 AI પૂછો', asking: '⏳ AI પૂછી રહ્યું છે...', titleCrop: 'AI ભાવ સલાહ', titlePest: 'AI જંતુનાશક માર્ગદર્શિકા', source: 'સ્ત્રોત', close: '✕ બંધ કરો' },
+    'pa-IN': { ask: '🤖 AI ਪੁੱਛੋ', asking: '⏳ AI ਪੁੱਛ ਰਿਹਾ ਹੈ...', titleCrop: 'AI ਕੀਮਤ ਸਲਾਹ', titlePest: 'AI ਕੀਟਨਾਸ਼ਕ ਗਾਈਡ', source: 'ਸ੍ਰੋਤ', close: '✕ ਬੰਦ ਕਰੋ' },
+    'or-IN': { ask: '🤖 AI ପଚାରନ୍ତୁ', asking: '⏳ AI ପଚାରୁଛି...', titleCrop: 'AI ମୂଲ୍ୟ ପରାମର୍ଶ', titlePest: 'AI କୀଟନାଶକ ଗାଇଡ୍', source: 'ଉତ୍ସ', close: '✕ ବନ୍ଦ କରନ୍ତୁ' },
+    'as-IN': { ask: '🤖 AI সুধিব', asking: '⏳ AI সুধিছে...', titleCrop: 'AI মূল্য পৰামৰ্শ', titlePest: 'AI কীটনাশক গাইড', source: 'উৎস', close: '✕ বন্ধ কৰক' },
+    'ur-IN': { ask: '🤖 AI پوچھیں', asking: '⏳ AI پوچھ رہا ہے...', titleCrop: 'AI قیمت مشورہ', titlePest: 'AI کیڑے مار دوا گائیڈ', source: 'ذریعہ', close: '✕ بند کریں' },
 };
 
 function TrendBadge({ trend, pt }) {

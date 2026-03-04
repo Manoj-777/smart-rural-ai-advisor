@@ -87,7 +87,7 @@ function SchemesPage() {
         s.benefit?.toLowerCase().includes(search.toLowerCase())
     );
 
-    const filteredState = stateSchemes.filter(s =>
+    const filteredState = stateSchemes.map(getTranslated).filter(s =>
         s.name?.toLowerCase().includes(search.toLowerCase()) ||
         s.benefit?.toLowerCase().includes(search.toLowerCase())
     );
