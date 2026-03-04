@@ -103,19 +103,29 @@ function translateCondition(desc, lang) {
 
 function WeatherPage() {
     const { language, t } = useLanguage();
-    const { farmerProfile, gpsLocation, gpsCoords } = useFarmer();
+    const {
+        farmerProfile,
+        gpsLocation,
+        gpsCoords,
+        gpsStatus,
+        authReady,
+        resolvedLocation,
+        resolvedCoords,
+    } = useFarmer();
 
-    // Location priority: GPS (primary) → Profile district/state (secondary) → 'Chennai' fallback
-    const profileLocation = gpsLocation || farmerProfile?.district || farmerProfile?.state || 'Chennai';
-    const initialCoords = gpsCoords || { lat: 13.0827, lng: 80.2707 };
+    // Avoid premature Chennai fallback before profile/GPS finishes restoring.
+    const hasProfileLocation = !!(farmerProfile?.district || farmerProfile?.state);
+    const canUseFallback = authReady && gpsStatus !== 'requesting' && !gpsLocation && !hasProfileLocation;
+    const profileLocation = resolvedLocation || (canUseFallback ? 'Chennai' : '');
+    const initialCoords = resolvedCoords || { lat: 22.5, lng: 82.0 };
 
-    const [locationEn, setLocationEn] = useState(profileLocation); // English name for API
-    const [locationDisplay, setLocationDisplay] = useState(getDistrictName(profileLocation, language)); // translated for UI
+    const [locationEn, setLocationEn] = useState(profileLocation || ''); // English name for API
+    const [locationDisplay, setLocationDisplay] = useState(getDistrictName(profileLocation || '', language)); // translated for UI
     const [weather, setWeather] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [markerPos, setMarkerPos] = useState({ lat: initialCoords.lat, lng: initialCoords.lng });
-    const [clickedPlace, setClickedPlace] = useState(profileLocation); // English internally
+    const [clickedPlace, setClickedPlace] = useState(profileLocation || ''); // English internally
     const [flyTarget, setFlyTarget] = useState(null);
 
     // Autocomplete state
@@ -328,6 +338,7 @@ function WeatherPage() {
     }, [handleSuggestionClick]);
 
     useEffect(() => {
+        if (!profileLocation) return;
         // Skip if user manually picked a location (search, map click, city button)
         if (userOverrodeRef.current) return;
         // Skip if profileLocation hasn't changed (avoids duplicate fetches)
@@ -343,6 +354,7 @@ function WeatherPage() {
 
     // Initial fetch on mount (uses whatever profileLocation is at mount time)
     useEffect(() => {
+        if (!profileLocation) return;
         forwardGeocode(profileLocation);
         fetchWeather(profileLocation);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps

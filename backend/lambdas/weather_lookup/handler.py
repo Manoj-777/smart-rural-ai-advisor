@@ -5,10 +5,12 @@
 # See: Detailed_Implementation_Guide.md Section 9
 
 import json
-import requests
 import os
 import logging
 import re
+import socket
+import urllib.request
+import urllib.error
 from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
@@ -25,6 +27,13 @@ LOCATION_ALIASES = {
     'Viluppuram': 'Villupuram',
     'Villupuram': 'Viluppuram',
 }
+
+
+def _http_get_json(url, timeout=8):
+    """HTTP GET JSON using stdlib only (no third-party dependency)."""
+    req = urllib.request.Request(url, headers={'User-Agent': 'smart-rural-ai-weather/1.0'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode('utf-8'))
 
 
 def _validate_location(location):
@@ -82,6 +91,13 @@ def lambda_handler(event, context):
     Response shape matches API contract in Section 2b.
     """
     try:
+        headers = event.get('headers') or {}
+        origin = headers.get('origin') or headers.get('Origin')
+
+        # CORS preflight: return immediately (do not run weather logic)
+        if event.get('httpMethod') == 'OPTIONS':
+            return success_response({}, message='OK', origin=origin)
+
         # Handle API Gateway call
         if 'parameters' in event:
             # Legacy Bedrock format (fallback)
@@ -99,7 +115,7 @@ def lambda_handler(event, context):
         # Security: validate location input
         location, val_err = _validate_location(location)
         if val_err:
-            return error_response(val_err, 400)
+            return error_response(val_err, 400, origin=origin)
 
         # Validate lat/lon if provided
         if lat:
@@ -123,7 +139,7 @@ def lambda_handler(event, context):
 
         if not OPENWEATHER_API_KEY:
             logger.error("OPENWEATHER_API_KEY not configured")
-            return error_response('OpenWeather API key not configured', 500)
+            return error_response('OpenWeather API key not configured', 500, origin=origin)
 
         # Current weather with retry logic and spelling-variant candidates
         location_candidates = _get_location_candidates(location)
@@ -139,8 +155,7 @@ def lambda_handler(event, context):
             for attempt in range(max_retries):
                 try:
                     logger.info(f"Fetching current weather for {candidate} (attempt {attempt + 1}/{max_retries})")
-                    response = requests.get(current_url, timeout=8)
-                    current = response.json()
+                    current = _http_get_json(current_url, timeout=8)
 
                     if current.get('cod') == 200:
                         matched_location = candidate
@@ -154,7 +169,7 @@ def lambda_handler(event, context):
                     else:
                         logger.warning(f"OpenWeather miss for {candidate}: {current.get('message', 'Unknown')}")
                         break
-                except requests.exceptions.Timeout:
+                except (TimeoutError, socket.timeout, urllib.error.URLError):
                     logger.warning(f"Timeout on attempt {attempt + 1} for {candidate}")
                     if attempt == max_retries - 1:
                         raise
@@ -174,8 +189,7 @@ def lambda_handler(event, context):
                 f"?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
             )
             try:
-                response = requests.get(coord_url, timeout=8)
-                coord_data = response.json()
+                coord_data = _http_get_json(coord_url, timeout=8)
                 if coord_data.get('cod') == 200:
                     current = coord_data
                     logger.info(f"Coordinate fallback succeeded for {location}")
@@ -189,6 +203,7 @@ def lambda_handler(event, context):
             return error_response(
                 f"Weather data not available for '{location}'. Please check the location name and try again.",
                 404 if current and current.get('cod') == '404' else 500
+                , origin=origin
             )
 
         # 5-day forecast with retry — use coordinates if city name failed earlier
@@ -207,11 +222,10 @@ def lambda_handler(event, context):
         for attempt in range(max_retries):
             try:
                 logger.info(f"Fetching forecast for {location} (attempt {attempt + 1}/{max_retries})")
-                response = requests.get(forecast_url, timeout=8)
-                forecast_raw = response.json()
+                forecast_raw = _http_get_json(forecast_url, timeout=8)
                 if forecast_raw.get('cod') == '200':
                     break
-            except requests.exceptions.Timeout:
+            except (TimeoutError, socket.timeout, urllib.error.URLError):
                 logger.warning(f"Forecast timeout on attempt {attempt + 1}")
                 if attempt == max_retries - 1:
                     # Continue without forecast if it fails
