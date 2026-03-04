@@ -9,6 +9,7 @@ import boto3
 import logging
 import re
 import base64
+import os
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -17,9 +18,10 @@ bedrock = boto3.client('bedrock-runtime')
 translate_client = boto3.client('translate')
 
 # CORS headers — MUST be on EVERY response (200, 400, 500)
+ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net')
 CORS_HEADERS = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }

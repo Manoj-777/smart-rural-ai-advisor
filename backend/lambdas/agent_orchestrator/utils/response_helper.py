@@ -8,7 +8,7 @@ import os
 
 # Security: Restrict CORS to known origins
 ALLOWED_ORIGINS = [
-    'https://d80ytlzsrax1n.cloudfront.net',
+    os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net'),
 ]
 
 def _get_cors_origin(origin=None):
@@ -28,7 +28,7 @@ def success_response(data, message="Success", language="en", status_code=200, or
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": _get_cors_origin(origin),
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
+            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
         },
         "body": json.dumps({
             "status": "success",
@@ -49,7 +49,7 @@ def error_response(message, status_code=500, language="en", origin=None):
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": _get_cors_origin(origin),
             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS"
+            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
         },
         "body": json.dumps({
             "status": "error",

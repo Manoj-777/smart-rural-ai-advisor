@@ -30,13 +30,13 @@ Globals:
         POLLY_FORCE_HINDI_FALLBACK: 'false'
         TTS_FAILOVER_TO_POLLY: 'true'
         USE_GTTS: 'true'
-        FOUNDATION_MODEL_LITE: 'global.amazon.nova-2-lite-v1:0'
+        ALLOWED_ORIGIN: 'https://d80ytlzsrax1n.cloudfront.net'
 
 Parameters:
   BedrockKBId:
     Type: String
-    Description: Bedrock Knowledge Base ID
-    Default: PLACEHOLDER
+    Description: Bedrock Knowledge Base ID (required for KB-backed crop advisory)
+    Default: ''
   OpenWeatherApiKey:
     Type: String
     Description: OpenWeatherMap API Key
@@ -54,11 +54,14 @@ Parameters:
     Type: String
     Description: Bedrock Guardrail version (optional)
     Default: ''
+  CognitoUserPoolId:
+    Type: String
+    Description: Cognito User Pool ID for authentication
+    Default: 'ap-south-1_X58lNMEcn'
 
 Resources:
   # S3 Bucket and DynamoDB tables created manually (already exist)
-  # S3: smart-rural-ai-948809294205
-  # DynamoDB: farmer_profiles, chat_sessions
+  # DynamoDB: farmer_profiles, chat_sessions, otp_codes, rate_limits
 
   # Lambda Functions
   AgentOrchestratorFunction:
@@ -70,6 +73,7 @@ Resources:
       Environment:
         Variables:
           FOUNDATION_MODEL: apac.amazon.nova-pro-v1:0
+          FOUNDATION_MODEL_LITE: 'global.amazon.nova-2-lite-v1:0'
           LAMBDA_WEATHER: !Ref WeatherFunction
           LAMBDA_CROP: !Ref CropAdvisoryFunction
           LAMBDA_SCHEMES: !Ref GovtSchemesFunction
@@ -169,10 +173,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       InlineCode: |
+        import os
         def lambda_handler(event, context):
+            origin = os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net')
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net'},
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin},
                 'body': '{"status": "healthy", "service": "Smart Rural AI Advisor"}'
             }
       Handler: index.lambda_handler
@@ -218,14 +224,7 @@ Resources:
     Properties:
       CodeUri: ../backend/lambdas/govt_schemes/
       Handler: handler.lambda_handler
-      Policies:
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:RetrieveAndGenerate
-                - bedrock:Retrieve
-              Resource: '*'
+      # No IAM policies needed — uses hardcoded scheme data, no AWS service calls
       Events:
         SchemesApi:
           Type: Api
@@ -247,7 +246,7 @@ Resources:
         Variables:
           DYNAMODB_OTP_TABLE: otp_codes
           DYNAMODB_PROFILES_TABLE: farmer_profiles
-          COGNITO_USER_POOL_ID: ap-south-1_X58lNMEcn
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
           STAGE: prod
       Policies:
         - Version: '2012-10-17'

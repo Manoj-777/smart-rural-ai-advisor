@@ -30,6 +30,7 @@ frontend/.env
 ## AWS
 .aws/
 samconfig.toml
+**/samconfig.toml
 .aws-sam/
 
 ## IDE
@@ -57,6 +58,8 @@ kb-permissions-policy.json
 kb-config.json
 kb-storage-config.json
 aoss-enc-policy.json
+**/cw_policy*.json
+**/policy_fix.json
 
 DigiWatch.AI/
 
@@ -90,56 +93,11 @@ temp/
 archive/
 
 ## Temporary dev/debug scripts (prefixed with _)
-# KEEP: stress_test.py, _regression_test_290.py, _deploy_fixes.py
-_analyze.py
-_analyze_latency.py
-_analyze_report.py
-_analyze_report2.py
-_analyze_stress.py
-_benchmark.py
-_benchmark2.py
-_chatblock_eng_retest.py
-_chatblock_test.py
-_check_replies.py
-_debug_keywords.py
-_fix_location_translate.py
-_fix_mic_fab_overlap.py
-_fix_mic_mobile.py
-_fix_mic_overlap.py
-_fix_navbar_ui.py
-_fix_ui_v2.py
-_fresh_bench.py
-_full_audit.py
-_purge_cache.py
-_quick_test.py
-_read_report.py
-_run_val.py
-_test_deploy.py
-_test_edge_cases.py
-_test_offtopic_fix.py
-_test_quick.py
-_test_v2.py
-_validate_all.py
-_validate_fixes.py
-_verify_facts.py
-_verify_facts_api.py
-_verify_facts_v3.py
+_*.py
+_*.json
+_*.txt
 
 ## Temporary test output files
-_audit_results.json
-_chatblock_log.txt
-_chattest_english.json
-_chattest_english_retest.json
-_chattest_tamil.json
-_false_reject_prompts.json
-_fix_validation_results.json
-_validate_results.json
-_test_output.txt
-_val4_output.txt
-_validate_err3.txt
-_validate_output.txt
-_validate_output2.txt
-_validate_output3.txt
 benchmark_errors.txt
 benchmark_results.txt
 fresh_bench.txt
@@ -147,6 +105,11 @@ fresh_bench_err.txt
 fresh_errors.txt
 fresh_results.txt
 regression_full_run.log
+stress_test.py
+stress_report_*.json
+regression_report_*.json
+PROGRESS_TRACKER.md
+TEAM_WORKPLAN.md
 
 ## Cleanup/migration artifacts
 CLEANUP_SUMMARY.md

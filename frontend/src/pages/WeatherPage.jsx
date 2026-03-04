@@ -1,6 +1,6 @@
 // src/pages/WeatherPage.jsx
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,6 +10,7 @@ import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 import { apiFetch } from '../utils/apiFetch';
 import config from '../config';
+import { cleanLocationName } from '../utils/locationUtils';
 
 // Inline SVG map pin — zero network requests, resolution-independent
 const MARKER_SVG = encodeURIComponent(
@@ -98,18 +99,6 @@ function translateCondition(desc, lang) {
     if (!map) return desc;
     const lower = desc.toLowerCase();
     return map[lower] || desc;
-}
-
-/**
- * Clean location names from Nominatim that OpenWeatherMap doesn't understand.
- * Strips suffixes like "Tahsil", "Block", "Mandal", "Taluk", "Taluka", "District", "Division", "Tehsil", "Sub-Division"
- */
-function cleanLocationName(name) {
-    if (!name) return name;
-    return name
-        .replace(/\b(Tahsil|Tehsil|Block|Mandal|Taluk[ua]?|Sub-?district|District|Division|Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|Circle|Range|Panchayat|Samiti|Gram|Assembly|Constituency|Revenue|Hobli|Firka|Community Development)\b/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
 }
 
 function WeatherPage() {

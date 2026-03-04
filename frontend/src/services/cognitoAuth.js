@@ -11,8 +11,8 @@ import {
 import config from '../config';
 
 const POOL_DATA = {
-    UserPoolId: 'ap-south-1_X58lNMEcn',
-    ClientId: '4c3c6he88im15hmv5rdkv3m6h0',
+    UserPoolId: config.COGNITO_USER_POOL_ID,
+    ClientId: config.COGNITO_CLIENT_ID,
 };
 
 const userPool = new CognitoUserPool(POOL_DATA);

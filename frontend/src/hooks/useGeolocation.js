@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import config from '../config';
+import { cleanLocationName } from '../utils/locationUtils';
 
 const GPS_LOCATION_KEY = 'sra_gps_location';
 const GPS_COORDS_KEY = 'sra_gps_coords';
@@ -12,17 +13,6 @@ const GPS_PERMISSION_KEY = 'sra_gps_permission'; // 'granted' | 'denied' | 'prom
 
 // Cache GPS for 30 minutes (farmer doesn't move much)
 const GPS_CACHE_MS = 30 * 60 * 1000;
-
-/**
- * Clean Nominatim place names (same as WeatherPage)
- */
-function cleanLocationName(name) {
-    if (!name) return name;
-    return name
-        .replace(/\b(Tahsil|Tehsil|Block|Mandal|Taluk[ua]?|Sub-?district|District|Division|Sub-?Division|Municipality|Corporation|Cantonment|Nagar Panchayat|Town|Circle|Range|Panchayat|Samiti|Gram|Assembly|Constituency|Revenue|Hobli|Firka|Community Development)\b/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-}
 
 /**
  * Reverse geocode lat/lng → English place name using Nominatim (free, no API key)

@@ -8,6 +8,10 @@ const config = {
     // so the UI works without Bedrock backend. Set VITE_MOCK_AI=true in .env
     MOCK_AI: import.meta.env.VITE_MOCK_AI === 'true',
 
+    // Cognito User Pool — reads from .env for portability
+    COGNITO_USER_POOL_ID: import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-south-1_X58lNMEcn',
+    COGNITO_CLIENT_ID: import.meta.env.VITE_COGNITO_CLIENT_ID || '4c3c6he88im15hmv5rdkv3m6h0',
+
     // Supported languages
     LANGUAGES: {
         'en-IN': { name: 'English', code: 'en' },

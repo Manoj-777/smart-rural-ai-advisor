@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 transcribe = boto3.client('transcribe')
 s3 = boto3.client('s3')
 
-BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-data')
+BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-knowledge-base')
 
 # Map frontend language codes to Amazon Transcribe language codes
 # See: https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html

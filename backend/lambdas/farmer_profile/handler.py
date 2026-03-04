@@ -81,9 +81,10 @@ sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1')
 COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', '')
 STAGE = os.environ.get('STAGE', 'prod')
 
+ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net')
 CORS_HEADERS = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,OPTIONS'
 }
