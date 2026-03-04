@@ -111,7 +111,7 @@ function SchemesPage() {
             const farmerContext = farmerProfile
                 ? `I am a farmer from ${farmerProfile.state || 'India'}${farmerProfile.district ? ', ' + farmerProfile.district : ''}. I grow ${(farmerProfile.crops || []).join(', ') || 'crops'}. My land is ${farmerProfile.land_size_acres || 'unknown'} acres.`
                 : '';
-            const query = `${farmerContext ? farmerContext + ' ' : ''}Tell me everything I need to know about the "${schemeName}" scheme in detail. Include: full benefits with exact amounts, complete eligibility criteria, all required documents, step-by-step application process, important deadlines, and any tips to get maximum benefit. Scheme info: ${schemeDetails}`;
+            const query = `${farmerContext ? farmerContext + ' ' : ''}Tell me everything I need to know about the "${schemeName}" scheme in detail. Include: full benefits with exact amounts, complete eligibility criteria, all required documents, step-by-step application process, important deadlines, and any tips to get maximum benefit. IMPORTANT: Only share information you are confident about. If you are unsure about specific details like exact amounts, documents, or deadlines for this scheme, clearly say so and advise the farmer to verify with their local agriculture office or Kisan Call Centre (1800-180-1551). Do not make up or guess specific numbers, dates, or document lists. Scheme info: ${schemeDetails}`;
 
             const res = await apiFetch(`/chat`, {
                 method: 'POST',
@@ -183,6 +183,18 @@ function SchemesPage() {
                                 <span><span className="detail-label">{t('schemesHowToApply')}:</span> {scheme.how_to_apply}</span>
                             </div>
                         )}
+                        {scheme.documents && (
+                            <div className="scheme-detail">
+                                <span className="detail-icon">📄</span>
+                                <span><span className="detail-label">{t('schemesDocuments') || 'Required Documents'}:</span> {scheme.documents}</span>
+                            </div>
+                        )}
+                        {scheme.deadline && (
+                            <div className="scheme-detail">
+                                <span className="detail-icon">📅</span>
+                                <span><span className="detail-label">{t('schemesDeadline') || 'Deadline'}:</span> {scheme.deadline}</span>
+                            </div>
+                        )}
                         {scheme.helpline && (
                             <div className="scheme-detail">
                                 <span className="detail-icon">📞</span>
@@ -233,6 +245,9 @@ function SchemesPage() {
                                             .replace(/\n/g, '<br/>'))
                                     }}
                                 />
+                                <div className="scheme-ai-disclaimer">
+                                    ⚠️ {t('schemesAIDisclaimer') || 'Please verify details with your nearest agriculture office or call Kisan Helpline 1800-180-1551. Scheme details may change — always confirm before applying.'}
+                                </div>
                             </div>
                         )}
                     </div>
