@@ -436,6 +436,13 @@ CRITICAL RULES:
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
 14. CRITICAL: You have knowledge about ALL major Indian crops — not just rice and wheat. The tool database covers 35+ crops including cotton, sugarcane, maize, groundnut, soybean, banana, coconut, tomato, onion, potato, millets (ragi/bajra/jowar), chilli, mango, brinjal, turmeric, black gram, mustard, sunflower, sesame, jute, lentil, barley, okra, pomegranate, guava, papaya, castor, safflower, chickpea, green gram, toor dal, and more. If the tool returns partial data (e.g., only 2 crops), STILL provide helpful advice about the farmer's requested crop using your general agricultural knowledge PLUS whatever the tool returned. NEVER say "I only have data for rice and wheat" or "the tool only returned data for X and Y" — that is misleading and unhelpful. Instead, combine tool data with your deep knowledge of Indian agriculture to give the best advice possible.
 15. For topics outside the tool database (e.g., livestock, dairy, sericulture, food processing, biogas), provide practical general advice and recommend the farmer contact their local KVK (Krishi Vigyan Kendra) or agricultural extension service for specialized guidance.
+16. RESPONSE FORMAT CONTRACT (STRICT): Return plain Markdown only (no HTML/JSON/code fences unless asked). For multi-item answers (e.g., schemes), use this exact structure:
+    ### <Item Name>
+    - **Eligibility:** ...
+    - **Deadline:** ...
+    - **Benefit:** ...
+    - **How to apply:** ...
+   Keep spacing compact: one blank line between sections, no extra blank lines between bullets. Never output raw placeholders like [object Object].
 
 CROP REFERENCE (key data for quick lookup — use alongside tool results):
 Rice: Kharif, 120-150d, clay loam pH5.5-6.5, NPK 120:60:40, yield 3.5-5.0t/ha, MSP ₹2300/q
@@ -841,6 +848,29 @@ def _post_process_response(text):
         # If everything was filtered, keep original (shouldn't happen)
 
     return text
+
+
+def _normalize_output_markdown(text):
+    """Normalize model markdown so frontend rendering stays deterministic."""
+    if not text:
+        return text
+
+    normalized = text.replace('\r\n', '\n')
+
+    # Headings: remove excessive indentation and enforce space after hashes
+    normalized = re.sub(r'^[\t ]{2,}(#{1,6}\s*)', r'\1', normalized, flags=re.MULTILINE)
+    normalized = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', normalized, flags=re.MULTILINE)
+
+    # Bullet consistency: convert unicode bullets to markdown dashes
+    normalized = re.sub(r'^[\t ]*•[\t ]+', '- ', normalized, flags=re.MULTILINE)
+
+    # Compact spacing: collapse 3+ blank lines to 1 blank line
+    normalized = re.sub(r'\n{3,}', '\n\n', normalized)
+
+    # Trim trailing spaces line-wise and final body
+    normalized = '\n'.join(line.rstrip() for line in normalized.split('\n')).strip()
+
+    return normalized
 
 
 def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
@@ -1669,6 +1699,7 @@ def lambda_handler(event, context):
 
         # Post-process: remove any "only rice and wheat" limitation language
         result_text = _post_process_response(result_text)
+        result_text = _normalize_output_markdown(result_text)
 
         logger.info(f"Agent response: {mask_pii_in_log(result_text[:200])}... tools={tools_used}")
 
