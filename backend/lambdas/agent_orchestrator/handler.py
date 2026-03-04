@@ -446,6 +446,9 @@ CRITICAL RULES:
     - **Benefit:** ...
     - **How to apply:** ...
    Keep spacing compact: one blank line between sections, no extra blank lines between bullets. Never output raw placeholders like [object Object].
+17. For pest/disease queries based only on text symptoms, NEVER present a single diagnosis as certain. Use cautious wording: "likely" / "possibly", include 2-3 differential possibilities, and list quick confirmation cues (what to check on leaf/stem/fruit).
+18. Give exact pesticide/fungicide dose only when tool evidence strongly matches a specific disease/pest; otherwise provide safe immediate steps first (remove infected parts, moisture control, field hygiene) and ask for a photo or additional symptoms to confirm.
+19. Do NOT use definitive labels/headings like "This is X disease" or a standalone disease name as the final diagnosis unless there is explicit confirmation evidence (clear photo/lab/field confirmation). For symptom-only cases, format as "Most likely possibilities" and "How to confirm first" before any treatment details.
 
 CROP REFERENCE (key data for quick lookup — use alongside tool results):
 Rice: Kharif, 120-150d, clay loam pH5.5-6.5, NPK 120:60:40, yield 3.5-5.0t/ha, MSP ₹2300/q
@@ -874,6 +877,37 @@ def _normalize_output_markdown(text):
     normalized = '\n'.join(line.rstrip() for line in normalized.split('\n')).strip()
 
     return normalized
+
+
+def _looks_like_symptom_query(text):
+    if not text:
+        return False
+    q = text.lower()
+    symptom_terms = [
+        'yellow', 'spot', 'spots', 'wilting', 'wilt', 'rot', 'blight',
+        'leaf', 'leaves', 'stem', 'fruit', 'disease', 'what disease', 'symptom'
+    ]
+    return any(term in q for term in symptom_terms)
+
+
+def _ensure_cautious_pest_response(text, tools_used, user_query_en):
+    if not text:
+        return text
+    used = set(tools_used or [])
+    if 'get_pest_alert' not in used:
+        return text
+    if not _looks_like_symptom_query(user_query_en):
+        return text
+
+    lowered = text.lower()
+    if 'probable diagnosis' in lowered or 'not a confirmed' in lowered:
+        return text
+
+    caution = (
+        'Based on symptoms alone, this is a probable diagnosis and not a confirmed one. '
+        'Please verify with close leaf/stem/fruit checks or a photo before final treatment.'
+    )
+    return f"{caution}\n\n{text}"
 
 
 def _strip_local_markdown_symbols(text, language_code='en'):
@@ -1796,6 +1830,7 @@ def lambda_handler(event, context):
         # Post-process: remove any "only rice and wheat" limitation language
         result_text = _post_process_response(result_text)
         result_text = _normalize_output_markdown(result_text)
+        result_text = _ensure_cautious_pest_response(result_text, tools_used, _raw_en_for_cache)
 
         logger.info(f"Agent response: {mask_pii_in_log(result_text[:200])}... tools={tools_used}")
 
