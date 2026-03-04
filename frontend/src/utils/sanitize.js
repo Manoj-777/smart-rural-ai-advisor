@@ -95,7 +95,14 @@ export function sanitizeHtml(dirty) {
  */
 export function formatAndSanitize(text) {
     if (!text) return '';
-    // marked.parse outputs full HTML from any standard markdown
-    const rawHtml = marked.parse(text);
+    // Normalize common LLM markdown quirks so headings/lists always render:
+    // - remove excessive indentation before heading markers (prevents code-block parsing)
+    // - enforce a space after heading hashes (e.g. "###Title" -> "### Title")
+    const normalized = text
+        .replace(/^[\t ]{4,}(#{1,6}\s*)/gm, '$1')
+        .replace(/^(#{1,6})([^\s#])/gm, '$1 $2');
+
+    // marked.parse outputs full HTML from standard markdown
+    const rawHtml = marked.parse(normalized);
     return sanitizeHtml(rawHtml);
 }
