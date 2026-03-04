@@ -160,8 +160,7 @@ def _gtts_tts(safe_text, language_code):
     try:
         from gtts import gTTS
     except ImportError:
-        print('gTTS not installed, skipping free TTS path')
-        return None
+        raise RuntimeError('gTTS not installed in Lambda package')
 
     print(f'gTTS: {len(safe_text)} chars for lang={language_code}')
     tts = gTTS(text=safe_text, lang=language_code, slow=False)

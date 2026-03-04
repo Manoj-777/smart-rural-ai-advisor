@@ -43,6 +43,25 @@ const STATE_OPTION_OBJECTS = [
     { value: 'West Bengal', key: 'stateWB' },
 ];
 
+function normalizeProfileData(raw) {
+    const data = raw || {};
+    const crops = Array.isArray(data.crops)
+        ? data.crops.filter(Boolean)
+        : (typeof data.crops === 'string'
+            ? data.crops.split(',').map(c => c.trim()).filter(Boolean)
+            : []);
+
+    return {
+        name: typeof data.name === 'string' ? data.name : '',
+        state: typeof data.state === 'string' && data.state ? data.state : 'Tamil Nadu',
+        district: typeof data.district === 'string' ? data.district : '',
+        crops,
+        soil_type: typeof data.soil_type === 'string' && data.soil_type ? data.soil_type : 'Alluvial',
+        land_size_acres: Number.isFinite(Number(data.land_size_acres)) ? Number(data.land_size_acres) : 0,
+        language: typeof data.language === 'string' && data.language ? data.language : 'ta-IN',
+    };
+}
+
 function ProfilePage() {
     const { t, language, setLanguage } = useLanguage();
     const { farmerId, farmerPhone, updateProfile, deleteAccount } = useFarmer();
@@ -71,12 +90,14 @@ function ProfilePage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    const safeCrops = Array.isArray(profile.crops) ? profile.crops : [];
+
     useEffect(() => {
         const loadProfile = async () => {
             try {
                 const res = await apiFetch(`/profile/${farmerId}`);
                 const data = await res.json();
-                if (data.data) setProfile(prev => ({ ...prev, ...data.data }));
+                if (data.data) setProfile(prev => ({ ...prev, ...normalizeProfileData(data.data) }));
             } catch { /* New user — use defaults */ }
             hasLoadedRef.current = true;
         };
@@ -86,9 +107,9 @@ function ProfilePage() {
     const handleCropToggle = (crop) => {
         setProfile(prev => ({
             ...prev,
-            crops: prev.crops.includes(crop)
-                ? prev.crops.filter(c => c !== crop)
-                : [...prev.crops, crop]
+            crops: (Array.isArray(prev.crops) ? prev.crops : []).includes(crop)
+                ? (Array.isArray(prev.crops) ? prev.crops : []).filter(c => c !== crop)
+                : [...(Array.isArray(prev.crops) ? prev.crops : []), crop]
         }));
     };
 
@@ -266,7 +287,7 @@ function ProfilePage() {
                         {CROP_KEYS.map((key, i) => (
                             <button
                                 key={key}
-                                className={`crop-chip ${profile.crops.includes(CROP_VALUES_EN[i]) ? 'selected' : ''}`}
+                                className={`crop-chip ${safeCrops.includes(CROP_VALUES_EN[i]) ? 'selected' : ''}`}
                                 onClick={() => handleCropToggle(CROP_VALUES_EN[i])}
                             >
                                 {t(key)}
@@ -382,8 +403,8 @@ function ProfilePage() {
                         <div className="summary-item">
                             <span className="summary-label">{t('profileSumCrops')}</span>
                             <span className="summary-value">
-                                {profile.crops.length > 0
-                                    ? profile.crops.map(c => localizedCrop(c)).join(', ')
+                                {safeCrops.length > 0
+                                    ? safeCrops.map(c => localizedCrop(c)).join(', ')
                                     : t('profileNoneSelected')}
                             </span>
                         </div>

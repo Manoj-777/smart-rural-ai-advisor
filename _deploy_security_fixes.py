@@ -16,6 +16,7 @@ LAMBDAS = {
     'orchestrator': {
         'function_name': 'smart-rural-ai-AgentOrchestratorFunction-9L6obTRaxJHM',
         'source_dir': os.path.join('backend', 'lambdas', 'agent_orchestrator'),
+        'deps_dir': os.path.join('.aws-sam', 'build', 'AgentOrchestratorFunction'),
     },
     'weather': {
         'function_name': 'smart-rural-ai-WeatherFunction-dilSoHSLlXGN',

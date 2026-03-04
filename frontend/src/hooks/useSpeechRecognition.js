@@ -17,6 +17,8 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const streamRef = useRef(null);
     const onResultRef = useRef(onResult);
     const autoStopTimerRef = useRef(null);
+    const nativeGotResultRef = useRef(false);
+    const nativeFallbackTriggeredRef = useRef(false);
 
     // Always keep the callback ref synced with the latest value
     useEffect(() => { onResultRef.current = onResult; }, [onResult]);
@@ -171,10 +173,13 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             recognition.continuous = false;
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
+            nativeGotResultRef.current = false;
+            nativeFallbackTriggeredRef.current = false;
 
             recognition.onresult = (event) => {
                 const transcript = event?.results?.[0]?.[0]?.transcript?.trim();
                 if (transcript && onResultRef.current) {
+                    nativeGotResultRef.current = true;
                     onResultRef.current(transcript);
                     setError('');
                 } else {
@@ -194,11 +199,23 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
                     setError('');
                     setIsListening(false);
                     setIsProcessing(false);
+                    nativeFallbackTriggeredRef.current = true;
                     _startAwsRecorder();
                 }
             };
 
             recognition.onend = () => {
+                if (!manualStopRef.current && !nativeGotResultRef.current && !nativeFallbackTriggeredRef.current) {
+                    // Some browsers end native recognition with no result and no explicit error.
+                    // Recover silently by switching to AWS recorder.
+                    nativeFallbackTriggeredRef.current = true;
+                    setError('');
+                    setIsListening(false);
+                    setIsProcessing(false);
+                    _startAwsRecorder();
+                    return;
+                }
+
                 manualStopRef.current = false;
                 setIsListening(false);
                 setIsProcessing(false);
