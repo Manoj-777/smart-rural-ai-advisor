@@ -226,7 +226,7 @@ def lambda_handler(event, context):
                             ]
                         }
                     ],
-                    inferenceConfig={"maxTokens": 1024, "temperature": 0.3}
+                    inferenceConfig={"temperature": 0.3}
                 )
                 analysis = response['output']['message']['content'][0]['text']
                 break

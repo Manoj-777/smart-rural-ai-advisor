@@ -925,7 +925,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 "messages": messages,
                 "system": [{"text": system_prompt}],
                 "toolConfig": {"tools": DIRECT_TOOLS},
-                "inferenceConfig": {"maxTokens": 2048, "temperature": 0.7},
+                "inferenceConfig": {"temperature": 0.7},
             }
             # Gap #5: Attach Bedrock native guardrail if configured
             # (skipped for feature-page fast paths — their prompts are
