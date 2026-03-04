@@ -8,33 +8,53 @@ import { marked } from 'marked';
 marked.setOptions({
     gfm: true,          // GitHub-Flavoured Markdown (tables, strikethrough, etc.)
     breaks: true,        // Convert \n → <br> (chat messages aren't wrapped in <p>)
-    headerIds: false,    // No auto-generated IDs on headings
-    mangle: false,       // Don't mangle email addresses
 });
 
 // Custom renderer to add chat-friendly CSS classes
+// NOTE: marked v15+ passes a single token object to renderer methods
 const renderer = new marked.Renderer();
 
-// All headings render as compact h3 inside chat bubbles
-renderer.heading = function (text, level) {
-    const tag = level <= 3 ? 'h3' : level === 4 ? 'h4' : 'h5';
-    return `<${tag} class="chat-heading">${text}</${tag}>`;
+// All headings render as compact h3/h4/h5 inside chat bubbles
+renderer.heading = function (token) {
+    const depth = token.depth || 3;
+    const text = this.parser.parseInline(token.tokens || []) || token.text || '';
+    const tag = depth <= 3 ? 'h3' : depth === 4 ? 'h4' : 'h5';
+    return `<${tag} class="chat-heading">${text}</${tag}>\n`;
 };
 
 // Add classes to list items for styling
-renderer.listitem = function (text) {
+renderer.listitem = function (token) {
+    const text = this.parser.parse(token.tokens || []) || token.text || '';
     return `<li class="chat-list-item">${text}</li>\n`;
 };
 
 // Tables get a wrapper class
-renderer.table = function (header, body) {
-    return `<table class="chat-table"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+renderer.table = function (token) {
+    // Build header
+    const headerCells = (token.header || []).map(cell => {
+        const content = this.parser.parseInline(cell.tokens || []) || cell.text || '';
+        return `<th>${content}</th>`;
+    }).join('');
+    const headerRow = `<tr>${headerCells}</tr>`;
+    
+    // Build body rows
+    const bodyRows = (token.rows || []).map(row => {
+        const cells = row.map(cell => {
+            const content = this.parser.parseInline(cell.tokens || []) || cell.text || '';
+            return `<td>${content}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+    }).join('\n');
+    
+    return `<table class="chat-table"><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>\n`;
 };
 
 // Links open in new tab
-renderer.link = function (href, title, text) {
-    const titleAttr = title ? ` title="${title}"` : '';
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${text}</a>`;
+renderer.link = function (token) {
+    const href = token.href || '';
+    const title = token.title ? ` title="${token.title}"` : '';
+    const text = this.parser.parseInline(token.tokens || []) || token.text || '';
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${title}>${text}</a>`;
 };
 
 marked.use({ renderer });
