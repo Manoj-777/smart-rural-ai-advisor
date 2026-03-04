@@ -59,6 +59,8 @@ def _guardrail_config():
 
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
 FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
+HYBRID_LOCALIZATION_ENABLED = os.environ.get('HYBRID_LOCALIZATION_ENABLED', 'true').lower() == 'true'
+STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'true').lower() == 'true'
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', '')
 LAMBDA_CROP = os.environ.get('LAMBDA_CROP', '')
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', '')
@@ -873,6 +875,59 @@ def _normalize_output_markdown(text):
     return normalized
 
 
+def _strip_local_markdown_symbols(text, language_code='en'):
+    """Remove markdown symbols from localized replies for cleaner plain-text UX."""
+    if not text or language_code == 'en' or not STRIP_LOCAL_MARKDOWN_SYMBOLS:
+        return text
+
+    s = text.replace('\r\n', '\n')
+    s = re.sub(r'^[\t ]*#{1,6}[\t ]*', '', s, flags=re.MULTILINE)
+    s = s.replace('**', '')
+    s = s.replace('*', '')
+    s = re.sub(r'\n{3,}', '\n\n', s)
+    return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
+
+
+def _localize_response_hybrid(text_en, target_lang):
+    """Model-first localization with Translate fallback on failure/quality issues."""
+    if not text_en or target_lang == 'en' or not HYBRID_LOCALIZATION_ENABLED:
+        return text_en, 'disabled_or_en'
+
+    try:
+        localize_prompt = (
+            f"Translate this agricultural advisory to language code '{target_lang}'. "
+            "Keep meaning and numbers exact. Output plain text only. "
+            "Do not use markdown symbols like # or *.\n\n"
+            f"Advisory:\n{text_en}"
+        )
+
+        response = bedrock_rt.converse(
+            modelId=FOUNDATION_MODEL_LITE or FOUNDATION_MODEL,
+            messages=[{"role": "user", "content": [{"text": localize_prompt}]}],
+            inferenceConfig={"temperature": 0.2},
+        )
+        localized = (
+            response.get('output', {})
+            .get('message', {})
+            .get('content', [{}])[0]
+            .get('text', '')
+            .strip()
+        )
+        stop_reason = response.get('stopReason', '')
+
+        if (
+            localized
+            and len(localized) >= 40
+            and 'blocked by our content filters' not in localized.lower()
+            and stop_reason != 'content_filtered'
+        ):
+            return localized, 'model_direct'
+    except Exception as loc_err:
+        logger.warning(f"Hybrid localization model path failed ({target_lang}): {loc_err}")
+
+    return translate_response(text_en, 'en', target_lang), 'translate_fallback'
+
+
 def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
     """
     Call Bedrock model directly with tool use (converse API).
@@ -1385,6 +1440,7 @@ def lambda_handler(event, context):
                 if detected_lang and detected_lang != 'en'
                 else policy_reply_en
             )
+            translated_policy_reply = _strip_local_markdown_symbols(translated_policy_reply, detected_lang)
 
             audio_url = None
             audio_key = None
@@ -1487,6 +1543,7 @@ def lambda_handler(event, context):
                 translated_reply = translate_response(result_text, 'en', detected_lang)
             else:
                 translated_reply = result_text
+            translated_reply = _strip_local_markdown_symbols(translated_reply, detected_lang)
 
             # Quick TTS
             audio_url = None
@@ -1558,11 +1615,13 @@ def lambda_handler(event, context):
 
             # Translate if needed
             if detected_lang and detected_lang != 'en':
-                translated_reply = translate_response(result_text_en, 'en', detected_lang)
+                translated_reply, _cache_localization_mode = _localize_response_hybrid(result_text_en, detected_lang)
                 # Defensive: strip any leftover HTML artifacts from translation
                 translated_reply = re.sub(r'</?span[^>]*>', '', translated_reply, flags=re.IGNORECASE)
             else:
                 translated_reply = result_text_en
+                _cache_localization_mode = 'en'
+            translated_reply = _strip_local_markdown_symbols(translated_reply, detected_lang)
 
             # TTS
             audio_url = None
@@ -1612,6 +1671,7 @@ def lambda_handler(event, context):
                 'session_id': session_id,
                 'mode': 'bedrock-direct',
                 'pipeline_mode': 'cache_hit',
+                'localization_mode': _cache_localization_mode,
                 'policy': {
                     'code_policy_enforced': True,
                     'off_topic_blocked': False,
@@ -1709,11 +1769,13 @@ def lambda_handler(event, context):
         sources_line = _build_sources_line(tools_used)
 
         if detected_lang and detected_lang != 'en':
-            translated_reply = translate_response(text_for_translation, 'en', detected_lang)
+            translated_reply, localization_mode = _localize_response_hybrid(text_for_translation, detected_lang)
             # Defensive: strip any leftover HTML artifacts from translation
             translated_reply = re.sub(r'</?span[^>]*>', '', translated_reply, flags=re.IGNORECASE)
         else:
             translated_reply = text_for_translation
+            localization_mode = 'en'
+        translated_reply = _strip_local_markdown_symbols(translated_reply, detected_lang)
 
         # Re-append sources in English AFTER translation only to reply_en (debug)
         # Do NOT append sources to translated_reply — frontend shows sources separately
@@ -1816,6 +1878,7 @@ def lambda_handler(event, context):
             'polly_text_truncated': polly_text_truncated,
             'session_id': session_id,
             'mode': 'bedrock-direct',
+            'localization_mode': localization_mode,
             'pipeline_mode': 'direct',
             'pipeline': pipeline_meta_extra if pipeline_meta_extra else None,
             'policy': policy_meta,
