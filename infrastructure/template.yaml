@@ -36,6 +36,14 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: Enforce application-level policy checks (topic gating, grounding, sources)
     Default: 'true'
+  BedrockGuardrailId:
+    Type: String
+    Description: Bedrock Guardrail ID (optional, leave blank to disable)
+    Default: ''
+  BedrockGuardrailVersion:
+    Type: String
+    Description: Bedrock Guardrail version (optional)
+    Default: ''
 
 Resources:
   # S3 Bucket and DynamoDB tables created manually (already exist)
@@ -49,6 +57,13 @@ Resources:
       CodeUri: ../backend/lambdas/agent_orchestrator/
       Handler: handler.lambda_handler
       Timeout: 120
+      Environment:
+        Variables:
+          FOUNDATION_MODEL: apac.amazon.nova-pro-v1:0
+          LAMBDA_WEATHER: !Ref WeatherFunction
+          LAMBDA_CROP: !Ref CropAdvisoryFunction
+          LAMBDA_SCHEMES: !Ref GovtSchemesFunction
+          LAMBDA_PROFILE: !Ref FarmerProfileFunction
       Policies:
         - Version: '2012-10-17'
           Statement:
