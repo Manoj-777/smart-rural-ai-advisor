@@ -91,6 +91,19 @@ def _strip_html_artifacts(text):
     return text.strip()
 
 
+def _light_markdown_to_plain(text):
+    """Convert markdown-heavy model output into translation-friendly plain text."""
+    import re
+    s = text or ''
+    s = re.sub(r'^#{1,6}\s*', '', s, flags=re.MULTILINE)
+    s = re.sub(r'\*\*(.*?)\*\*', r'\1', s)
+    s = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', s)
+    s = re.sub(r'^\s*[\-•]\s+', '- ', s, flags=re.MULTILINE)
+    s = re.sub(r'\n{3,}', '\n\n', s)
+    s = re.sub(r'[ \t]{2,}', ' ', s)
+    return s.strip()
+
+
 def _is_garbled_translation(original, translated):
     """Detect if a translation is garbled/degraded.
     Returns True if the translation appears to be garbage output."""
@@ -198,8 +211,9 @@ def translate_response(text, source_language='en', target_language='ta'):
 
     def _do_translate_plain(source_text):
         """Plain text translation (fallback — no markdown protection)."""
+        plain = _light_markdown_to_plain(source_text)
         response = translate.translate_text(
-            Text=source_text,
+            Text=plain,
             SourceLanguageCode=normalized_source,
             TargetLanguageCode=normalized_target,
         )
@@ -208,9 +222,13 @@ def translate_response(text, source_language='en', target_language='ta'):
         result = _strip_html_artifacts(result)
         return result
 
+    protected_candidate = None
+    plain_candidate = None
+
     # Attempt 1: Token-protected translation (preserves markdown)
     try:
         translated = _do_translate_protected(text)
+        protected_candidate = translated
         if not _is_garbled_translation(text, translated):
             return translated
         print(f"Garbled protected translation detected, retrying plain text")
@@ -220,12 +238,19 @@ def translate_response(text, source_language='en', target_language='ta'):
     # Attempt 2: Plain text translation (no markdown protection)
     try:
         translated = _do_translate_plain(text)
+        plain_candidate = translated
         if not _is_garbled_translation(text, translated):
             return translated
-        print(f"Garbled plain-text translation detected, falling back to English")
+        print(f"Garbled plain-text translation detected, returning best-effort localized output")
     except Exception as e2:
         print(f"Plain text translate error: {e2}, falling back to English")
 
-    # Attempt 3: Fall back to English with localized disclaimer
+    # Attempt 3: Return best-effort localized candidate instead of forcing English.
+    if plain_candidate and plain_candidate.strip():
+        return plain_candidate
+    if protected_candidate and protected_candidate.strip():
+        return protected_candidate
+
+    # Final fallback: English with localized disclaimer only if translation totally failed.
     disclaimer = _TRANSLATION_UNAVAILABLE.get(normalized_target, '')
     return disclaimer + text
