@@ -129,8 +129,26 @@ def _postprocess_localized_text(text, target_language):
     s = re.sub(r'[ \t]{2,}', ' ', s)
     s = re.sub(r'\n{3,}', '\n\n', s)
 
+    # Remove stray bracket wrappers that are not valid markdown links
+    s = re.sub(r'\[([^\]]+)\](?!\()', r'\1', s)
+
     # Tamil-specific cleanup for common leaked section labels/terms
     if target_language == 'ta':
+        # Normalize common scheme/advisory line labels first (start-of-line)
+        ta_line_labels = {
+            r'^\s*FULL\s*NAME\s*:\s*': 'முழு பெயர்: ',
+            r'^\s*ELIGIBILITY\s*:\s*': 'தகுதி: ',
+            r'^\s*BENEFIT\s*:\s*': 'நன்மை: ',
+            r'^\s*HOW\s*TO\s*APPLY\s*:\s*': 'விண்ணப்பிக்கும் முறை: ',
+            r'^\s*APPLY\s*:\s*': 'விண்ணப்பிக்கும் முறை: ',
+            r'^\s*DOCUMENTS\s*REQUIRED\s*:\s*': 'தேவையான ஆவணங்கள்: ',
+            r'^\s*REQUIRED\s*DOCUMENTS\s*:\s*': 'தேவையான ஆவணங்கள்: ',
+            r'^\s*HELPLINE\s*:\s*': 'உதவி எண்: ',
+            r'^\s*MARKET\s*INFO\s*:\s*': 'சந்தை தகவல்: ',
+        }
+        for pattern, replacement in ta_line_labels.items():
+            s = re.sub(pattern, replacement, s, flags=re.IGNORECASE | re.MULTILINE)
+
         ta_map = {
             r'\bORGANIC\b': 'கரிமம்',
             r'\bCHEMICAL\b': 'வேதியியல்',
