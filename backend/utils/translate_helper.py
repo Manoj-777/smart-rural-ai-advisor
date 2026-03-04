@@ -4,6 +4,7 @@
 # See: Detailed_Implementation_Guide.md Section 12
 
 import boto3
+import unicodedata
 
 translate = boto3.client('translate')
 
@@ -124,8 +125,19 @@ def _postprocess_localized_text(text, target_language):
     if s.count('**') % 2 != 0:
         s = s.replace('**', '')
 
+    # Remove invisible/unsupported/control artifacts that often appear after translation
+    # Keep newline and tab, drop other control chars + replacement char + bidi controls.
+    s = ''.join(
+        ch for ch in s
+        if (
+            ch in ('\n', '\t')
+            or (unicodedata.category(ch)[0] != 'C' and ch not in {'\uFFFD', '\u200E', '\u200F', '\u202A', '\u202B', '\u202C', '\u202D', '\u202E'})
+        )
+    )
+
     # Normalize dash styles and accidental double spacing
     s = s.replace('—', '–')
+    s = s.replace('…', '...')
     s = re.sub(r'[ \t]{2,}', ' ', s)
     s = re.sub(r'\n{3,}', '\n\n', s)
 
