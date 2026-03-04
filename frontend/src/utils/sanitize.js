@@ -104,5 +104,14 @@ export function formatAndSanitize(text) {
 
     // marked.parse outputs full HTML from standard markdown
     const rawHtml = marked.parse(normalized);
-    return sanitizeHtml(rawHtml);
+
+    // Safety fallback: if any malformed heading still survives as plain text,
+    // convert it so users never see raw "###" markers in chat.
+    const withHeadingFallback = rawHtml
+        .replace(/<p>\s*#{1,2}\s*([^<]+)<\/p>/gi, '<h3 class="chat-heading">$1</h3>')
+        .replace(/<p>\s*#{3}\s*([^<]+)<\/p>/gi, '<h3 class="chat-heading">$1</h3>')
+        .replace(/<p>\s*#{4}\s*([^<]+)<\/p>/gi, '<h4 class="chat-heading">$1</h4>')
+        .replace(/<p>\s*#{5,6}\s*([^<]+)<\/p>/gi, '<h5 class="chat-heading">$1</h5>');
+
+    return sanitizeHtml(withHeadingFallback);
 }
