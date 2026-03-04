@@ -302,11 +302,50 @@ function WeatherPage() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    // Track whether user has manually interacted (search, click, city pick)
+    const userOverrodeRef = useRef(false);
+    const prevProfileLocRef = useRef(profileLocation);
+
+    // Wrap user-initiated actions to set the override flag
+    const handleMapClickWrapped = useCallback(async (lat, lng) => {
+        userOverrodeRef.current = true;
+        return handleMapClick(lat, lng);
+    }, [handleMapClick]);
+
+    const handleCityClickWrapped = useCallback((city) => {
+        userOverrodeRef.current = true;
+        return handleCityClick(city);
+    }, [handleCityClick]);
+
+    const handleSearchWrapped = () => {
+        userOverrodeRef.current = true;
+        return handleSearch();
+    };
+
+    const handleSuggestionClickWrapped = useCallback((s) => {
+        userOverrodeRef.current = true;
+        return handleSuggestionClick(s);
+    }, [handleSuggestionClick]);
+
     useEffect(() => {
-        // On mount, forward-geocode the profile location to position the map, then fetch weather
+        // Skip if user manually picked a location (search, map click, city button)
+        if (userOverrodeRef.current) return;
+        // Skip if profileLocation hasn't changed (avoids duplicate fetches)
+        if (prevProfileLocRef.current === profileLocation) return;
+        prevProfileLocRef.current = profileLocation;
+
+        // Re-run when profileLocation upgrades from 'Chennai' fallback → real profile/GPS value
+        forwardGeocode(profileLocation);
+        setLocationBoth(profileLocation);
+        setClickedPlace(profileLocation);
+        fetchWeather(profileLocation);
+    }, [profileLocation]);
+
+    // Initial fetch on mount (uses whatever profileLocation is at mount time)
+    useEffect(() => {
         forwardGeocode(profileLocation);
         fetchWeather(profileLocation);
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="weather-page">
@@ -339,7 +378,7 @@ function WeatherPage() {
                             updateWhenZooming={false}
                             updateWhenIdle={true}
                         />
-                        <MapClickHandler onMapClick={handleMapClick} />
+                        <MapClickHandler onMapClick={handleMapClickWrapped} />
                         {flyTarget && <MapFlyTo lat={flyTarget.lat} lng={flyTarget.lng} />}
                         <Marker position={[markerPos.lat, markerPos.lng]}>
                             <Popup>
@@ -360,13 +399,13 @@ function WeatherPage() {
                                 type="text"
                                 value={locationDisplay}
                                 onChange={(e) => handleLocationInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearchWrapped()}
                                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                                 placeholder={t('weatherSearch')}
                                 autoComplete="off"
                             />
                         </div>
-                        <button type="button" onClick={handleSearch} className="send-btn" style={{ borderRadius: '12px', padding: '0 20px', height: 'auto', alignSelf: 'stretch' }}>
+                        <button type="button" onClick={handleSearchWrapped} className="send-btn" style={{ borderRadius: '12px', padding: '0 20px', height: 'auto', alignSelf: 'stretch' }}>
                             {t('search')}
                         </button>
                         {/* Autocomplete dropdown */}
@@ -376,7 +415,7 @@ function WeatherPage() {
                                     <div
                                         key={i}
                                         className="weather-autocomplete-item"
-                                        onClick={() => handleSuggestionClick(s)}
+                                        onClick={() => handleSuggestionClickWrapped(s)}
                                     >
                                         <span className="autocomplete-name">📍 {getDistrictName(s.name, language)}</span>
                                         <span className="autocomplete-detail">{s.display}</span>
@@ -393,7 +432,7 @@ function WeatherPage() {
                             <button
                                 key={city.name}
                                 className={`weather-city-btn ${clickedPlace === city.name ? 'active' : ''}`}
-                                onClick={() => handleCityClick(city)}
+                                onClick={() => handleCityClickWrapped(city)}
                             >
                                 {getDistrictName(city.name, language)}
                             </button>
