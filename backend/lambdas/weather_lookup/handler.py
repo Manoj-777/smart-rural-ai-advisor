@@ -9,10 +9,7 @@ import requests
 import os
 import logging
 import re
-from utils.response_helper import (
-    success_response, error_response,
-    is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
-)
+from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -81,17 +78,12 @@ def _get_location_candidates(location):
 def lambda_handler(event, context):
     """
     Fetches current weather + 5-day forecast for a given location.
-    Called by Bedrock Agent as a tool OR directly via API Gateway.
+    Called by orchestrator Lambda or directly via API Gateway.
     Response shape matches API contract in Section 2b.
     """
     try:
-        from_bedrock = is_bedrock_event(event)
-
-        # Handle both Bedrock Agent tool call and direct API call
-        if from_bedrock:
-            params = parse_bedrock_params(event)
-            location = params.get('location', 'Chennai')
-        elif 'parameters' in event:
+        # Handle API Gateway call
+        if 'parameters' in event:
             # Legacy Bedrock format (fallback)
             params = {p['name']: p['value'] for p in event['parameters']}
             location = params.get('location', 'Chennai')
@@ -301,20 +293,12 @@ def lambda_handler(event, context):
             f"Weather for {location}: {weather_data['current']['temp_celsius']}°C"
         )
 
-        if from_bedrock:
-            return bedrock_response(weather_data, event)
         return success_response(weather_data)
 
     except requests.exceptions.Timeout:
         logger.error(f"Weather API timeout for {location}")
-        msg = "Weather service timed out. Please try again."
-        if is_bedrock_event(event):
-            return bedrock_error_response(msg, event)
-        return error_response(msg, 504)
+        return error_response("Weather service timed out. Please try again.", 504)
     except Exception as e:
-        logger.error(f"Weather error: {str(e)}")
+        logger.error(f"Weather error: {str(e)}", exc_info=True)
         # Security: never expose internal error details to client
-        safe_msg = "Weather service is temporarily unavailable. Please try again."
-        if is_bedrock_event(event):
-            return bedrock_error_response(safe_msg, event)
-        return error_response(safe_msg, 500)
+        return error_response("Weather service is temporarily unavailable. Please try again.", 500)

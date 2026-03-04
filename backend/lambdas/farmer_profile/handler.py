@@ -78,7 +78,8 @@ table = dynamodb.Table(os.environ.get('DYNAMODB_PROFILES_TABLE', 'farmer_profile
 otp_table = dynamodb.Table(os.environ.get('DYNAMODB_OTP_TABLE', 'otp_codes'))
 sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 
-COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', 'ap-south-1_X58lNMEcn')
+COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', '')
+STAGE = os.environ.get('STAGE', 'prod')
 
 CORS_HEADERS = {
     'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ def delete_profile(farmer_id):
         logger.info(f"Deleted DynamoDB profile: {farmer_id}")
     except Exception as e:
         logger.error(f"DynamoDB delete error: {str(e)}", exc_info=True)
-        errors.append(f"DynamoDB: {str(e)}")
+        errors.append('Failed to delete profile data')
 
     # 2. Delete Cognito user (extract phone from farmer_id: ph_XXXXXXXXXX)
     if farmer_id.startswith('ph_'):
@@ -167,7 +168,7 @@ def delete_profile(farmer_id):
             logger.info(f"Cognito user already gone: {cognito_username}")
         except Exception as e:
             logger.error(f"Cognito delete error: {str(e)}", exc_info=True)
-            errors.append(f"Cognito: {str(e)}")
+            errors.append('Failed to delete authentication record')
 
     if errors:
         return {
@@ -464,7 +465,7 @@ def send_otp(body):
 
     # Only include demo_otp in non-production (when SMS couldn't be sent)
     # This allows local dev/testing while keeping production secure
-    if not sms_sent and not sandbox_verification:
+    if not sms_sent and not sandbox_verification and STAGE != 'prod':
         response_data['demo_otp'] = otp_code
 
     return {

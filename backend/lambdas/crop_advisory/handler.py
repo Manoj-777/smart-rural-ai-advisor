@@ -8,15 +8,12 @@ import boto3
 import os
 import logging
 import re
-from utils.response_helper import (
-    success_response, error_response,
-    is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
-)
+from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-bedrock_agent = boto3.client('bedrock-agent-runtime')
+bedrock_kb = boto3.client('bedrock-agent-runtime')
 KB_ID = os.environ.get('BEDROCK_KB_ID', '')
 
 # ── Security: Input validation ──
@@ -57,15 +54,12 @@ def _check_injection(text):
 
 def lambda_handler(event, context):
     """
-    Retrieves crop advisory from Knowledge Base.
-    Called by Bedrock Agent as an action group tool.
+    Retrieves crop advisory from Bedrock Knowledge Base.
+    Called by orchestrator Lambda via direct invocation.
     Handles operations: get_crop_advisory, get_pest_alert, get_irrigation_advice.
     """
     try:
-        from_bedrock = is_bedrock_event(event)
-        params = parse_bedrock_params(event) if from_bedrock else {
-            p['name']: p['value'] for p in event.get('parameters', [])
-        }
+        params = {p['name']: p['value'] for p in event.get('parameters', [])}
 
         query = _sanitize_field(params.get('query', ''), MAX_QUERY_LENGTH)
         crop = _sanitize_field(params.get('crop', ''))
@@ -79,10 +73,7 @@ def lambda_handler(event, context):
         # Security: check for prompt injection
         combined_input = f"{query} {crop} {state} {symptoms} {location}"
         if _check_injection(combined_input):
-            safe_msg = "I can only help with agriculture-related queries. Please rephrase your question."
-            if from_bedrock:
-                return bedrock_error_response(safe_msg, event)
-            return error_response(safe_msg, 400)
+            return error_response("I can only help with agriculture-related queries. Please rephrase your question.", 400)
 
         # Build a natural language search query for better KB vector retrieval
         # Natural language queries work much better than pipe-separated keywords
@@ -133,10 +124,10 @@ def lambda_handler(event, context):
 
         if not KB_ID:
             msg = 'Bedrock Knowledge Base ID not configured'
-            return bedrock_error_response(msg, event) if from_bedrock else error_response(msg, 500)
+            return error_response(msg, 500)
 
         # Query Knowledge Base with natural language query
-        response = bedrock_agent.retrieve(
+        response = bedrock_kb.retrieve(
             knowledgeBaseId=KB_ID,
             retrievalQuery={'text': search_query},
             retrievalConfiguration={
@@ -166,14 +157,9 @@ def lambda_handler(event, context):
             'advisory_data': results
         }
 
-        if from_bedrock:
-            return bedrock_response(result_data, event)
         return success_response(result_data)
 
     except Exception as e:
-        logger.error(f"Crop advisory error: {str(e)}")
+        logger.error(f"Crop advisory error: {str(e)}", exc_info=True)
         # Security: never expose internal error details
-        safe_msg = "Crop advisory service is temporarily unavailable. Please try again."
-        if is_bedrock_event(event):
-            return bedrock_error_response(safe_msg, event)
-        return error_response(safe_msg, 500)
+        return error_response("Crop advisory service is temporarily unavailable. Please try again.", 500)

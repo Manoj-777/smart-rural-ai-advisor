@@ -147,7 +147,7 @@ Resources:
         def lambda_handler(event, context):
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net'},
                 'body': '{"status": "healthy", "service": "Smart Rural AI Advisor"}'
             }
       Handler: index.lambda_handler

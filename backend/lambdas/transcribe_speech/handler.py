@@ -139,8 +139,8 @@ def lambda_handler(event, context):
         return error_response('Transcription timed out. Please try again.', 504)
 
     except Exception as e:
-        logger.error(f"Transcribe error: {str(e)}")
-        return error_response(str(e), 500)
+        logger.error(f"Transcribe error: {str(e)}", exc_info=True)
+        return error_response('Speech transcription failed. Please try again.', 500)
 
 
 def _cleanup(s3_key, job_id):

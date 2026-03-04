@@ -7,10 +7,7 @@
 import json
 import logging
 import re
-from utils.response_helper import (
-    success_response, error_response,
-    is_bedrock_event, parse_bedrock_params, bedrock_response, bedrock_error_response
-)
+from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -193,13 +190,7 @@ def lambda_handler(event, context):
         if event.get('httpMethod') == 'OPTIONS':
             return success_response({}, message='OK')
 
-        from_bedrock = is_bedrock_event(event)
-
-        if from_bedrock:
-            params = parse_bedrock_params(event)
-            scheme_name = _sanitize_input(params.get('scheme_name', params.get('query', 'all'))).lower()
-            farmer_state = _sanitize_input(params.get('farmer_state', ''))
-        elif 'parameters' in event:
+        if 'parameters' in event:
             # Legacy Bedrock format (fallback)
             params = {p['name']: p['value'] for p in event['parameters']}
             scheme_name = _sanitize_input(params.get('scheme_name', 'all')).lower()
@@ -232,14 +223,9 @@ def lambda_handler(event, context):
             'note': 'Contact Kisan Call Centre at 1800-180-1551 for more details'
         }
 
-        if from_bedrock:
-            return bedrock_response(result_data, event)
         return success_response(result_data)
 
     except Exception as e:
-        logger.error(f"Schemes error: {str(e)}")
+        logger.error(f"Schemes error: {str(e)}", exc_info=True)
         # Security: never expose internal error details
-        safe_msg = "Government schemes service is temporarily unavailable. Please try again."
-        if is_bedrock_event(event):
-            return bedrock_error_response(safe_msg, event)
-        return error_response(safe_msg, 500)
+        return error_response("Government schemes service is temporarily unavailable. Please try again.", 500)

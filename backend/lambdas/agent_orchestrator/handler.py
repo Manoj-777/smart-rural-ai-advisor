@@ -1784,5 +1784,5 @@ def lambda_handler(event, context):
         }, message='Advisory generated successfully', language=detected_lang)
 
     except Exception as e:
-        logger.error(f"Error: {str(e)}")
-        return error_response(str(e), 500)
+        logger.error(f"Unhandled error: {str(e)}", exc_info=True)
+        return error_response('An internal error occurred. Please try again.', 500)
