@@ -874,6 +874,34 @@ body {
     margin-right: 4px;
 }
 
+/* Markdown headings inside chat messages */
+.message-text .chat-heading {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 12px 0 4px 0;
+    padding-bottom: 2px;
+    border-bottom: 1.5px solid var(--border);
+    line-height: 1.3;
+}
+.message-text .chat-heading:first-child {
+    margin-top: 0;
+}
+.message-text h4.chat-heading {
+    font-size: 1em;
+    border-bottom: none;
+}
+.message-text h5.chat-heading {
+    font-size: 0.95em;
+    border-bottom: none;
+    color: var(--text);
+}
+.message-text hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 10px 0;
+}
+
 .message.assistant .thinking {
     display: flex;
     align-items: center;

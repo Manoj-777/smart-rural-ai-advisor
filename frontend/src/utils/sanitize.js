@@ -34,19 +34,33 @@ export function sanitizeHtml(dirty) {
 /**
  * Format markdown-like text to HTML and sanitize.
  * Shared formatter for all feature pages.
+ *
+ * Supports: **bold**, *italic*, ### headers (h3–h5), numbered lists,
+ * dash/bullet lists (- or •), horizontal rules (---), and line breaks.
  */
 export function formatAndSanitize(text) {
     if (!text) return '';
     const html = text
+        // Markdown headers: ### → <h3>, #### → <h4>, ##### → <h5>
+        // Must run BEFORE bold/italic so ** inside headers still works
+        .replace(/^#{5}\s+(.+)$/gm, '<h5 class="chat-heading">$1</h5>')
+        .replace(/^#{4}\s+(.+)$/gm, '<h4 class="chat-heading">$1</h4>')
+        .replace(/^#{3}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
+        .replace(/^#{2}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
+        .replace(/^#{1}\s+(.+)$/gm, '<h3 class="chat-heading">$1</h3>')
+        // Horizontal rule
+        .replace(/^---+$/gm, '<hr/>')
         // Bold
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Italic (but not inside words like "don*t")
+        .replace(/(?<!\w)\*(.*?)\*(?!\w)/g, '<em>$1</em>')
         // Numbered list items
         .replace(/^(\d+)\.\s/gm, '<span class="list-num">$1.</span> ')
         // Bullet list items with dash
         .replace(/^-\s(.+)/gm, '<span class="list-bullet">•</span> $1')
-        // Line breaks
-        .replace(/\n/g, '<br/>');
+        // Bullet list items with • character (sent by some LLMs)
+        .replace(/^•\s*(.+)/gm, '<span class="list-bullet">•</span> $1')
+        // Line breaks (but not after block-level elements we just created)
+        .replace(/\n(?!<\/h[1-6]>|<hr)/g, '<br/>');
     return sanitizeHtml(html);
 }
