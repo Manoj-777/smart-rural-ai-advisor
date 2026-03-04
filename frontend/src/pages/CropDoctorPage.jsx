@@ -50,6 +50,8 @@ function CropDoctorPage() {
             return;
         }
         setImage(file);
+        // Revoke previous blob URL to prevent memory leak
+        if (preview) URL.revokeObjectURL(preview);
         setPreview(URL.createObjectURL(file));
         setError('');
         setAnalysis('');
@@ -58,7 +60,9 @@ function CropDoctorPage() {
     const compressImage = (file, maxWidth, quality) => {
         return new Promise((resolve) => {
             const img = new Image();
+            const blobUrl = URL.createObjectURL(file);
             img.onload = () => {
+                URL.revokeObjectURL(blobUrl); // free blob URL after image loads
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
@@ -71,7 +75,7 @@ function CropDoctorPage() {
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                 canvas.toBlob(resolve, 'image/jpeg', quality);
             };
-            img.src = URL.createObjectURL(file);
+            img.src = blobUrl;
         });
     };
 

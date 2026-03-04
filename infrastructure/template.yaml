@@ -9,44 +9,30 @@ Globals:
     Runtime: python3.13
     Environment:
       Variables:
-        BEDROCK_AGENT_ID: !Ref BedrockAgentId
-        BEDROCK_AGENT_ALIAS_ID: !Ref BedrockAgentAliasId
         BEDROCK_KB_ID: !Ref BedrockKBId
         OPENWEATHER_API_KEY: !Ref OpenWeatherApiKey
         S3_KNOWLEDGE_BUCKET: !Sub 'smart-rural-ai-${AWS::AccountId}'
         DYNAMODB_PROFILES_TABLE: farmer_profiles
         DYNAMODB_SESSIONS_TABLE: chat_sessions
-        AGENTCORE_RUNTIME_ARN: !Ref AgentCoreRuntimeArn
-        AGENTCORE_WEATHER_RUNTIME_ARN: !Ref AgentCoreWeatherRuntimeArn
-        AGENTCORE_CROP_RUNTIME_ARN: !Ref AgentCoreCropRuntimeArn
-        AGENTCORE_SCHEMES_RUNTIME_ARN: !Ref AgentCoreSchemesRuntimeArn
-        AGENTCORE_PROFILE_RUNTIME_ARN: !Ref AgentCoreProfileRuntimeArn
-        AGENTCORE_PEST_RUNTIME_ARN: !Ref AgentCorePestRuntimeArn
-        # Cognitive Multi-Agent Pipeline ARNs
-        AGENTCORE_UNDERSTANDING_RUNTIME_ARN: !Ref AgentCoreUnderstandingRuntimeArn
-        AGENTCORE_REASONING_RUNTIME_ARN: !Ref AgentCoreReasoningRuntimeArn
-        AGENTCORE_FACTCHECK_RUNTIME_ARN: !Ref AgentCoreFactCheckRuntimeArn
-        AGENTCORE_COMMUNICATION_RUNTIME_ARN: !Ref AgentCoreCommunicationRuntimeArn
-        AGENTCORE_MEMORY_RUNTIME_ARN: !Ref AgentCoreMemoryRuntimeArn
-        PIPELINE_MODE: !Ref PipelineMode
-        ENABLE_SPECIALIST_FANOUT: !Ref EnableSpecialistFanout
         ENFORCE_CODE_POLICY: !Ref EnforceCodePolicy
         # Enterprise Guardrails
         BEDROCK_GUARDRAIL_ID: !Ref BedrockGuardrailId
         BEDROCK_GUARDRAIL_VERSION: !Ref BedrockGuardrailVersion
         ENABLE_RATE_LIMITING: 'true'
         DYNAMODB_RATE_LIMIT_TABLE: rate_limits
+        # Rate-limit thresholds (safe defaults)
+        RATE_LIMIT_RPM: '15'
+        RATE_LIMIT_RPH: '120'
+        RATE_LIMIT_DAILY: '500'
+        # Chat session TTL in days
+        CHAT_TTL_DAYS: '30'
+        # TTS / Polly configuration
+        POLLY_FORCE_HINDI_FALLBACK: 'false'
+        TTS_FAILOVER_TO_POLLY: 'true'
+        USE_GTTS: 'true'
         FOUNDATION_MODEL_LITE: 'global.amazon.nova-2-lite-v1:0'
 
 Parameters:
-  BedrockAgentId:
-    Type: String
-    Description: Bedrock AgentCore Agent ID
-    Default: PLACEHOLDER
-  BedrockAgentAliasId:
-    Type: String
-    Description: Bedrock AgentCore Alias ID
-    Default: PLACEHOLDER
   BedrockKBId:
     Type: String
     Description: Bedrock Knowledge Base ID
@@ -55,66 +41,19 @@ Parameters:
     Type: String
     Description: OpenWeatherMap API Key
     NoEcho: true
-  AgentCoreRuntimeArn:
-    Type: String
-    Description: Amazon Bedrock AgentCore Runtime ARN (set after agentcore deploy)
-    Default: ''
-  AgentCoreWeatherRuntimeArn:
-    Type: String
-    Description: Weather specialist AgentCore Runtime ARN
-    Default: ''
-  AgentCoreCropRuntimeArn:
-    Type: String
-    Description: Crop specialist AgentCore Runtime ARN
-    Default: ''
-  AgentCoreSchemesRuntimeArn:
-    Type: String
-    Description: Schemes specialist AgentCore Runtime ARN
-    Default: ''
-  AgentCoreProfileRuntimeArn:
-    Type: String
-    Description: Profile specialist AgentCore Runtime ARN
-    Default: ''
-  AgentCorePestRuntimeArn:
-    Type: String
-    Description: Pest specialist AgentCore Runtime ARN
-    Default: ''
-  # Cognitive Multi-Agent Pipeline Parameters
-  AgentCoreUnderstandingRuntimeArn:
-    Type: String
-    Description: Understanding cognitive agent Runtime ARN
-    Default: ''
-  AgentCoreReasoningRuntimeArn:
-    Type: String
-    Description: Reasoning cognitive agent Runtime ARN
-    Default: ''
-  AgentCoreFactCheckRuntimeArn:
-    Type: String
-    Description: Fact-Checking cognitive agent Runtime ARN
-    Default: ''
-  AgentCoreCommunicationRuntimeArn:
-    Type: String
-    Description: Communication cognitive agent Runtime ARN
-    Default: ''
-  AgentCoreMemoryRuntimeArn:
-    Type: String
-    Description: Memory cognitive agent Runtime ARN
-    Default: ''
-  PipelineMode:
-    Type: String
-    AllowedValues: ['cognitive', 'specialist']
-    Description: "Pipeline mode: 'cognitive' (multi-agent) or 'specialist' (legacy domain fan-out)"
-    Default: 'cognitive'
-  EnableSpecialistFanout:
-    Type: String
-    AllowedValues: ['true', 'false']
-    Description: Enable parallel specialist fanout and synthesis
-    Default: 'true'
   EnforceCodePolicy:
     Type: String
     AllowedValues: ['true', 'false']
     Description: Enforce application-level policy checks (topic gating, grounding, sources)
     Default: 'true'
+  BedrockGuardrailId:
+    Type: String
+    Description: Bedrock Guardrail ID (optional, leave blank to disable)
+    Default: ''
+  BedrockGuardrailVersion:
+    Type: String
+    Description: Bedrock Guardrail version (optional)
+    Default: ''
 
 Resources:
   # S3 Bucket and DynamoDB tables created manually (already exist)
@@ -128,22 +67,22 @@ Resources:
       CodeUri: ../backend/lambdas/agent_orchestrator/
       Handler: handler.lambda_handler
       Timeout: 120
+      Environment:
+        Variables:
+          FOUNDATION_MODEL: apac.amazon.nova-pro-v1:0
+          LAMBDA_WEATHER: !Ref WeatherFunction
+          LAMBDA_CROP: !Ref CropAdvisoryFunction
+          LAMBDA_SCHEMES: !Ref GovtSchemesFunction
+          LAMBDA_PROFILE: !Ref FarmerProfileFunction
       Policies:
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Action:
-                - bedrock:InvokeAgent
                 - bedrock:InvokeModel
                 - bedrock:Converse
                 - bedrock:ConverseStream
                 - bedrock:ApplyGuardrail
-              Resource: '*'
-            - Effect: Allow
-              Action:
-                - bedrock-agentcore:InvokeAgentRuntime
-                - bedrock-agentcore-control:InvokeAgentRuntime
-                - bedrock-agentcore-control:GetAgentRuntime
               Resource: '*'
             - Effect: Allow
               Action:
@@ -233,7 +172,7 @@ Resources:
         def lambda_handler(event, context):
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://d80ytlzsrax1n.cloudfront.net'},
                 'body': '{"status": "healthy", "service": "Smart Rural AI Advisor"}'
             }
       Handler: index.lambda_handler
@@ -307,6 +246,9 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_OTP_TABLE: otp_codes
+          DYNAMODB_PROFILES_TABLE: farmer_profiles
+          COGNITO_USER_POOL_ID: ap-south-1_X58lNMEcn
+          STAGE: prod
       Policies:
         - Version: '2012-10-17'
           Statement:

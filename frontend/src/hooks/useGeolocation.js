@@ -3,6 +3,7 @@
 // Priority: GPS (primary) → Profile location (secondary) → Explicit mention (tertiary)
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import config from '../config';
 
 const GPS_LOCATION_KEY = 'sra_gps_location';
 const GPS_COORDS_KEY = 'sra_gps_coords';
@@ -29,7 +30,7 @@ function cleanLocationName(name) {
 async function reverseGeocode(lat, lng) {
     try {
         const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+            `${config.NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
             { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();

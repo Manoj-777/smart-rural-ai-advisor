@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 import { apiFetch } from '../utils/apiFetch';
+import config from '../config';
 
 // Inline SVG map pin — zero network requests, resolution-independent
 const MARKER_SVG = encodeURIComponent(
@@ -156,7 +156,7 @@ function WeatherPage() {
             if (!res.ok) {
                 // API returned an error
                 const errorMsg = data.message || `API returned ${res.status}`;
-                console.error('Weather API error:', errorMsg);
+                if (import.meta.env.DEV) console.error('Weather API error:', errorMsg);
                 setError(t('weatherFetchError') + ': ' + errorMsg);
                 setLoading(false);
                 return;
@@ -167,11 +167,11 @@ function WeatherPage() {
             } else if (data.current) {
                 setWeather(data);
             } else {
-                console.error('Unexpected weather data format:', data);
+                if (import.meta.env.DEV) console.error('Unexpected weather data format:', data);
                 setError(t('weatherNoData'));
             }
         } catch (err) {
-            console.error('Weather fetch error:', err);
+            if (import.meta.env.DEV) console.error('Weather fetch error:', err);
             // More specific error messages
             if (err.name === 'TypeError' && err.message.includes('fetch')) {
                 setError(t('weatherFetchError') + ': Network error. Please check your connection.');
@@ -189,7 +189,7 @@ function WeatherPage() {
     const reverseGeocode = useCallback(async (lat, lng) => {
         try {
             const res = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+                `${config.NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
                 { headers: { 'Accept-Language': 'en' } }
             );
             const data = await res.json();
@@ -237,7 +237,7 @@ function WeatherPage() {
     const forwardGeocode = useCallback(async (query) => {
         try {
             const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},India&limit=1&addressdetails=1`,
+                `${config.NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(query)},India&limit=1&addressdetails=1`,
                 { headers: { 'Accept-Language': 'en' } }
             );
             const results = await res.json();
@@ -264,7 +264,7 @@ function WeatherPage() {
         debounceRef.current = setTimeout(async () => {
             try {
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)},India&limit=5&addressdetails=1`,
+                    `${config.NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(value)},India&limit=5&addressdetails=1`,
                     { headers: { 'Accept-Language': 'en' } }
                 );
                 const results = await res.json();

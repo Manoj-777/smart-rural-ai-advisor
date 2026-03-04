@@ -293,7 +293,7 @@ function PricePage() {
             }
             setTimeout(() => advisoryRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
         } catch (err) {
-            console.error('AI price advisory error:', err);
+            if (import.meta.env.DEV) console.error('AI price advisory error:', err);
             setAiAdvisory({
                 advisory: t('priceAiUnavailable'),
             });
@@ -356,7 +356,7 @@ function PricePage() {
             }
             setTimeout(() => advisoryRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
         } catch (err) {
-            console.error('AI pest advisory error:', err);
+            if (import.meta.env.DEV) console.error('AI pest advisory error:', err);
             setAiAdvisory({
                 advisory: t('priceAiUnavailable'),
             });

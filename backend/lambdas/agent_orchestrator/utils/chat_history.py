@@ -12,7 +12,9 @@ import time
 logger = logging.getLogger()
 
 SESSIONS_TABLE = os.environ.get('DYNAMODB_SESSIONS_TABLE', 'chat_sessions')
-MAX_MESSAGES_PER_SESSION = 50
+MAX_MESSAGES_PER_SESSION = 100  # 50 user + 50 assistant = 50 interactions
+MAX_SESSIONS_PER_FARMER = 20  # Auto-evict oldest when exceeded
+SESSION_TTL_DAYS = 30  # Auto-expire session blobs after 30 days
 
 _dynamodb = None
 _table = None
@@ -121,6 +123,9 @@ def save_session(farmer_id, session_id, messages, preview=None):
     # Trim messages to max
     trimmed = messages[-MAX_MESSAGES_PER_SESSION:]
 
+    # TTL: auto-expire session blobs after SESSION_TTL_DAYS
+    ttl_epoch = int(time.time()) + (SESSION_TTL_DAYS * 86400)
+
     try:
         table.put_item(Item={
             'session_id': pk,
@@ -132,11 +137,43 @@ def save_session(farmer_id, session_id, messages, preview=None):
             'message_count': len(trimmed),
             'created_at': created_at,
             'updated_at': now,
+            'ttl': ttl_epoch,  # DynamoDB TTL — auto-delete old sessions
         })
+
+        # ── Session count limit: evict oldest sessions if too many ──
+        _enforce_session_limit(table, pk, farmer_id)
+
         return True
     except Exception as e:
         logger.error(f'save_session error: {e}')
         return False
+
+
+def _enforce_session_limit(table, pk, farmer_id):
+    """Delete oldest sessions if farmer exceeds MAX_SESSIONS_PER_FARMER.
+    Keeps the most recent sessions, evicts the oldest by created_at."""
+    try:
+        resp = table.query(
+            KeyConditionExpression='session_id = :pk',
+            ExpressionAttributeValues={':pk': pk},
+            ProjectionExpression='#ts, created_at, sid',
+            ExpressionAttributeNames={'#ts': 'timestamp'},
+        )
+        items = resp.get('Items', [])
+        if len(items) <= MAX_SESSIONS_PER_FARMER:
+            return  # Under limit, nothing to do
+
+        # Sort by created_at ascending (oldest first)
+        items.sort(key=lambda x: int(x.get('created_at', 0)))
+        to_delete = items[:len(items) - MAX_SESSIONS_PER_FARMER]
+
+        for item in to_delete:
+            table.delete_item(
+                Key={'session_id': pk, 'timestamp': item['timestamp']}
+            )
+            logger.info(f'Evicted old session {item.get("sid","?")} for farmer {farmer_id}')
+    except Exception as e:
+        logger.warning(f'_enforce_session_limit error (non-fatal): {e}')
 
 
 def delete_session(farmer_id, session_id):
@@ -156,4 +193,37 @@ def delete_session(farmer_id, session_id):
         return True
     except Exception as e:
         logger.error(f'delete_session error: {e}')
+        return False
+
+
+def rename_session(farmer_id, session_id, new_title):
+    """
+    Rename a chat session's preview/title.
+    Uses UpdateItem to only modify the preview field without touching messages.
+    """
+    if not farmer_id or farmer_id == 'anonymous':
+        return False
+    if not session_id or not new_title:
+        return False
+
+    table = _get_table()
+    pk = f'hist:{farmer_id}'
+
+    # Sanitize: strip whitespace, limit to 80 chars
+    clean_title = new_title.strip()[:80]
+    if not clean_title:
+        return False
+
+    try:
+        table.update_item(
+            Key={'session_id': pk, 'timestamp': session_id},
+            UpdateExpression='SET preview = :p, updated_at = :u',
+            ExpressionAttributeValues={
+                ':p': clean_title,
+                ':u': int(time.time() * 1000),
+            },
+        )
+        return True
+    except Exception as e:
+        logger.error(f'rename_session error: {e}')
         return False

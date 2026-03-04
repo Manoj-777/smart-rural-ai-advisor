@@ -25,7 +25,13 @@ const config = {
         'ur-IN': { name: 'اردو (Urdu)', code: 'ur' }
     },
     
-    DEFAULT_LANGUAGE: 'en-IN'
+    DEFAULT_LANGUAGE: 'en-IN',
+
+    // Nominatim geocoding service base URL (no trailing slash)
+    NOMINATIM_BASE_URL: 'https://nominatim.openstreetmap.org',
+
+    // Country code prefix for phone numbers
+    COUNTRY_CODE: '+91',
 };
 
 export default config;

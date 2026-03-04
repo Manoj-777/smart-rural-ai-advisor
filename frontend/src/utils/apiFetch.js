@@ -7,13 +7,15 @@ import config from '../config';
 
 /**
  * Fetch wrapper that automatically attaches Cognito JWT Authorization header.
+ * Throws on non-2xx HTTP responses so callers don't silently swallow errors.
  * Usage:  apiFetch('/chat', { method: 'POST', body: JSON.stringify(payload) })
  *
  * @param {string} path     - API path (e.g. '/chat', '/profile/ph_1234567890')
  * @param {RequestInit} opts - Standard fetch options (method, headers, body, etc.)
+ * @param {object} [extra]  - Extra options: { raw: true } to skip auto-throw
  * @returns {Promise<Response>}
  */
-export async function apiFetch(path, opts = {}) {
+export async function apiFetch(path, opts = {}, extra = {}) {
     const url = `${config.API_URL}${path}`;
     const token = await getIdToken();
 
@@ -30,34 +32,26 @@ export async function apiFetch(path, opts = {}) {
         headers['Content-Type'] = 'application/json';
     }
 
-    return fetch(url, { ...opts, headers });
+    const res = await fetch(url, { ...opts, headers });
+
+    // Auto-throw on non-2xx unless caller opts out with { raw: true }
+    if (!res.ok && !extra.raw) {
+        let errorMsg = `API error ${res.status}`;
+        try {
+            const errBody = await res.clone().json();
+            if (errBody.message || errBody.error) {
+                errorMsg = errBody.message || errBody.error;
+            }
+        } catch {
+            // Response wasn't JSON — use status text
+            errorMsg = `${res.status} ${res.statusText}`;
+        }
+        const err = new Error(errorMsg);
+        err.status = res.status;
+        err.response = res;
+        throw err;
+    }
+
+    return res;
 }
 
-/**
- * Shorthand GET with auth
- */
-export async function apiGet(path) {
-    return apiFetch(path);
-}
-
-/**
- * Shorthand POST with auth + JSON body
- */
-export async function apiPost(path, body) {
-    return apiFetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}
-
-/**
- * Shorthand PUT with auth + JSON body
- */
-export async function apiPut(path, body) {
-    return apiFetch(path, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}

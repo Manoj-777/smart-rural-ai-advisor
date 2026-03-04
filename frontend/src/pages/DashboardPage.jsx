@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
-import config from '../config';
 
 // Daily tips rotate based on day-of-year
 const DAILY_TIPS = {

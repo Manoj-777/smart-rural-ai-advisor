@@ -1,10 +1,9 @@
 // src/pages/ProfilePage.jsx
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
-import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, STATE_OPTIONS, DISTRICT_MAP } from '../i18n/translations';
+import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
 import { apiFetch } from '../utils/apiFetch';
 import * as cognitoAuth from '../services/cognitoAuth';

@@ -236,6 +236,7 @@ export function FarmerProvider({ children }) {
         localStorage.removeItem(FARMER_ID_KEY);
         localStorage.removeItem(FARMER_PHONE_KEY);
         localStorage.removeItem(FARMER_NAME_KEY);
+        localStorage.removeItem('last_activity');
         setFarmerIdState(null);
         setFarmerPhoneState('');
         setFarmerNameState('');
@@ -274,38 +275,95 @@ export function FarmerProvider({ children }) {
         wasLoggedInRef.current = isLoggedIn;
     }, [isLoggedIn, requestGps]);
 
-    // ── Session timeout: periodic Cognito token refresh + auto-logout ──
-    // Cognito ID/Access tokens expire after 1 hour; the SDK auto-refreshes
-    // them using the Refresh Token (valid 30 days). If the refresh token is
-    // also expired, getSession() returns null → auto-logout.
+    // ── Idle timeout: auto-logout after 30 minutes of inactivity ──
+    // Tracks mouse, keyboard, touch, and scroll events to detect user activity.
+    // If no activity for IDLE_TIMEOUT_MS, the user is logged out automatically.
+    // Also checks Cognito session validity every 5 minutes as a safety net.
+    const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
     const SESSION_CHECK_MS = 5 * 60 * 1000; // check every 5 minutes
+    const lastActivityRef = useRef(Date.now());
     const sessionCheckRef = useRef(null);
+    const idleCheckRef = useRef(null);
 
+    // Track user activity — update last activity timestamp
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        const updateActivity = () => {
+            lastActivityRef.current = Date.now();
+            // Persist to localStorage so tab reopens can detect staleness
+            try { localStorage.setItem('last_activity', String(Date.now())); } catch { /* ignore */ }
+        };
+
+        const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+        // Throttle: only update once per 30 seconds to avoid perf overhead
+        let throttleTimer = null;
+        const throttledUpdate = () => {
+            if (throttleTimer) return;
+            updateActivity();
+            throttleTimer = setTimeout(() => { throttleTimer = null; }, 30000);
+        };
+
+        events.forEach(evt => window.addEventListener(evt, throttledUpdate, { passive: true }));
+        updateActivity(); // set initial timestamp
+
+        return () => {
+            events.forEach(evt => window.removeEventListener(evt, throttledUpdate));
+            if (throttleTimer) clearTimeout(throttleTimer);
+        };
+    }, [isLoggedIn]);
+
+    // Periodic checks: idle timeout + Cognito session validity
     useEffect(() => {
         if (!isLoggedIn) {
             if (sessionCheckRef.current) clearInterval(sessionCheckRef.current);
+            if (idleCheckRef.current) clearInterval(idleCheckRef.current);
             return;
         }
 
+        // Check idle timeout every 60 seconds
+        idleCheckRef.current = setInterval(() => {
+            const elapsed = Date.now() - lastActivityRef.current;
+            if (elapsed > IDLE_TIMEOUT_MS) {
+                if (import.meta.env.DEV) console.warn(`[Session] Idle for ${Math.round(elapsed / 60000)} min — logging out`);
+                logout();
+            }
+        }, 60 * 1000);
+
+        // Check Cognito session every 5 minutes (refresh token safety net)
         const checkSession = async () => {
             try {
                 const session = await cognitoAuth.getSession();
                 if (!session || !session.idToken) {
-                    // Refresh token expired — force logout
-                    console.warn('[Session] Cognito session expired — logging out');
+                    if (import.meta.env.DEV) console.warn('[Session] Cognito session expired — logging out');
                     logout();
                 }
             } catch {
-                // Session invalid
-                console.warn('[Session] Cognito session check failed — logging out');
+                if (import.meta.env.DEV) console.warn('[Session] Cognito session check failed — logging out');
                 logout();
             }
         };
-
         sessionCheckRef.current = setInterval(checkSession, SESSION_CHECK_MS);
+
         return () => {
             if (sessionCheckRef.current) clearInterval(sessionCheckRef.current);
+            if (idleCheckRef.current) clearInterval(idleCheckRef.current);
         };
+    }, [isLoggedIn, logout]);
+
+    // On mount/tab-reopen: check if last activity was too long ago
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        try {
+            const stored = localStorage.getItem('last_activity');
+            if (stored) {
+                const elapsed = Date.now() - parseInt(stored, 10);
+                if (elapsed > IDLE_TIMEOUT_MS) {
+                    if (import.meta.env.DEV) console.warn(`[Session] Tab reopened after ${Math.round(elapsed / 60000)} min idle — logging out`);
+                    logout();
+                }
+            }
+        } catch { /* ignore */ }
     }, [isLoggedIn, logout]);
 
     const updateProfile = useCallback((profile) => {

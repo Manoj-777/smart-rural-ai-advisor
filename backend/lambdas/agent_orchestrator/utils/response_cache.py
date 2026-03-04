@@ -1,6 +1,6 @@
 # backend/lambdas/agent_orchestrator/utils/response_cache.py
 # Session-aware response cache using DynamoDB chat_sessions table
-# Avoids re-running the full 4-agent pipeline for repeated/similar queries
+# Avoids re-running the Bedrock converse() call for repeated/similar queries
 # Owner: Manoj RS
 #
 # Cache key = hash(normalized_query + location + crop + season)
@@ -122,6 +122,7 @@ def cache_response(query_text, location, crop, season, response_data, intents=No
     ttl = CACHE_TTL.get(category, CACHE_TTL['general'])
 
     try:
+        ttl_epoch = int(time.time() + ttl)
         item = {
             'session_id': cache_key,
             'timestamp': 'cached',
@@ -132,8 +133,9 @@ def cache_response(query_text, location, crop, season, response_data, intents=No
             'crop': (crop or '')[:50],
             'season': (season or '')[:20],
             'created_at': datetime.utcnow().isoformat(),
-            'expires_at': str(int(time.time() + ttl)),
+            'expires_at': str(ttl_epoch),
             'ttl_seconds': ttl,
+            'ttl': ttl_epoch,  # DynamoDB TTL attribute — auto-delete expired cache entries
         }
         _table.put_item(Item=item)
         logger.info(f"Cache STORED: {cache_key} (category={category}, ttl={ttl}s)")

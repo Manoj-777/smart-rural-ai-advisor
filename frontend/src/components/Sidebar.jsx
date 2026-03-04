@@ -15,13 +15,13 @@ function Sidebar() {
     const navItems = [
         { to: '/', end: true, icon: '\u{1F3E0}', labelKey: 'navDashboard' },
         { to: '/chat', icon: '\u{1F4AC}', labelKey: 'navChat' },
-        { to: '/weather', icon: '\u{1F324}\uFE0F', labelKey: 'navWeather', prefetch: '../pages/WeatherPage' },
-        { to: '/schemes', icon: '\u{1F4CB}', labelKey: 'navSchemes', prefetch: '../pages/SchemesPage' },
-        { to: '/crop-doctor', icon: '\u{1F4F8}', labelKey: 'navCropDoctor', prefetch: '../pages/CropDoctorPage' },
-        { to: '/prices', icon: '\u{1F4B0}', labelKey: 'navPrices', prefetch: '../pages/PricePage' },
-        { to: '/crop-recommend', icon: '\u{1F331}', labelKey: 'navCropRec', prefetch: '../pages/CropRecommendPage' },
-        { to: '/farm-calendar', icon: '\u{1F4C5}', labelKey: 'navFarmCal', prefetch: '../pages/FarmCalendarPage' },
-        { to: '/soil-analysis', icon: '\u{1F9EA}', labelKey: 'navSoilAnalysis', prefetch: '../pages/SoilAnalysisPage' },
+        { to: '/weather', icon: '\u{1F324}\uFE0F', labelKey: 'navWeather' },
+        { to: '/schemes', icon: '\u{1F4CB}', labelKey: 'navSchemes' },
+        { to: '/crop-doctor', icon: '\u{1F4F8}', labelKey: 'navCropDoctor' },
+        { to: '/prices', icon: '\u{1F4B0}', labelKey: 'navPrices' },
+        { to: '/crop-recommend', icon: '\u{1F331}', labelKey: 'navCropRec' },
+        { to: '/farm-calendar', icon: '\u{1F4C5}', labelKey: 'navFarmCal' },
+        { to: '/soil-analysis', icon: '\u{1F9EA}', labelKey: 'navSoilAnalysis' },
     ];
 
     return (
@@ -41,7 +41,6 @@ function Sidebar() {
                             to={item.to}
                             end={item.end || false}
                             className={({isActive}) => isActive ? 'active' : ''}
-                            onMouseEnter={item.prefetch ? () => import(item.prefetch) : undefined}
                         >
                             <span className="nav-icon">{item.icon}</span>
                             <span className="nav-label">{t(item.labelKey)}</span>
