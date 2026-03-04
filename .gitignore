@@ -32,6 +32,7 @@ frontend/.env
 samconfig.toml
 **/samconfig.toml
 .aws-sam/
+infrastructure/packaged.yaml
 
 ## IDE
 .vscode/
