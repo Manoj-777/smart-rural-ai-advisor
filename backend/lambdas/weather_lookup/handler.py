@@ -18,6 +18,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
+OPENWEATHER_BASE = 'https://api.openweathermap.org/data/2.5'
 
 # ── Security: Input validation constants ──
 MAX_LOCATION_LENGTH = 100
@@ -97,6 +98,21 @@ def _get_location_candidates(location):
     return ordered
 
 
+def _normalize_cod(payload):
+    """Normalize OpenWeather 'cod' values (can be int or str) to int when possible."""
+    if not isinstance(payload, dict):
+        return None
+    cod = payload.get('cod')
+    if isinstance(cod, int):
+        return cod
+    if isinstance(cod, str):
+        try:
+            return int(cod)
+        except ValueError:
+            return None
+    return None
+
+
 def lambda_handler(event, context):
     """
     Fetches current weather + 5-day forecast for a given location.
@@ -166,16 +182,17 @@ def lambda_handler(event, context):
                 'appid': OPENWEATHER_API_KEY,
                 'units': 'metric',
             })
-            current_url = f"http://api.openweathermap.org/data/2.5/weather?{current_params}"
+            current_url = f"{OPENWEATHER_BASE}/weather?{current_params}"
             for attempt in range(max_retries):
                 try:
                     logger.info(f"Fetching current weather for {candidate} (attempt {attempt + 1}/{max_retries})")
                     current = _http_get_json(current_url, timeout=8)
+                    current_cod = _normalize_cod(current)
 
-                    if current.get('cod') == 200:
+                    if current_cod == 200:
                         matched_location = candidate
                         break
-                    elif current.get('cod') == 429:
+                    elif current_cod == 429:
                         logger.warning(f"Rate limit hit for {candidate}")
                         if attempt < max_retries - 1:
                             import time
@@ -208,20 +225,40 @@ def lambda_handler(event, context):
             coord_url = f"http://api.openweathermap.org/data/2.5/weather?{coord_params}"
             try:
                 coord_data = _http_get_json(coord_url, timeout=8)
-                if coord_data.get('cod') == 200:
+                if _normalize_cod(coord_data) == 200:
                     current = coord_data
                     logger.info(f"Coordinate fallback succeeded for {location}")
             except Exception as e:
                 logger.warning(f"Coordinate fallback also failed: {str(e)}")
 
-        if not current or current.get('cod') != 200:
+        current_cod = _normalize_cod(current)
+        if not current or current_cod != 200:
             error_msg = current.get('message', 'Unknown error') if current else 'No response'
             logger.error(f"Failed to get weather for {location}: {error_msg}")
-            # Security: never expose raw API error details to client
+            if current_cod == 401:
+                return error_response(
+                    "Weather provider authentication failed. Please verify OpenWeather API key configuration.",
+                    502,
+                    origin=origin,
+                )
+            if current_cod == 429:
+                return error_response(
+                    "Weather provider rate limit reached. Please try again shortly.",
+                    503,
+                    origin=origin,
+                )
+            if current_cod == 404:
+                return error_response(
+                    f"Weather data not available for '{location}'. Please check the location name and try again.",
+                    404,
+                    origin=origin,
+                )
+
+            # Security: never expose raw provider error details to client
             return error_response(
-                f"Weather data not available for '{location}'. Please check the location name and try again.",
-                404 if current and current.get('cod') == '404' else 500
-                , origin=origin
+                "Weather service is temporarily unavailable. Please try again.",
+                502,
+                origin=origin,
             )
 
         # 5-day forecast with retry — use coordinates if city name failed earlier
@@ -233,7 +270,7 @@ def lambda_handler(event, context):
                 'units': 'metric',
                 'cnt': 40,
             })
-            forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?{forecast_params}"
+            forecast_url = f"{OPENWEATHER_BASE}/forecast?{forecast_params}"
         else:
             forecast_params = urllib.parse.urlencode({
                 'q': f'{matched_location},IN',
@@ -241,14 +278,14 @@ def lambda_handler(event, context):
                 'units': 'metric',
                 'cnt': 40,
             })
-            forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?{forecast_params}"
+            forecast_url = f"{OPENWEATHER_BASE}/forecast?{forecast_params}"
         
         forecast_raw = None
         for attempt in range(max_retries):
             try:
                 logger.info(f"Fetching forecast for {location} (attempt {attempt + 1}/{max_retries})")
                 forecast_raw = _http_get_json(forecast_url, timeout=8)
-                if forecast_raw.get('cod') == '200':
+                if _normalize_cod(forecast_raw) == 200:
                     break
             except (TimeoutError, socket.timeout, urllib.error.URLError):
                 logger.warning(f"Forecast timeout on attempt {attempt + 1}")
