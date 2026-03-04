@@ -221,6 +221,9 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_OTP_TABLE: otp_codes
+          DYNAMODB_PROFILES_TABLE: farmer_profiles
+          COGNITO_USER_POOL_ID: ap-south-1_X58lNMEcn
+          STAGE: prod
       Policies:
         - Version: '2012-10-17'
           Statement:
