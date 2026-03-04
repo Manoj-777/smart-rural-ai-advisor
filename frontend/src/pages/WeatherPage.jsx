@@ -146,8 +146,9 @@ function WeatherPage() {
         setError(null);
         setWeather(null);
         try {
-            // Pass lat/lon as query params so backend can fallback to coordinates
-            const latlon = coords || markerPos;
+            // Pass lat/lon only when explicitly known (GPS/map click/city pick)
+            // Avoid sending default map-center coordinates for profile-based lookups.
+            const latlon = coords || gpsCoords || null;
             const qs = latlon ? `?lat=${latlon.lat}&lon=${latlon.lng || latlon.lon}` : '';
             const res = await apiFetch(`/weather/${encodeURIComponent(loc)}${qs}`);
             const data = await res.json();

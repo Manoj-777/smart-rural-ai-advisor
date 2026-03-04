@@ -11,6 +11,7 @@ import re
 import socket
 import urllib.request
 import urllib.error
+import urllib.parse
 from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
@@ -26,14 +27,26 @@ LOCATION_PATTERN = re.compile(r'^[\w\s\-\.,\'()]+$', re.UNICODE)
 LOCATION_ALIASES = {
     'Viluppuram': 'Villupuram',
     'Villupuram': 'Viluppuram',
+    'Bangalore Urban': 'Bengaluru',
+    'Bangalore Rural': 'Bengaluru',
+    'Bengaluru Urban': 'Bengaluru',
+    'Bengaluru Rural': 'Bengaluru',
 }
 
 
 def _http_get_json(url, timeout=8):
     """HTTP GET JSON using stdlib only (no third-party dependency)."""
     req = urllib.request.Request(url, headers={'User-Agent': 'smart-rural-ai-weather/1.0'})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode('utf-8'))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        # OpenWeather returns structured JSON on 4xx/5xx — parse and return it
+        try:
+            body = e.read().decode('utf-8')
+            return json.loads(body)
+        except Exception:
+            raise
 
 
 def _validate_location(location):
@@ -148,10 +161,12 @@ def lambda_handler(event, context):
         matched_location = location
 
         for candidate in location_candidates:
-            current_url = (
-                f"http://api.openweathermap.org/data/2.5/weather"
-                f"?q={candidate},IN&appid={OPENWEATHER_API_KEY}&units=metric"
-            )
+            current_params = urllib.parse.urlencode({
+                'q': f'{candidate},IN',
+                'appid': OPENWEATHER_API_KEY,
+                'units': 'metric',
+            })
+            current_url = f"http://api.openweathermap.org/data/2.5/weather?{current_params}"
             for attempt in range(max_retries):
                 try:
                     logger.info(f"Fetching current weather for {candidate} (attempt {attempt + 1}/{max_retries})")
@@ -184,10 +199,13 @@ def lambda_handler(event, context):
         # If city name lookup failed and we have lat/lon, retry with coordinates
         if (not current or current.get('cod') != 200) and lat and lon:
             logger.info(f"City name '{location}' not found, falling back to lat={lat}, lon={lon}")
-            coord_url = (
-                f"http://api.openweathermap.org/data/2.5/weather"
-                f"?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
-            )
+            coord_params = urllib.parse.urlencode({
+                'lat': lat,
+                'lon': lon,
+                'appid': OPENWEATHER_API_KEY,
+                'units': 'metric',
+            })
+            coord_url = f"http://api.openweathermap.org/data/2.5/weather?{coord_params}"
             try:
                 coord_data = _http_get_json(coord_url, timeout=8)
                 if coord_data.get('cod') == 200:
@@ -208,15 +226,22 @@ def lambda_handler(event, context):
 
         # 5-day forecast with retry — use coordinates if city name failed earlier
         if lat and lon and current.get('coord'):
-            forecast_url = (
-                f"http://api.openweathermap.org/data/2.5/forecast"
-                f"?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
-            )
+            forecast_params = urllib.parse.urlencode({
+                'lat': lat,
+                'lon': lon,
+                'appid': OPENWEATHER_API_KEY,
+                'units': 'metric',
+                'cnt': 40,
+            })
+            forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?{forecast_params}"
         else:
-            forecast_url = (
-                f"http://api.openweathermap.org/data/2.5/forecast"
-                f"?q={matched_location},IN&appid={OPENWEATHER_API_KEY}&units=metric&cnt=40"
-            )
+            forecast_params = urllib.parse.urlencode({
+                'q': f'{matched_location},IN',
+                'appid': OPENWEATHER_API_KEY,
+                'units': 'metric',
+                'cnt': 40,
+            })
+            forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?{forecast_params}"
         
         forecast_raw = None
         for attempt in range(max_retries):
@@ -309,7 +334,7 @@ def lambda_handler(event, context):
 
         return success_response(weather_data)
 
-    except requests.exceptions.Timeout:
+    except (TimeoutError, socket.timeout, urllib.error.URLError):
         logger.error(f"Weather API timeout for {location}")
         return error_response("Weather service timed out. Please try again.", 504)
     except Exception as e:
