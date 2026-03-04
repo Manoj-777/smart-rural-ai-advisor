@@ -1,5 +1,5 @@
 # backend/lambdas/farmer_profile/handler.py
-# AgentCore Tool: Farmer profile management (DynamoDB)
+# Lambda Tool: Farmer profile management (DynamoDB)
 # Owner: Manoj RS
 # Endpoints: GET /profile/{farmerId}, PUT /profile/{farmerId}
 #            POST /otp/send, POST /otp/verify

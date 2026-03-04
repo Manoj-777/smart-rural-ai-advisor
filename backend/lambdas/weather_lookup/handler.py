@@ -1,5 +1,5 @@
 # backend/lambdas/weather_lookup/handler.py
-# AgentCore Tool: OpenWeatherMap integration
+# Lambda Tool: OpenWeatherMap integration
 # Owner: Manoj RS
 # Endpoint: GET /weather/{location}
 # See: Detailed_Implementation_Guide.md Section 9

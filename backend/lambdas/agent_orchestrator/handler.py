@@ -23,7 +23,7 @@ API_GW_TIMEOUT_SEC = 29
 TTS_TIME_BUDGET_SEC = 18  # skip Polly TTS if elapsed > this
 
 # Feature-page session prefixes: pre-structured prompts that
-# don't need the 4-agent cognitive pipeline.
+# use a single direct Bedrock call (fast path).
 FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'price-advisory', 'pest-advisory', 'schemes-')
 
 from utils.response_helper import success_response, error_response
@@ -202,7 +202,7 @@ def _is_greeting_or_chitchat(text):
 
 
 def _greeting_response(farmer_context=None):
-    """Generate a short, friendly greeting. Does NOT trigger the 4-agent pipeline."""
+    """Generate a short, friendly greeting. Skips the Bedrock converse() call."""
     name = ''
     if farmer_context and farmer_context.get('name'):
         name = f" {farmer_context['name'].split()[0]}"  # first name only
@@ -1437,7 +1437,7 @@ def lambda_handler(event, context):
             english_message = context_prefix + english_message
             logger.info(f"GPS location (no profile): {gps_location}")
 
-        # --- Step 2b: Greeting shortcut (skip 4-agent pipeline for "hi", "hello", etc.) ---
+        # --- Step 2b: Greeting shortcut (skip Bedrock call for "hi", "hello", etc.) ---
         _raw_en = detection.get('translated_text', user_message)
         if _is_greeting_or_chitchat(_raw_en) and not intents:
             logger.info(f"Greeting shortcut: '{_raw_en}' — skipping pipeline")
@@ -1602,7 +1602,7 @@ def lambda_handler(event, context):
                 logger.info(f"Loaded {len(chat_history)} prior messages for conversation memory")
 
         if _is_feature_page:
-            # FAST PATH: feature pages skip 4-agent pipeline, use single Bedrock call
+            # FAST PATH: feature pages use single direct Bedrock call
             # skip_native_guardrail=True because these prompts are code-generated
             # (not raw user text) and already passed application-level guardrails.
             logger.info(f'FAST PATH for feature page (elapsed {_time.time()-_t_start:.1f}s)')

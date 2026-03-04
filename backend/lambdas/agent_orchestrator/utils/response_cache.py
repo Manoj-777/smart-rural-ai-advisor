@@ -1,6 +1,6 @@
 # backend/lambdas/agent_orchestrator/utils/response_cache.py
 # Session-aware response cache using DynamoDB chat_sessions table
-# Avoids re-running the full 4-agent pipeline for repeated/similar queries
+# Avoids re-running the Bedrock converse() call for repeated/similar queries
 # Owner: Manoj RS
 #
 # Cache key = hash(normalized_query + location + crop + season)

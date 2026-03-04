@@ -1,5 +1,5 @@
 # backend/lambdas/crop_advisory/handler.py
-# AgentCore Tool: Crop + Pest + Irrigation advisory
+# Lambda Tool: Crop + Pest + Irrigation advisory
 # Owner: Manoj RS
 # See: Detailed_Implementation_Guide.md Section 9
 

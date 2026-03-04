@@ -1,5 +1,5 @@
 # backend/lambdas/govt_schemes/handler.py
-# AgentCore Tool: Government scheme lookup
+# Lambda Tool: Government scheme lookup
 # Owner: Manoj RS
 # Endpoint: GET /schemes
 # See: Detailed_Implementation_Guide.md Section 9
