@@ -91,12 +91,16 @@ async function dbSaveSession(farmerId, sessionId, messages, preview) {
 
 async function dbDeleteSession(farmerId, sessionId) {
     try {
-        await apiFetch('/chat', {
+        const res = await apiFetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'delete_session', farmer_id: farmerId, session_id: sessionId }),
         });
-    } catch { /* fire-and-forget */ }
+        const data = await res.json();
+        return !!data?.data?.deleted;
+    } catch {
+        return false;
+    }
 }
 
 async function dbRenameSession(farmerId, sessionId, title) {
@@ -247,18 +251,22 @@ function ChatPage() {
         }
     }, [farmerId]);
 
-    const deleteSession = useCallback((sid, e) => {
+    const deleteSession = useCallback(async (sid, e) => {
         e.stopPropagation();
+
+        if (farmerId && farmerId !== 'anonymous') {
+            const ok = await dbDeleteSession(farmerId, sid);
+            if (!ok) {
+                return;
+            }
+        }
+
         setSessions(prev => {
             const updated = prev.filter(s => s.id !== sid);
             saveSessions(updated);
             return updated;
         });
         localStorage.removeItem(STORAGE_KEY + '_' + sid);
-        // Also delete from DB
-        if (farmerId && farmerId !== 'anonymous') {
-            dbDeleteSession(farmerId, sid);
-        }
         if (sid === activeSessionId) startNewChat();
     }, [activeSessionId, startNewChat, farmerId]);
 

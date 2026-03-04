@@ -11,6 +11,23 @@ translate = boto3.client('translate')
 # Supported languages (must match frontend config.js)
 SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]
 
+# Max tolerated Latin-script ratio after excluding common non-translatable tokens.
+# Keeps checks conservative so technical terms (NPK, pH, URLs, units) don't trigger retries.
+LOCALIZATION_LATIN_RATIO_THRESHOLD = {
+    'hi': 0.20,
+    'ta': 0.18,
+    'te': 0.18,
+    'kn': 0.18,
+    'ml': 0.18,
+    'mr': 0.20,
+    'bn': 0.20,
+    'gu': 0.20,
+    'pa': 0.20,
+    'or': 0.20,
+    'as': 0.20,
+    'ur': 0.18,
+}
+
 LANGUAGE_ALIASES = {
     'en-in': 'en',
     'en-us': 'en',
@@ -113,6 +130,28 @@ def _latin_ratio(text):
     return latin / max(len(letters), 1)
 
 
+def _strip_non_translatable_latin(text):
+    """Remove common Latin fragments that are expected to remain untranslated."""
+    import re
+
+    s = text or ''
+    # URLs / emails
+    s = re.sub(r'https?://\S+|www\.\S+', ' ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b[\w\.-]+@[\w\.-]+\.\w+\b', ' ', s)
+
+    # Common agri/measurement unit patterns and formula-like tokens
+    s = re.sub(
+        r'\b\d+(?:[\./-]\d+)?\s*(?:kg|g|mg|ml|l|ha|acre|acres|km|m|cm|mm|ppm|ppb|ph|ec|tds|n|p|k|npk|dap|urea|mop|ssp|zn|fe|mn|cu|b)\b',
+        ' ',
+        s,
+        flags=re.IGNORECASE,
+    )
+
+    # Short all-caps acronyms like IPM, SMS, PM, KCC, BLB
+    s = re.sub(r'\b[A-Z]{2,6}\b', ' ', s)
+    return s
+
+
 def _postprocess_localized_text(text, target_language):
     """Clean minor translation artifacts while preserving meaning."""
     import re
@@ -186,9 +225,25 @@ def _needs_quality_retry(translated, target_language):
     """Detect when output quality is poor for a target language and needs retry."""
     if not translated or not translated.strip():
         return True
-    if target_language == 'ta' and _latin_ratio(translated) > 0.22:
+
+    if target_language == 'en':
+        return False
+
+    cleaned = _strip_non_translatable_latin(translated)
+    alpha_count = sum(1 for c in cleaned if c.isalpha())
+    if alpha_count < 25:
+        return False
+
+    threshold = LOCALIZATION_LATIN_RATIO_THRESHOLD.get(target_language, 0.20)
+    if _latin_ratio(cleaned) > threshold:
         return True
     return False
+
+
+def needs_localization_retry(translated, target_language):
+    """Public helper for localization quality checks in non-translation paths."""
+    normalized_target = normalize_language_code(target_language, default='en')
+    return _needs_quality_retry(translated, normalized_target)
 
 
 def _is_garbled_translation(original, translated):

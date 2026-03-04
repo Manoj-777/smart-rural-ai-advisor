@@ -28,7 +28,7 @@ TTS_TIME_BUDGET_SEC = 18  # skip Polly TTS if elapsed > this
 FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'price-advisory', 'pest-advisory', 'schemes-')
 
 from utils.response_helper import success_response, error_response
-from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code
+from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code, needs_localization_retry
 from utils.polly_helper import text_to_speech, refresh_audio_url
 from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_chat_history, get_session_message_count
 
@@ -945,6 +945,7 @@ def _localize_response_hybrid(text_en, target_lang):
             and len(localized) >= 40
             and 'blocked by our content filters' not in localized.lower()
             and stop_reason != 'content_filtered'
+            and not needs_localization_retry(localized, target_lang)
         ):
             return localized, 'model_direct'
     except Exception as loc_err:
@@ -1274,8 +1275,10 @@ def lambda_handler(event, context):
                 ok = save_session(hist_farmer, hist_session, msgs, preview)
                 return success_response({'saved': ok}, message='Session saved' if ok else 'Save failed')
             elif action == 'delete_session':
-                ok = delete_chat_session(hist_farmer, hist_session)
-                return success_response({'deleted': ok}, message='Session deleted' if ok else 'Delete failed')
+                delete_result = delete_chat_session(hist_farmer, hist_session)
+                deleted = bool(delete_result.get('deleted')) if isinstance(delete_result, dict) else bool(delete_result)
+                payload = delete_result if isinstance(delete_result, dict) else {'deleted': deleted}
+                return success_response(payload, message='Session deleted' if deleted else 'Delete failed')
             elif action == 'rename_session':
                 new_title = body.get('title', '').strip()
                 if not new_title:

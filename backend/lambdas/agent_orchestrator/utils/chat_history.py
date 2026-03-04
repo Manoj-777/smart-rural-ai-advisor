@@ -178,22 +178,72 @@ def _enforce_session_limit(table, pk, farmer_id):
 
 def delete_session(farmer_id, session_id):
     """
-    Delete a chat session.
+    Delete a chat session fully:
+    - session metadata row under hist:{farmer_id}
+    - all message rows under session_id partition
     """
     if not farmer_id or farmer_id == 'anonymous':
-        return False
+        return {
+            'deleted': False,
+            'deleted_history': 0,
+            'deleted_messages': 0,
+        }
+    if not session_id:
+        return {
+            'deleted': False,
+            'deleted_history': 0,
+            'deleted_messages': 0,
+        }
 
     table = _get_table()
-    pk = f'hist:{farmer_id}'
+    hist_pk = f'hist:{farmer_id}'
+    deleted_history = 0
+    deleted_messages = 0
 
     try:
+        # Delete history/session metadata row
         table.delete_item(
-            Key={'session_id': pk, 'timestamp': session_id}
+            Key={'session_id': hist_pk, 'timestamp': session_id}
         )
-        return True
+        deleted_history = 1
+
+        # Delete all per-message rows for this chat session
+        last_evaluated_key = None
+        while True:
+            query_kwargs = {
+                'KeyConditionExpression': 'session_id = :sid',
+                'ExpressionAttributeValues': {':sid': session_id},
+                'ProjectionExpression': '#ts',
+                'ExpressionAttributeNames': {'#ts': 'timestamp'},
+            }
+            if last_evaluated_key:
+                query_kwargs['ExclusiveStartKey'] = last_evaluated_key
+
+            resp = table.query(**query_kwargs)
+            items = resp.get('Items', [])
+            for item in items:
+                ts = item.get('timestamp')
+                if ts is None:
+                    continue
+                table.delete_item(Key={'session_id': session_id, 'timestamp': ts})
+                deleted_messages += 1
+
+            last_evaluated_key = resp.get('LastEvaluatedKey')
+            if not last_evaluated_key:
+                break
+
+        return {
+            'deleted': True,
+            'deleted_history': deleted_history,
+            'deleted_messages': deleted_messages,
+        }
     except Exception as e:
         logger.error(f'delete_session error: {e}')
-        return False
+        return {
+            'deleted': False,
+            'deleted_history': deleted_history,
+            'deleted_messages': deleted_messages,
+        }
 
 
 def rename_session(farmer_id, session_id, new_title):
