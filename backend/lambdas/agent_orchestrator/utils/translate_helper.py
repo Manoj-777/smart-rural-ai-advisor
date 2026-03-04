@@ -104,6 +104,63 @@ def _light_markdown_to_plain(text):
     return s.strip()
 
 
+def _latin_ratio(text):
+    letters = [c for c in (text or '') if c.isalpha()]
+    if not letters:
+        return 0.0
+    latin = sum(1 for c in letters if ('A' <= c <= 'Z') or ('a' <= c <= 'z'))
+    return latin / max(len(letters), 1)
+
+
+def _postprocess_localized_text(text, target_language):
+    """Clean minor translation artifacts while preserving meaning."""
+    import re
+
+    s = (text or '').strip()
+    if not s:
+        return s
+
+    # Remove malformed markdown emphasis markers if unbalanced
+    if s.count('**') % 2 != 0:
+        s = s.replace('**', '')
+
+    # Normalize dash styles and accidental double spacing
+    s = s.replace('—', '–')
+    s = re.sub(r'[ \t]{2,}', ' ', s)
+    s = re.sub(r'\n{3,}', '\n\n', s)
+
+    # Tamil-specific cleanup for common leaked section labels/terms
+    if target_language == 'ta':
+        ta_map = {
+            r'\bORGANIC\b': 'கரிமம்',
+            r'\bCHEMICAL\b': 'வேதியியல்',
+            r'\bIRRIGATION\b': 'நீர்ப்பாசனம்',
+            r'\bYIELD\b': 'மகசூல்',
+            r'\bHARVEST\b': 'அறுவடை',
+            r'\bMARKET\b': 'சந்தை',
+            r'\bKEY\b': 'முக்கிய',
+            r'\bHIGH\b': 'அதிக',
+            r'\bSEED\b': 'விதை',
+            r'\bSPACING\b': 'இடைவெளி',
+            r'\bMUSTARD\b': 'கடுகு',
+            r'\bRABI\b': 'ரபி',
+            r'\bKHARIF\b': 'காரிஃப்',
+        }
+        for pattern, replacement in ta_map.items():
+            s = re.sub(pattern, replacement, s, flags=re.IGNORECASE)
+
+    return s.strip()
+
+
+def _needs_quality_retry(translated, target_language):
+    """Detect when output quality is poor for a target language and needs retry."""
+    if not translated or not translated.strip():
+        return True
+    if target_language == 'ta' and _latin_ratio(translated) > 0.22:
+        return True
+    return False
+
+
 def _is_garbled_translation(original, translated):
     """Detect if a translation is garbled/degraded.
     Returns True if the translation appears to be garbage output."""
@@ -227,9 +284,9 @@ def translate_response(text, source_language='en', target_language='ta'):
 
     # Attempt 1: Token-protected translation (preserves markdown)
     try:
-        translated = _do_translate_protected(text)
+        translated = _postprocess_localized_text(_do_translate_protected(text), normalized_target)
         protected_candidate = translated
-        if not _is_garbled_translation(text, translated):
+        if not _is_garbled_translation(text, translated) and not _needs_quality_retry(translated, normalized_target):
             return translated
         print(f"Garbled protected translation detected, retrying plain text")
     except Exception as e:
@@ -237,9 +294,9 @@ def translate_response(text, source_language='en', target_language='ta'):
 
     # Attempt 2: Plain text translation (no markdown protection)
     try:
-        translated = _do_translate_plain(text)
+        translated = _postprocess_localized_text(_do_translate_plain(text), normalized_target)
         plain_candidate = translated
-        if not _is_garbled_translation(text, translated):
+        if not _is_garbled_translation(text, translated) and not _needs_quality_retry(translated, normalized_target):
             return translated
         print(f"Garbled plain-text translation detected, returning best-effort localized output")
     except Exception as e2:
