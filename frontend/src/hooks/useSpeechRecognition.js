@@ -140,12 +140,6 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             recorder.start(250);
             setIsListening(true);
 
-            autoStopTimerRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current?.state === 'recording') {
-                    mediaRecorderRef.current.stop();
-                }
-            }, 20000);
-
             return true;
         } catch (err) {
             if (import.meta.env.DEV) console.error('Mic access error:', err);

@@ -1,6 +1,6 @@
 // src/components/VoiceInput.jsx
 // Uses streaming (live partial transcript) on supported browsers,
-// falls back to AWS Transcribe on Edge / unsupported browsers.
+// falls back to AWS Transcribe when streaming is unavailable or fails.
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -34,9 +34,6 @@ const PROCESSING_TEXT = {
 
 function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const { t } = useLanguage();
-
-    // Always call BOTH hooks (React Rules of Hooks — no conditional hooks).
-    // Only one will be active at a time based on browser support.
     const streaming = useStreamingSpeech(language, onTranscript);
     const aws = useSpeechRecognition(language, onTranscript);
 
@@ -72,7 +69,7 @@ function VoiceInput({ language, onTranscript, onPartialTranscript }) {
 
     // Combine UI states from whichever path is active
     const isListening = streaming.isListening || aws.isListening;
-    const isProcessing = aws.isProcessing;  // only AWS has a processing phase
+    const isProcessing = aws.isProcessing;
     const error = streaming.error || aws.error;
     const isActive = isListening || isProcessing;
 

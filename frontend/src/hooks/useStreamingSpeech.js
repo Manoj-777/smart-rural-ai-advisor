@@ -1,8 +1,7 @@
 // src/hooks/useStreamingSpeech.js
 // ChatGPT-style live speech-to-text using browser native SpeechRecognition.
-// Uses continuous=false (single utterance) + interimResults=true → words appear
-// live in the input field, and the browser auto-finalises when the user pauses.
-// This is the most reliable mode across Chrome, Edge, Safari and all Chromium.
+// Runs in continuous mode and should keep listening across short pauses.
+// Final transcript is delivered when user explicitly taps Stop.
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
@@ -23,16 +22,12 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
     const deliveredRef = useRef(false);     // prevent double-delivery
     const partialRef = useRef('');
     const finalTextRef = useRef('');         // accumulates isFinal segments
-    const safetyTimerRef = useRef(null);
-    const silenceTimerRef = useRef(null);    // auto-stop after silence (Edge fix)
 
     useEffect(() => { onFinalRef.current = onFinalTranscript; }, [onFinalTranscript]);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             if (recognitionRef.current) {
                 try { recognitionRef.current.abort(); } catch { /* */ }
             }
@@ -47,14 +42,6 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
         setPartialTranscript('');
         partialRef.current = '';
         finalTextRef.current = '';
-        if (safetyTimerRef.current) {
-            clearTimeout(safetyTimerRef.current);
-            safetyTimerRef.current = null;
-        }
-        if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-        }
         if (text && onFinalRef.current) {
             onFinalRef.current(text);
         }
@@ -70,10 +57,6 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
         if (recognitionRef.current) {
             try { recognitionRef.current.abort(); } catch { /* */ }
         }
-        if (safetyTimerRef.current) {
-            clearTimeout(safetyTimerRef.current);
-            safetyTimerRef.current = null;
-        }
 
         setError('');
         setPartialTranscript('');
@@ -81,16 +64,12 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
         finalTextRef.current = '';
         manualStopRef.current = false;
         deliveredRef.current = false;
-        if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-        }
 
         try {
             const recognition = new SR();
             recognitionRef.current = recognition;
             recognition.lang = language || config.DEFAULT_LANGUAGE;
-            recognition.continuous = false;       // single utterance — reliable on ALL browsers
+            recognition.continuous = true;
             recognition.interimResults = true;    // live partial transcripts
             recognition.maxAlternatives = 1;
 
@@ -109,15 +88,6 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                 const display = (final || finalTextRef.current) + interim;
                 partialRef.current = display;
                 setPartialTranscript(display);
-
-                // Silence watchdog: if no new results for 2.5s, auto-stop.
-                // This fixes Edge which doesn't auto-finalize on silence like Chrome.
-                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                silenceTimerRef.current = setTimeout(() => {
-                    if (recognitionRef.current && !deliveredRef.current) {
-                        try { recognitionRef.current.stop(); } catch { /* */ }
-                    }
-                }, 2500);
             };
 
             recognition.onerror = (event) => {
@@ -127,8 +97,8 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                     setError('Microphone permission denied. Please allow mic access.');
                     _deliver('');
                 } else if (code === 'no-speech') {
-                    setError('No speech detected. Please try again.');
-                    _deliver('');
+                    // Keep listening on brief silence in continuous mode.
+                    setError('');
                 } else {
                     if (import.meta.env.DEV) console.warn('[StreamingSpeech] error, falling back to AWS:', code);
                     setFailed(true);
@@ -137,20 +107,25 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
             };
 
             recognition.onend = () => {
-                // Browser auto-stopped (user paused speaking) → deliver final text
-                const text = (finalTextRef.current || partialRef.current).trim();
-                _deliver(text);
+                if (manualStopRef.current) {
+                    const text = (finalTextRef.current || partialRef.current).trim();
+                    _deliver(text);
+                    return;
+                }
+
+                // Some browsers end recognition on pause even in continuous mode.
+                // Restart automatically to preserve manual-stop UX.
+                try {
+                    recognition.start();
+                    setIsListening(true);
+                } catch {
+                    setFailed(true);
+                    _deliver('');
+                }
             };
 
             recognition.start();
             setIsListening(true);
-
-            // Safety: force-stop after 15s to avoid UI hanging
-            safetyTimerRef.current = setTimeout(() => {
-                if (recognitionRef.current) {
-                    try { recognitionRef.current.stop(); } catch { /* */ }
-                }
-            }, 15000);
 
             return true;
         } catch (err) {
