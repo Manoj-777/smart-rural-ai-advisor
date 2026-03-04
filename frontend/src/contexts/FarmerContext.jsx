@@ -325,7 +325,7 @@ export function FarmerProvider({ children }) {
         idleCheckRef.current = setInterval(() => {
             const elapsed = Date.now() - lastActivityRef.current;
             if (elapsed > IDLE_TIMEOUT_MS) {
-                console.warn(`[Session] Idle for ${Math.round(elapsed / 60000)} min — logging out`);
+                if (import.meta.env.DEV) console.warn(`[Session] Idle for ${Math.round(elapsed / 60000)} min — logging out`);
                 logout();
             }
         }, 60 * 1000);
@@ -335,11 +335,11 @@ export function FarmerProvider({ children }) {
             try {
                 const session = await cognitoAuth.getSession();
                 if (!session || !session.idToken) {
-                    console.warn('[Session] Cognito session expired — logging out');
+                    if (import.meta.env.DEV) console.warn('[Session] Cognito session expired — logging out');
                     logout();
                 }
             } catch {
-                console.warn('[Session] Cognito session check failed — logging out');
+                if (import.meta.env.DEV) console.warn('[Session] Cognito session check failed — logging out');
                 logout();
             }
         };
@@ -359,7 +359,7 @@ export function FarmerProvider({ children }) {
             if (stored) {
                 const elapsed = Date.now() - parseInt(stored, 10);
                 if (elapsed > IDLE_TIMEOUT_MS) {
-                    console.warn(`[Session] Tab reopened after ${Math.round(elapsed / 60000)} min idle — logging out`);
+                    if (import.meta.env.DEV) console.warn(`[Session] Tab reopened after ${Math.round(elapsed / 60000)} min idle — logging out`);
                     logout();
                 }
             }

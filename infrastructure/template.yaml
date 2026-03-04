@@ -20,6 +20,16 @@ Globals:
         BEDROCK_GUARDRAIL_VERSION: !Ref BedrockGuardrailVersion
         ENABLE_RATE_LIMITING: 'true'
         DYNAMODB_RATE_LIMIT_TABLE: rate_limits
+        # Rate-limit thresholds (safe defaults)
+        RATE_LIMIT_RPM: '15'
+        RATE_LIMIT_RPH: '120'
+        RATE_LIMIT_DAILY: '500'
+        # Chat session TTL in days
+        CHAT_TTL_DAYS: '30'
+        # TTS / Polly configuration
+        POLLY_FORCE_HINDI_FALLBACK: 'false'
+        TTS_FAILOVER_TO_POLLY: 'true'
+        USE_GTTS: 'true'
         FOUNDATION_MODEL_LITE: 'global.amazon.nova-2-lite-v1:0'
 
 Parameters:

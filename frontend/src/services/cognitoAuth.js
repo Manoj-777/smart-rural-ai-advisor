@@ -8,6 +8,8 @@ import {
     CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 
+import config from '../config';
+
 const POOL_DATA = {
     UserPoolId: 'ap-south-1_X58lNMEcn',
     ClientId: '4c3c6he88im15hmv5rdkv3m6h0',
@@ -20,7 +22,7 @@ const userPool = new CognitoUserPool(POOL_DATA);
  */
 function formatPhone(phone) {
     const digits = phone.replace(/\D/g, '').slice(-10);
-    return `+91${digits}`;
+    return `${config.COUNTRY_CODE}${digits}`;
 }
 
 /**
@@ -376,8 +378,15 @@ export function deleteUser() {
 }
 
 /**
- * Check if a user exists in the pool by attempting a forgotten password flow.
- * (Lightweight existence check without credentials.)
+ * Check if a user exists in the pool by attempting authentication
+ * with a dummy password. This avoids the forgotPassword() side-effect
+ * of sending an actual SMS/email to the user.
+ *
+ * - UserNotFoundException     → user does NOT exist
+ * - NotAuthorizedException    → user EXISTS (wrong password)
+ * - UserNotConfirmedException → user EXISTS (not confirmed)
+ * - Any other error           → assume exists (safe default)
+ *
  * @param {string} phone - 10-digit phone
  * @returns {Promise<boolean>}
  */
@@ -389,17 +398,16 @@ export function userExists(phone) {
             Pool: userPool,
         });
 
-        // forgotPassword will fail with UserNotFoundException if user doesn't exist
-        cognitoUser.forgotPassword({
-            onSuccess: () => resolve(true),
+        const authDetails = new AuthenticationDetails({
+            Username: cognitoPhone,
+            Password: '__existence_check_dummy_pwd__',
+        });
+
+        cognitoUser.authenticateUser(authDetails, {
+            onSuccess: () => resolve(true), // unlikely but user exists
             onFailure: (err) => {
                 if (err.code === 'UserNotFoundException') return resolve(false);
-                // CodeDeliveryDetails means user exists (code was sent)
-                // Any other error — assume user exists to be safe
-                resolve(true);
-            },
-            inputVerificationCode: () => {
-                // User exists and code was sent — abort the flow
+                // NotAuthorizedException or UserNotConfirmedException → user exists
                 resolve(true);
             },
         });

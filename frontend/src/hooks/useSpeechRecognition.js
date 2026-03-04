@@ -146,7 +146,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
 
             return true;
         } catch (err) {
-            console.error('Mic access error:', err);
+            if (import.meta.env.DEV) console.error('Mic access error:', err);
             if (err.name === 'NotAllowedError') {
                 setError('Microphone permission denied. Please allow mic access in your browser settings.');
             } else if (err.name === 'NotFoundError') {

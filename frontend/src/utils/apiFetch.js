@@ -55,31 +55,3 @@ export async function apiFetch(path, opts = {}, extra = {}) {
     return res;
 }
 
-/**
- * Shorthand GET with auth
- */
-export async function apiGet(path) {
-    return apiFetch(path);
-}
-
-/**
- * Shorthand POST with auth + JSON body
- */
-export async function apiPost(path, body) {
-    return apiFetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}
-
-/**
- * Shorthand PUT with auth + JSON body
- */
-export async function apiPut(path, body) {
-    return apiFetch(path, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-}

@@ -130,7 +130,7 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                     setError('No speech detected. Please try again.');
                     _deliver('');
                 } else {
-                    console.warn('[StreamingSpeech] error, falling back to AWS:', code);
+                    if (import.meta.env.DEV) console.warn('[StreamingSpeech] error, falling back to AWS:', code);
                     setFailed(true);
                     _deliver('');
                 }
@@ -154,7 +154,7 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
 
             return true;
         } catch (err) {
-            console.error('[StreamingSpeech] start error:', err);
+            if (import.meta.env.DEV) console.error('[StreamingSpeech] start error:', err);
             setFailed(true);
             return false;
         }

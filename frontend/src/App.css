@@ -1,7 +1,6 @@
 /* src/App.css — Enhanced Smart Rural AI Advisor */
 
-/* ── Google Fonts import ──────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&family=Noto+Sans+Telugu:wght@400;600&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Sans+Bengali:wght@400;600&family=Noto+Sans+Gujarati:wght@400;600&family=Noto+Sans+Gurmukhi:wght@400;600&family=Noto+Sans+Oriya:wght@400;600&display=swap');
+/* ── Google Fonts loaded via <link> in index.html for parallel fetching ── */
 
 /* ── Reset & Base ──────────────────────────────────────── */
 * {
