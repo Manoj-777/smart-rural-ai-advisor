@@ -10,6 +10,7 @@ import boto3
 import logging
 import os
 import re
+import unicodedata
 import time as _time
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -59,7 +60,7 @@ def _guardrail_config():
 
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
 FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
-HYBRID_LOCALIZATION_ENABLED = os.environ.get('HYBRID_LOCALIZATION_ENABLED', 'true').lower() == 'true'
+HYBRID_LOCALIZATION_ENABLED = os.environ.get('HYBRID_LOCALIZATION_ENABLED', 'false').lower() == 'true'
 STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'true').lower() == 'true'
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', '')
 LAMBDA_CROP = os.environ.get('LAMBDA_CROP', '')
@@ -876,22 +877,46 @@ def _normalize_output_markdown(text):
 
 
 def _strip_local_markdown_symbols(text, language_code='en'):
-    """Remove markdown symbols from localized replies for cleaner plain-text UX."""
-    if not text or language_code == 'en' or not STRIP_LOCAL_MARKDOWN_SYMBOLS:
+    """Sanitize text for frontend and remove markdown symbols for cleaner plain-text UX."""
+    if not text:
         return text
 
-    s = text.replace('\r\n', '\n')
+    s = text.replace('\r\n', '\n').replace('\r', '\n')
+    s = re.sub(r'</?span[^>]*>', '', s, flags=re.IGNORECASE)
+    s = s.replace('\uFFFD', '')
+    s = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', s)
+
+    filtered = []
+    for ch in s:
+        if ch in ('\n', '\t'):
+            filtered.append(ch)
+            continue
+        cat = unicodedata.category(ch)
+        if cat in {'Cc', 'Cs', 'Co', 'Cn'}:
+            continue
+        filtered.append(ch)
+    s = ''.join(filtered)
+
+    if not STRIP_LOCAL_MARKDOWN_SYMBOLS:
+        s = re.sub(r'\n{3,}', '\n\n', s)
+        return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
+
     s = re.sub(r'^[\t ]*#{1,6}[\t ]*', '', s, flags=re.MULTILINE)
     s = s.replace('**', '')
     s = s.replace('*', '')
+    s = s.replace('#', '')
     s = re.sub(r'\n{3,}', '\n\n', s)
     return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
 
 
 def _localize_response_hybrid(text_en, target_lang):
     """Model-first localization with Translate fallback on failure/quality issues."""
-    if not text_en or target_lang == 'en' or not HYBRID_LOCALIZATION_ENABLED:
-        return text_en, 'disabled_or_en'
+    if not text_en:
+        return text_en, 'empty'
+    if target_lang == 'en':
+        return text_en, 'en'
+    if not HYBRID_LOCALIZATION_ENABLED:
+        return translate_response(text_en, 'en', target_lang), 'translate_only'
 
     try:
         localize_prompt = (
