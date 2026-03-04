@@ -57,7 +57,6 @@ kb-permissions-policy.json
 kb-config.json
 kb-storage-config.json
 aoss-enc-policy.json
-.bedrock_agentcore.yaml
 
 DigiWatch.AI/
 
@@ -176,7 +175,8 @@ WEATHER_INTERMITTENT_FIX.md
 setup_bedrock_agent.py
 setup_bedrock_agent_v1.py
 
-## AgentCore (deprecated — migrated to Bedrock converse())
+## Legacy (removed — no longer used)
 agentcore/
 infrastructure/agentcore_config.json
 infrastructure/bedrock_agentcore_config.json
+_cleanup_handler.py

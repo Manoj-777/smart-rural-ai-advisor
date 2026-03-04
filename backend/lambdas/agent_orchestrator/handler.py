@@ -1,12 +1,8 @@
 # backend/lambdas/agent_orchestrator/handler.py
-# Main Lambda: API Gateway → Amazon Bedrock AgentCore Runtime → Format Response
+# Main Lambda: API Gateway → Amazon Bedrock (direct converse API) → Format Response
 # Owner: Manoj RS
 # Endpoints: POST /chat, POST /voice
 # See: Detailed_Implementation_Guide.md Section 9
-#
-# Supports two modes (auto-detected from env vars):
-#   1. AgentCore Runtime — invoke_agent_runtime() via bedrock-agentcore client
-#   2. Bedrock Agents (fallback) — invoke_agent() via bedrock-agent-runtime client
 
 import json
 import uuid
@@ -46,25 +42,6 @@ from utils.audit_logger import (
     audit_bedrock_guardrail,
 )
 
-# ── AgentCore Runtime mode (preferred) ──
-# Legacy domain-specialist ARNs (backward compatible)
-AGENTCORE_RUNTIME_ARN = os.environ.get('AGENTCORE_RUNTIME_ARN', '')
-AGENTCORE_WEATHER_RUNTIME_ARN = os.environ.get('AGENTCORE_WEATHER_RUNTIME_ARN', '')
-AGENTCORE_CROP_RUNTIME_ARN = os.environ.get('AGENTCORE_CROP_RUNTIME_ARN', '')
-AGENTCORE_SCHEMES_RUNTIME_ARN = os.environ.get('AGENTCORE_SCHEMES_RUNTIME_ARN', '')
-AGENTCORE_PROFILE_RUNTIME_ARN = os.environ.get('AGENTCORE_PROFILE_RUNTIME_ARN', '')
-AGENTCORE_PEST_RUNTIME_ARN = os.environ.get('AGENTCORE_PEST_RUNTIME_ARN', '')
-
-# ── Cognitive Multi-Agent Pipeline ARNs (new architecture) ──
-AGENTCORE_UNDERSTANDING_ARN = os.environ.get('AGENTCORE_UNDERSTANDING_RUNTIME_ARN', '')
-AGENTCORE_REASONING_ARN = os.environ.get('AGENTCORE_REASONING_RUNTIME_ARN', '')
-AGENTCORE_FACTCHECK_ARN = os.environ.get('AGENTCORE_FACTCHECK_RUNTIME_ARN', '')
-AGENTCORE_COMMUNICATION_ARN = os.environ.get('AGENTCORE_COMMUNICATION_RUNTIME_ARN', '')
-AGENTCORE_MEMORY_ARN = os.environ.get('AGENTCORE_MEMORY_RUNTIME_ARN', '')
-
-# Pipeline mode: 'cognitive' (new multi-agent) or 'specialist' (legacy domain fan-out)
-PIPELINE_MODE = os.environ.get('PIPELINE_MODE', 'cognitive')
-ENABLE_SPECIALIST_FANOUT = os.environ.get('ENABLE_SPECIALIST_FANOUT', 'true').lower() == 'true'
 ENFORCE_CODE_POLICY = os.environ.get('ENFORCE_CODE_POLICY', 'true').lower() == 'true'
 
 # ── Bedrock Guardrail (Gap #5: AWS-native content/PII/topic filtering) ──
@@ -80,13 +57,6 @@ def _guardrail_config():
         }
     return None
 
-# ── Bedrock Agents mode (fallback) ──
-AGENT_ID = os.environ.get('BEDROCK_AGENT_ID', '')
-AGENT_ALIAS_ID = os.environ.get('BEDROCK_AGENT_ALIAS_ID', '')
-
-# Auto-detect which mode to use
-USE_AGENTCORE = bool(AGENTCORE_RUNTIME_ARN)
-
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
 FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', 'smart-rural-ai-WeatherFunction-dilSoHSLlXGN')
@@ -94,24 +64,10 @@ LAMBDA_CROP = os.environ.get('LAMBDA_CROP', 'smart-rural-ai-CropAdvisoryFunction
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', 'smart-rural-ai-GovtSchemesFunction-BgTy36y4fgGv')
 LAMBDA_PROFILE = os.environ.get('LAMBDA_PROFILE', 'smart-rural-ai-FarmerProfileFunction-mEzTIZOAvxKt')
 
-# Bedrock Runtime client for direct model invocation (fallback when AgentCore is cold)
+# Bedrock Runtime client for direct model invocation (converse API with tool use)
 bedrock_rt = boto3.client('bedrock-runtime', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 lambda_client = boto3.client('lambda', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
-
-if USE_AGENTCORE:
-    logger.info(f"Mode: AgentCore Runtime — ARN: {AGENTCORE_RUNTIME_ARN} | Pipeline: {PIPELINE_MODE}")
-    if PIPELINE_MODE == 'cognitive':
-        logger.info(
-            f"Cognitive ARNs: Understanding={bool(AGENTCORE_UNDERSTANDING_ARN)}, "
-            f"Reasoning={bool(AGENTCORE_REASONING_ARN)}, "
-            f"FactCheck={bool(AGENTCORE_FACTCHECK_ARN)}, "
-            f"Communication={bool(AGENTCORE_COMMUNICATION_ARN)}, "
-            f"Memory={bool(AGENTCORE_MEMORY_ARN)}"
-        )
-    agentcore_runtime = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
-else:
-    bedrock_agent = boto3.client('bedrock-agent-runtime')
-    logger.info(f"Mode: Bedrock Agents — Agent: {AGENT_ID}, Alias: {AGENT_ALIAS_ID}")
+logger.info(f"Mode: Direct Bedrock converse() | Model: {FOUNDATION_MODEL}")
 
 
 AGRI_POLICY_KEYWORDS = {
@@ -457,62 +413,8 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
     return text, cleaned_tools, policy_meta
 
 
-def _invoke_agentcore_runtime(prompt, session_id, farmer_context=None):
-    """
-    Invoke the agent hosted on AgentCore Runtime.
-    """
-    payload = {
-        "prompt": prompt,
-        "session_id": session_id,
-        "farmer_id": farmer_context.get("name", "anonymous") if farmer_context else "anonymous",
-    }
-    if farmer_context:
-        payload["context"] = farmer_context
-
-    try:
-        response = agentcore_runtime.invoke_agent_runtime(
-            agentRuntimeArn=AGENTCORE_RUNTIME_ARN,
-            runtimeSessionId=session_id,
-            payload=json.dumps(payload).encode('utf-8'),
-            qualifier='DEFAULT',
-        )
-        
-        # Parse the response (SDKs may return payload or response field)
-        response_payload = response.get('response', response.get('payload', ''))
-        if response_payload:
-            if isinstance(response_payload, bytes):
-                response_payload = response_payload.decode('utf-8')
-            elif hasattr(response_payload, 'read'):
-                response_payload = response_payload.read().decode('utf-8')
-            
-            # Parse JSON response
-            try:
-                parsed = json.loads(response_payload)
-                result_text = parsed.get('result', response_payload)
-                tools_used = parsed.get('tools_used', [])
-            except (json.JSONDecodeError, TypeError):
-                result_text = response_payload
-                tools_used = []
-        else:
-            result_text = "I apologize, I received an unexpected response format."
-            tools_used = []
-
-        return result_text, tools_used
-        
-    except Exception as e:
-        logger.error(f"AgentCore invocation error: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        # AgentCore may be cold-starting — return friendly retry message
-        error_msg = str(e)
-        if 'RuntimeClientError' in error_msg or 'timeout' in error_msg.lower():
-            return ("I'm warming up the AI advisor — this takes about 60 seconds on first use. "
-                    "Please try again in a minute!"), []
-        return f"I apologize, I encountered an error processing your request. Please try again.", []
-
-
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  DIRECT BEDROCK FALLBACK (bypasses AgentCore when runtimes are cold)
+#  DIRECT BEDROCK CONVERSE API (primary invocation path)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 DIRECT_SYSTEM_PROMPT = """You are the Smart Rural AI Advisor — a warm, friendly agricultural assistant for Indian farmers.
@@ -945,7 +847,7 @@ def _post_process_response(text):
 def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
     """
     Call Bedrock model directly with tool use (converse API).
-    Fallback when AgentCore runtimes are cold-starting.
+    Primary invocation path using Bedrock converse() API with tool use.
     skip_native_guardrail: True for feature-page fast paths (internal prompts
     are code-generated, already screened by application-level guardrails).
     chat_history: list of previous converse() message dicts for conversation memory.
@@ -1091,482 +993,6 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
         return f"I apologize, I encountered an error. Please try again.", [], []
 
 
-def _invoke_agentcore_runtime_with_arn(runtime_arn, prompt, session_id, farmer_context=None):
-    if not runtime_arn:
-        return "", []
-
-    payload = {
-        "prompt": prompt,
-        "session_id": session_id,
-        "farmer_id": farmer_context.get("name", "anonymous") if farmer_context else "anonymous",
-    }
-    if farmer_context:
-        payload["context"] = farmer_context
-
-    try:
-        response = agentcore_runtime.invoke_agent_runtime(
-            agentRuntimeArn=runtime_arn,
-            runtimeSessionId=session_id,
-            payload=json.dumps(payload).encode('utf-8'),
-            qualifier='DEFAULT',
-        )
-
-        response_payload = response.get('response', response.get('payload', ''))
-        if isinstance(response_payload, bytes):
-            response_payload = response_payload.decode('utf-8')
-        elif hasattr(response_payload, 'read'):
-            response_payload = response_payload.read().decode('utf-8')
-
-        try:
-            parsed = json.loads(response_payload)
-            result_text = parsed.get('result', response_payload)
-            tools_used = parsed.get('tools_used', [])
-        except (json.JSONDecodeError, TypeError):
-            result_text = str(response_payload)
-            tools_used = []
-
-        return result_text, tools_used
-    except Exception as e:
-        logger.error(f"Specialist runtime invocation failed ({runtime_arn}): {str(e)}")
-        return "", []
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  COGNITIVE MULTI-AGENT PIPELINE  (3 Bedrock converse() agents)
-#  Flow: Understanding → Reasoning (with tools) → Validate & Communicate
-#  Each agent = separate Bedrock converse() call with role-specific system prompt
-#  Optimized: merged fact-check + communication, parallel tools, tiered models
-#  Total pipeline ~10-16s, fits within 29s API Gateway limit
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-# ── Agent 1: Understanding Agent ──
-UNDERSTANDING_SYSTEM_PROMPT = """You are the Understanding Agent in a multi-agent agricultural advisory system for Indian farmers.
-
-Your ONLY job is to analyze the farmer's query and produce a structured JSON analysis.
-Do NOT answer the question. Do NOT give advice. ONLY analyze.
-
-Output STRICT JSON (no markdown, no ```):
-{
-  "intents": ["weather", "crop", "pest", "schemes", "profile", "irrigation", "general"],
-  "entities": {
-    "location": "extracted city/village/district or null",
-    "crop": "extracted crop name or null",
-    "season": "kharif/rabi/summer or null",
-    "state": "Indian state or null",
-    "pest_symptom": "described symptom or null"
-  },
-  "tools_needed": ["get_weather", "get_crop_advisory", "get_pest_alert", "search_schemes", "get_farmer_profile"],
-  "urgency": "high/medium/low",
-  "summary": "One-line summary of what the farmer needs"
-}
-
-Rules:
-- intents: list ALL relevant intents from the query
-- tools_needed: list which tools the Reasoning Agent should call
-- Extract entities even if implicit (e.g., "my paddy has yellow spots" → crop=paddy, pest_symptom=yellow spots)
-- If location is missing but needed, note it in summary
-- For weather queries, get_weather is always needed
-- For crop/variety/fertilizer queries, get_crop_advisory is always needed
-- For irrigation/water/watering queries, get_crop_advisory with query_type='irrigation' is always needed — add "irrigation" to intents
-- For pest/disease/pesticide queries, get_pest_alert is always needed (queries Knowledge Base for pesticide guides, dosage, safety, treatment)
-- For scheme queries, search_schemes is always needed
-- ALWAYS include get_farmer_profile in tools_needed when farmer_id is available — personalized advice requires the farmer's profile data
-- CRITICAL: When farmer context is provided (state, crops, district, soil_type), use those values to fill NULL entities. For example, if the farmer asks 'what crops should I plant this kharif?' and context has state=Tamil Nadu, set location='Tamil Nadu', season='kharif', and ALWAYS include get_crop_advisory in tools_needed.
-- NEVER leave entities as null when the farmer context provides those values.
-- IMPORTANT: If the farmer context includes gps_location, use that as the PRIMARY fallback location instead of state/district. However, if the farmer explicitly mentions a location in the current query, that explicit location MUST override gps_location and profile state/district.
-- When conversation history is provided, use it to resolve follow-up references. For example, if the farmer previously asked about rice and now asks 'what about pest control?', set crop=rice and add get_pest_alert to tools_needed."""
-
-# ── Agent 3: Fact-Checking Agent ──
-FACTCHECK_SYSTEM_PROMPT = """You are the Fact-Checking Agent in a multi-agent agricultural advisory system for Indian farmers.
-
-You receive:
-1. The Reasoning Agent's draft advisory
-2. The raw tool data it was based on
-
-Your job is to VALIDATE the advisory against the tool data and fix any issues.
-
-Output STRICT JSON (no markdown, no ```):
-{
-  "validated": true/false,
-  "corrected_advisory": "The corrected advisory text (or original if no changes needed)",
-  "confidence": 0.0-1.0,
-  "corrections": ["list of corrections made, empty if none"],
-  "warnings": ["any warnings for the farmer"],
-  "hallucinations_found": ["any claims not supported by tool data"]
-}
-
-Rules:
-- Check that temperature/weather numbers match the tool output exactly
-- Check that crop advice matches the region and season from tool data
-- Check that scheme names and details match the tool output
-- Flag any advice that is NOT grounded in tool data
-- If advisory is mostly correct, set validated=true and return it unchanged
-- If tool data is empty/error, note that the advisory lacks grounding
-- NEVER add new information — only validate what the Reasoning Agent wrote
-- Be strict: farmers depend on accurate data for their livelihood"""
-
-# ── Agent 4: Communication Agent ──
-COMMUNICATION_SYSTEM_PROMPT = """You are the Communication Agent in a multi-agent agricultural advisory system for Indian farmers.
-
-You receive a fact-checked agricultural advisory. Your job is to rewrite it in a warm, human, conversational tone for an Indian farmer audience.
-
-Rules:
-1. Keep ALL factual data (numbers, temperatures, dates, scheme names) EXACTLY as given
-2. Use simple, practical language a rural farmer would understand — write like a helpful neighbor chatting over chai, not a government notice
-3. ANSWER ONLY WHAT WAS ASKED — do NOT add unsolicited topics. If the farmer asked 'which crop to grow', give ONLY the crop recommendation, not pest/irrigation/fertilizer advice unless it was in the original advisory
-4. Be warm and encouraging — farming is hard work. Use the farmer's name if available in context.
-5. NEVER ask the farmer for their name or personal information — that is already known from their profile
-6. Keep response concise (under 200 words for simple questions, up to 300 for multi-topic queries)
-7. If weather data is included, highlight what matters for farming (rainfall, temperature extremes)
-8. For pest/disease, include: identify → treat → prevent
-9. For schemes, include: eligibility → how to apply → deadline if known
-10. End with a brief, helpful closing line
-11. ALWAYS write your response in English — translation to the farmer's language is handled separately
-12. For irrigation queries, include specific water amounts (mm/day, litres/acre) and scheduling
-13. Do NOT pad the response with generic tips or sections that were not requested
-14. Use short sentences and a conversational flow — avoid long bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend.
-15. CRITICAL: NEVER tell the farmer that the system "only has data for rice and wheat" or that "tools only returned data for X and Y". The farmer doesn't care about tool internals. If the advisory mentions a specific crop, give the advice for THAT crop. If the original advisory redirects the farmer elsewhere instead of answering, rewrite it to include whatever crop-specific advice IS available plus general best practices.
-
-Do NOT add information that wasn't in the original advisory.
-Do NOT use technical jargon unless explaining it.
-Output ONLY the rewritten advisory text (no JSON, no metadata)."""
-
-# ── Agent 3+4 MERGED: Validate & Communicate (LEGACY — kept for reference) ──
-# Was used briefly; reverted to separate agents for stronger validation
-VALIDATE_COMMUNICATE_SYSTEM_PROMPT = """You are the Validate & Communicate Agent in a multi-agent agricultural advisory system for Indian farmers.
-
-You receive:
-1. The Reasoning Agent's draft advisory
-2. The raw tool data it was based on (ground truth)
-3. The original farmer query
-4. The farmer's profile (if available)
-
-Your job has TWO parts — do them in ONE pass:
-
-PART A — FACT-CHECK the draft advisory:
-- Verify all numbers (temperatures, rainfall, prices, dates) match the tool data exactly
-- Flag any claims NOT supported by tool data (hallucinations)
-- Fix any factual errors silently — do NOT mention corrections to the farmer
-
-PART B — REWRITE for the farmer:
-- Warm, human, conversational tone — like a helpful neighbor chatting over chai
-- Keep ALL verified factual data EXACTLY as given
-- Use simple, practical language a rural farmer understands
-- ANSWER ONLY WHAT WAS ASKED — no unsolicited topics
-- Use the farmer's name if available in the profile
-- NEVER ask the farmer for their name or personal information
-- Keep concise: under 200 words for simple questions, up to 300 for complex
-- For weather: highlight farming-relevant data (rainfall, temperature extremes)
-- For pest/disease: identify → treat → prevent
-- For schemes: eligibility → how to apply → deadline
-- End with a brief, helpful closing line
-- ALWAYS write in English — translation is handled separately
-- Do NOT pad with generic tips not in the original advisory
-- Use short sentences, conversational flow — sound like a knowledgeable friend
-- CRITICAL: NEVER say "only has data for rice and wheat" or mention tool internals
-
-Output ONLY the final farmer-friendly advisory text.
-No JSON. No metadata. No explanations about what you checked."""
-
-
-def _invoke_cognitive_converse(system_prompt, user_prompt, label="agent", max_tokens=1024, temperature=0.2, skip_guardrail=False, model_id=None):
-    """
-    Invoke a cognitive agent via Bedrock converse() API.
-    No tools — just system prompt + user prompt → text response.
-    skip_guardrail: True for internal pipeline agents whose meta-instructions
-    (e.g. 'Output STRICT JSON') trigger the NonAgriculturalTopics deny filter.
-    Application-level guardrails already screen input/output.
-    model_id: optional override — use FOUNDATION_MODEL_LITE for fast agents.
-    """
-    try:
-        converse_kwargs = {
-            "modelId": model_id or FOUNDATION_MODEL,
-            "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
-            "system": [{"text": system_prompt}],
-            "inferenceConfig": {"maxTokens": max_tokens, "temperature": temperature},
-        }
-        # Gap #5: Attach Bedrock native guardrail if configured
-        # Skipped for internal pipeline agents — their meta-instructions
-        # are not user-facing and trigger false positives on topic filters.
-        gc = _guardrail_config()
-        if gc and not skip_guardrail:
-            converse_kwargs['guardrailConfig'] = gc
-
-        response = _bedrock_converse_with_retry(bedrock_rt, **converse_kwargs)
-        output = response.get("output", {})
-        message = output.get("message", {})
-        stop_reason = response.get("stopReason", "")
-        result_text = ""
-        for block in message.get("content", []):
-            if "text" in block:
-                result_text += block["text"]
-        if stop_reason == "guardrail_intervened":
-            logger.warning(f"[{label}] Bedrock guardrail INTERVENED — output replaced ({len(result_text)} chars)")
-        logger.info(f"[{label}] Response: {len(result_text)} chars, stopReason={stop_reason}")
-        return result_text
-    except Exception as e:
-        logger.error(f"[{label}] Bedrock converse error: {str(e)}")
-        return None
-
-
-def _run_cognitive_pipeline(user_message, english_message, session_id,
-                            farmer_id, farmer_context, detected_lang,
-                            chat_history=None):
-    """
-    4-Agent Cognitive Pipeline using Bedrock converse() API.
-
-    Flow: Understanding → Reasoning (with tools) → Fact-Check → Communication
-
-    Each agent is a separate Bedrock converse() call with a role-specific system prompt.
-    The Reasoning Agent is the only one with tool access.
-    Optimizations: parallel tool execution + tiered reasoning model.
-    Total pipeline ~10-16s, fits within 29s API Gateway limit.
-
-    Returns: (result_text_en, tools_used, pipeline_metadata)
-    """
-    pipeline_start = _time.time()
-    # Budget: API GW is 29s, reserve 6s for translation + TTS + overhead
-    PIPELINE_BUDGET_SEC = 22
-
-    def _budget_remaining():
-        return max(0, PIPELINE_BUDGET_SEC - (_time.time() - pipeline_start))
-
-    pipeline_meta = {
-        'pipeline_mode': 'cognitive',
-        'agents_invoked': [],
-        'understanding': None,
-        'fact_check': None,
-    }
-
-    # ══════════════════════════════════════════════════════════
-    #  AGENT 1: Understanding Agent  (Nova 2 Lite — fast ~1-2s)
-    #  Analyzes query → extracts intents, entities, tools needed
-    #  SKIP if keyword classifier already found clear intents (saves ~2s)
-    # ══════════════════════════════════════════════════════════
-
-    # Fast-path: if keyword classifier found intents, build a synthetic
-    # understanding result and skip the LLM call entirely (~2s saved)
-    _keyword_intents = _classify_intents(english_message, original_message=user_message)
-    if _keyword_intents and len(_keyword_intents) <= 2:
-        logger.info(f"Understanding SKIP — keyword intents={_keyword_intents}")
-        # Build synthetic understanding from keywords + farmer_context
-        _fc = farmer_context or {}
-        _tool_map = {
-            'weather': 'get_weather', 'crop': 'get_crop_advisory',
-            'pest': 'get_pest_alert', 'irrigation': 'get_crop_advisory',
-            'schemes': 'search_schemes', 'profile': 'get_farmer_profile',
-        }
-        _tools_needed = list(dict.fromkeys(_tool_map.get(i, '') for i in _keyword_intents if i in _tool_map))
-        understanding = {
-            'intents': _keyword_intents,
-            'entities': {
-                'location': _fc.get('gps_location') or _fc.get('district') or _fc.get('state'),
-                'crop': (_fc.get('crops') or [None])[0] if isinstance(_fc.get('crops'), list) else _fc.get('crops'),
-                'season': None,
-                'state': _fc.get('state'),
-                'pest_symptom': None,
-            },
-            'tools_needed': _tools_needed,
-            'urgency': 'medium',
-            'summary': f"Keyword-classified: {', '.join(_keyword_intents)}",
-        }
-        pipeline_meta['understanding'] = understanding
-        pipeline_meta['agents_invoked'].append('understanding(keyword-skip)')
-    else:
-        logger.info("Pipeline Step 1/4: Understanding Agent (Nova 2 Lite)")
-        understanding_input = f"Farmer query: {english_message}"
-        if farmer_context:
-            understanding_input += f"\nFarmer context: {json.dumps(farmer_context)}"
-        # Add conversation history summary for follow-up context
-        if chat_history:
-            history_lines = []
-            for msg in chat_history[-10:]:  # last 5 exchanges for better context
-                role = msg.get('role', 'user')
-                text = msg.get('content', [{}])[0].get('text', '')[:300]
-                history_lines.append(f"{role}: {text}")
-            understanding_input += f"\nRecent conversation:\n" + "\n".join(history_lines)
-
-        understanding_raw = _invoke_cognitive_converse(
-            UNDERSTANDING_SYSTEM_PROMPT,
-            understanding_input,
-            label="understanding",
-            max_tokens=512,
-            temperature=0.1,
-            skip_guardrail=True,
-            model_id=FOUNDATION_MODEL_LITE,  # Nova 2 Lite — fast
-        )
-
-        understanding = None
-        if understanding_raw:
-            pipeline_meta['agents_invoked'].append('understanding')
-            try:
-                # Strip markdown code fences if present
-                cleaned = re.sub(r'^```(?:json)?\s*', '', understanding_raw.strip())
-                cleaned = re.sub(r'\s*```$', '', cleaned.strip())
-                understanding = json.loads(cleaned)
-                pipeline_meta['understanding'] = {
-                    'intents': understanding.get('intents', []),
-                    'entities': understanding.get('entities', {}),
-                    'tools_needed': understanding.get('tools_needed', []),
-                    'urgency': understanding.get('urgency', 'medium'),
-                    'summary': understanding.get('summary', ''),
-                }
-                logger.info(f"Understanding: intents={understanding.get('intents')}, "
-                            f"tools={understanding.get('tools_needed')}, "
-                            f"entities={json.dumps(understanding.get('entities', {}))[:150]}")
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"Understanding agent returned non-JSON: {str(e)}")
-                understanding = None
-
-    # ══════════════════════════════════════════════════════════
-    #  AGENT 2: Reasoning Agent (~3-8s)  — HAS TOOL ACCESS
-    #  Calls tools based on understanding, synthesizes raw data
-    #  Tiered model: Nova 2 Lite for simple (≤1 tool, ≤1 intent)
-    #                Nova Pro for complex (2+ tools or 2+ intents)
-    # ══════════════════════════════════════════════════════════
-    logger.info("Pipeline Step 2/4: Reasoning Agent (with tools)")
-
-    # Build an enriched prompt for the Reasoning Agent
-    reasoning_prompt = english_message
-    tools_needed = []
-    if understanding:
-        entities = understanding.get('entities', {})
-        tools_needed = understanding.get('tools_needed', [])
-        summary = understanding.get('summary', '')
-
-        reasoning_context = f"\n\n[Understanding Agent Analysis]\n"
-        reasoning_context += f"Summary: {summary}\n"
-        reasoning_context += f"Tools to call: {', '.join(tools_needed)}\n"
-        if entities.get('location'):
-            reasoning_context += f"Location: {entities['location']}\n"
-        if entities.get('crop'):
-            reasoning_context += f"Crop: {entities['crop']}\n"
-        if entities.get('season'):
-            reasoning_context += f"Season: {entities['season']}\n"
-        if entities.get('pest_symptom'):
-            reasoning_context += f"Pest symptom: {entities['pest_symptom']}\n"
-        reasoning_context += f"\nIMPORTANT: Call the following tools first: {', '.join(tools_needed)}"
-        reasoning_prompt = english_message + reasoning_context
-
-    # ── Tiered model for Reasoning ──
-    # Simple queries (≤1 tool, short prompt) → Nova 2 Lite (~2x faster, good enough)
-    # Complex queries (2+ tools, long prompts, multi-intent) → Nova Pro (more capable)
-    _n_tools = len(tools_needed)
-    _n_intents = len(understanding.get('intents', [])) if understanding else 0
-    _is_simple_reasoning = (_n_tools <= 1 and _n_intents <= 1 and len(english_message) < 100)
-    reasoning_model = FOUNDATION_MODEL_LITE if _is_simple_reasoning else None  # None = default (Nova Pro)
-    if _is_simple_reasoning:
-        logger.info(f"Reasoning tier: LITE (tools={_n_tools}, intents={_n_intents}, len={len(english_message)})")
-    else:
-        logger.info(f"Reasoning tier: PRO (tools={_n_tools}, intents={_n_intents}, len={len(english_message)})")
-
-    reasoning_text, tools_used, tool_data_log = _invoke_bedrock_direct(
-        reasoning_prompt, farmer_context,
-        skip_native_guardrail=True,  # internal pipeline — app-level guardrails already screen I/O
-        chat_history=chat_history,  # conversation memory for follow-up context
-        model_id=reasoning_model,
-    )
-    pipeline_meta['agents_invoked'].append('reasoning')
-    logger.info(f"Reasoning result: {len(reasoning_text or '')} chars, tools={tools_used}")
-
-    # If reasoning returned empty/error, return early
-    if not reasoning_text or len(reasoning_text.strip()) < 15:
-        logger.warning("Reasoning agent returned empty — returning raw result")
-        return reasoning_text or "", tools_used, pipeline_meta
-
-    # ══════════════════════════════════════════════════════════
-    #  AGENT 3: Fact-Check Agent (~2-3s)
-    #  Validates reasoning output against raw tool data
-    # ══════════════════════════════════════════════════════════
-    _remaining = _budget_remaining()
-    if _remaining < 6:
-        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping fact-check + communication")
-        pipeline_meta['budget_skip'] = ['fact_check', 'communication']
-        return reasoning_text, tools_used, pipeline_meta
-    logger.info(f"Pipeline Step 3/4: Fact-Check Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
-
-    # Build raw tool data summary for validation (truncated to stay within token limits)
-    tool_data_summary = "None"
-    if tool_data_log:
-        tool_entries = []
-        for td in tool_data_log:
-            entry = f"Tool: {td['tool']}\nInput: {json.dumps(td['input'])}\nOutput: {json.dumps(td['output'])[:800]}"
-            tool_entries.append(entry)
-        tool_data_summary = "\n---\n".join(tool_entries)
-
-    factcheck_input = (
-        f"## Draft Advisory (from Reasoning Agent):\n{reasoning_text}\n\n"
-        f"## Tools Used: {', '.join(tools_used) if tools_used else 'None'}\n\n"
-        f"## Raw Tool Data (ground truth):\n{tool_data_summary}\n\n"
-        f"## Original Query: {english_message}\n"
-    )
-
-    factcheck_text = _invoke_cognitive_converse(
-        FACTCHECK_SYSTEM_PROMPT,
-        factcheck_input,
-        label="fact_check",
-        max_tokens=1024,
-        temperature=0.2,
-        skip_guardrail=True,
-        model_id=FOUNDATION_MODEL_LITE,
-    )
-
-    # Parse fact-check JSON output
-    validated_advisory = reasoning_text  # fallback
-    if factcheck_text:
-        try:
-            fc_json = json.loads(factcheck_text)
-            validated_advisory = fc_json.get('corrected_advisory', reasoning_text)
-            pipeline_meta['fact_check'] = {
-                'validated': fc_json.get('validated', False),
-                'confidence': fc_json.get('confidence', 0),
-                'corrections': fc_json.get('corrections', []),
-                'hallucinations_found': fc_json.get('hallucinations_found', []),
-            }
-            pipeline_meta['agents_invoked'].append('fact_check')
-            logger.info(f"Fact-check: validated={fc_json.get('validated')}, confidence={fc_json.get('confidence')}, corrections={len(fc_json.get('corrections', []))}")
-        except (json.JSONDecodeError, AttributeError) as e:
-            logger.warning(f"Fact-check JSON parse failed: {e} — using reasoning text")
-            pipeline_meta['agents_invoked'].append('fact_check')
-    else:
-        logger.warning("Fact-check agent returned empty — using reasoning text")
-
-    # ══════════════════════════════════════════════════════════
-    #  AGENT 4: Communication Agent (~2-3s)
-    #  Rewrites validated advisory in farmer-friendly tone
-    # ══════════════════════════════════════════════════════════
-    _remaining = _budget_remaining()
-    if _remaining < 3:
-        logger.warning(f"Pipeline budget low ({_remaining:.1f}s left) — skipping communication")
-        pipeline_meta['budget_skip'] = ['communication']
-        return validated_advisory, tools_used, pipeline_meta
-    logger.info(f"Pipeline Step 4/4: Communication Agent — Nova 2 Lite (budget {_remaining:.0f}s left)")
-
-    comm_input = f"## Fact-Checked Advisory:\n{validated_advisory}\n\n## Original Query: {english_message}\n"
-    if farmer_context:
-        comm_input += f"\n## Farmer Profile: {json.dumps(farmer_context)}\n"
-
-    final_text = _invoke_cognitive_converse(
-        COMMUNICATION_SYSTEM_PROMPT,
-        comm_input,
-        label="communication",
-        max_tokens=1500,
-        temperature=0.5,
-        skip_guardrail=True,
-        model_id=FOUNDATION_MODEL_LITE,
-    )
-
-    if final_text and len(final_text.strip()) > 20:
-        pipeline_meta['agents_invoked'].append('communication')
-        logger.info(f"Communication agent: {len(final_text)} chars")
-    else:
-        logger.warning("Communication agent returned empty — using validated advisory")
-        final_text = validated_advisory
-
-    logger.info(f"Pipeline complete: agents={pipeline_meta['agents_invoked']}, tools={tools_used}")
-    return final_text, tools_used, pipeline_meta
-
-
 def _classify_intents(message_en, original_message=None):
     """Classify intents from English translation AND original Indic text.
     Uses word-boundary matching for English keywords to prevent false positives
@@ -1632,17 +1058,6 @@ def _classify_intents(message_en, original_message=None):
         intents.add('profile')
 
     return list(intents)
-
-
-def _get_specialist_runtime_for_intent(intent):
-    mapping = {
-        'weather': AGENTCORE_WEATHER_RUNTIME_ARN,
-        'crop': AGENTCORE_CROP_RUNTIME_ARN,
-        'pest': AGENTCORE_PEST_RUNTIME_ARN or AGENTCORE_CROP_RUNTIME_ARN,
-        'schemes': AGENTCORE_SCHEMES_RUNTIME_ARN,
-        'profile': AGENTCORE_PROFILE_RUNTIME_ARN or AGENTCORE_RUNTIME_ARN,
-    }
-    return mapping.get(intent, '')
 
 
 def _build_tool_first_prompt(message_en, intents, farmer_context=None):
@@ -1711,67 +1126,11 @@ def _build_tool_first_prompt(message_en, intents, farmer_context=None):
     return routing + text
 
 
-def _combine_specialist_outputs(english_message, specialist_outputs):
-    sections = []
-    tools = []
-    for item in specialist_outputs:
-        label = item.get('intent', 'specialist').upper()
-        text = (item.get('text') or '').strip()
-        if text:
-            cleaned = re.sub(r'<thinking>.*?</thinking>\s*', '', text, flags=re.DOTALL).strip()
-            sections.append(f"[{label}]\n{cleaned}")
-        tools.extend(item.get('tools', []))
-
-    combined_text = "\n\n".join(sections).strip()
-
-    if not combined_text:
-        return "", []
-
-    synthesis_prompt = (
-        "Synthesize the following specialist advisories into one concise, farmer-friendly final answer. "
-        "Remove duplication, keep actionable steps, and preserve important warnings.\n\n"
-        f"Farmer question: {english_message}\n\n"
-        f"Specialist outputs:\n{combined_text}"
-    )
-
-    final_text, master_tools = _invoke_agentcore_runtime_with_arn(
-        AGENTCORE_RUNTIME_ARN,
-        synthesis_prompt,
-        str(uuid.uuid4()),
-        None,
-    )
-
-    if not final_text:
-        final_text = combined_text
-
-    return final_text, list(dict.fromkeys(tools + master_tools))
-
-
-def _invoke_bedrock_agent(prompt, session_id):
-    """
-    Invoke the agent via traditional Bedrock Agents API (fallback).
-    """
-    response = bedrock_agent.invoke_agent(
-        agentId=AGENT_ID,
-        agentAliasId=AGENT_ALIAS_ID,
-        sessionId=session_id,
-        inputText=prompt,
-    )
-
-    result_text = ""
-    for event_stream in response['completion']:
-        if 'chunk' in event_stream:
-            chunk = event_stream['chunk']
-            result_text += chunk['bytes'].decode('utf-8')
-
-    return result_text, []
-
-
 def lambda_handler(event, context):
     """
     Main orchestrator — full flow:
     1. Detect language → translate to English
-    2. Invoke AgentCore Runtime (or Bedrock Agent fallback)
+    2. Invoke Bedrock converse() with tool routing
     3. Translate response back to farmer's language
     4. Generate Polly audio
     5. Return {reply, reply_en, detected_language, tools_used, audio_url, session_id}
@@ -1850,7 +1209,7 @@ def lambda_handler(event, context):
         gps_location = body.get('gps_location', None)  # e.g. "Coimbatore"
         gps_coords = body.get('gps_coords', None)      # e.g. {"lat": 11.01, "lng": 76.95}
 
-        # AgentCore runtimeSessionId requires min 33 chars
+        # Ensure session ID is long enough for Bedrock session tracking
         if len(session_id) < 33:
             session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, session_id))
 
@@ -1891,7 +1250,7 @@ def lambda_handler(event, context):
                     'session_full': True,
                     'message_count': msg_count,
                     'message_limit': MAX_MESSAGES_PER_SESSION,
-                    'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                    'mode': 'bedrock-direct',
                     'policy': {
                         'code_policy_enforced': True,
                         'session_limit_reached': True,
@@ -1921,7 +1280,7 @@ def lambda_handler(event, context):
                 'audio_url': None,
                 'audio_key': None,
                 'session_id': session_id,
-                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'mode': 'bedrock-direct',
                 'policy': {
                     'code_policy_enforced': True,
                     'guardrail_blocked': True,
@@ -1951,7 +1310,7 @@ def lambda_handler(event, context):
                 'audio_url': None,
                 'audio_key': None,
                 'session_id': session_id,
-                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'mode': 'bedrock-direct',
                 'policy': {
                     'code_policy_enforced': True,
                     'rate_limited': True,
@@ -2028,7 +1387,7 @@ def lambda_handler(event, context):
                 'audio_key': audio_key,
                 'polly_text_truncated': polly_text_truncated,
                 'session_id': session_id,
-                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'mode': 'bedrock-direct',
                 'policy': {
                     'code_policy_enforced': True,
                     'off_topic_blocked': True,
@@ -2142,7 +1501,7 @@ def lambda_handler(event, context):
                 'audio_pending': audio_pending,
                 'polly_text_truncated': polly_text_truncated,
                 'session_id': session_id,
-                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'mode': 'bedrock-direct',
                 'pipeline_mode': 'greeting',
                 'policy': policy_meta,
             }, message='Greeting response', language=detected_lang)
@@ -2220,7 +1579,7 @@ def lambda_handler(event, context):
                 'audio_pending': audio_pending,
                 'polly_text_truncated': polly_text_truncated,
                 'session_id': session_id,
-                'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
+                'mode': 'bedrock-direct',
                 'pipeline_mode': 'cache_hit',
                 'policy': {
                     'code_policy_enforced': True,
@@ -2252,33 +1611,9 @@ def lambda_handler(event, context):
                 routed_prompt, farmer_context, skip_native_guardrail=True
             )
 
-        elif USE_AGENTCORE and PIPELINE_MODE == 'cognitive':
-            # ═══ NEW: Cognitive Multi-Agent Pipeline ═══
-            logger.info(f"Pipeline mode: COGNITIVE | intents={intents}")
-            result_text, tools_used, pipeline_meta_extra = _run_cognitive_pipeline(
-                user_message=user_message,
-                english_message=english_message,
-                session_id=session_id,
-                farmer_id=farmer_id,
-                farmer_context=farmer_context,
-                detected_lang=detected_lang,
-                chat_history=chat_history,
-            )
-
-        elif USE_AGENTCORE:
-            # Specialist mode: use direct Bedrock converse() with tool routing
-            logger.info(f"Specialist mode: direct Bedrock converse() | intents={intents}")
-            routed_prompt = _build_tool_first_prompt(
-                english_message,
-                intents,
-                farmer_context,
-            )
-            result_text, tools_used, _ = _invoke_bedrock_direct(
-                routed_prompt, farmer_context, chat_history=chat_history
-            )
         else:
-            # Bedrock Agent was deleted — use direct Bedrock converse() with tool routing
-            logger.info(f"Direct Bedrock converse() fallback | intents={intents}")
+            # Standard chat: direct Bedrock converse() with tool routing
+            logger.info(f"Direct Bedrock converse() | intents={intents}")
             routed_prompt = _build_tool_first_prompt(
                 english_message,
                 intents,
@@ -2424,7 +1759,7 @@ def lambda_handler(event, context):
             farmer_id=farmer_id,
             session_id=session_id,
             tools_used=tools_used,
-            pipeline_mode=PIPELINE_MODE if not _is_feature_page else 'fast_path',
+            pipeline_mode='direct' if not _is_feature_page else 'fast_path',
             response_length=len(translated_reply or ''),
             elapsed_seconds=_total_elapsed,
             bedrock_guardrail_triggered=False,
@@ -2442,8 +1777,8 @@ def lambda_handler(event, context):
             'audio_pending': audio_pending,
             'polly_text_truncated': polly_text_truncated,
             'session_id': session_id,
-            'mode': 'agentcore' if USE_AGENTCORE else 'bedrock-agents',
-            'pipeline_mode': PIPELINE_MODE,
+            'mode': 'bedrock-direct',
+            'pipeline_mode': 'direct',
             'pipeline': pipeline_meta_extra if pipeline_meta_extra else None,
             'policy': policy_meta,
         }, message='Advisory generated successfully', language=detected_lang)
