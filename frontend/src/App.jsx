@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
 import * as cognitoAuth from './services/cognitoAuth';
@@ -20,6 +20,27 @@ const PricePage = lazy(() => import('./pages/PricePage'));
 const CropRecommendPage = lazy(() => import('./pages/CropRecommendPage'));
 const FarmCalendarPage = lazy(() => import('./pages/FarmCalendarPage'));
 const SoilAnalysisPage = lazy(() => import('./pages/SoilAnalysisPage'));
+
+// ErrorBoundary — catches render errors and shows a retry button instead of white screen
+class PageErrorBoundary extends React.Component {
+    constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+    static getDerivedStateFromError(error) { return { hasError: true, error }; }
+    componentDidCatch(err, info) { console.error('Page crash:', err, info); }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '12px' }}>⚠️</div>
+                    <h2 style={{ color: '#dc2626', marginBottom: '8px' }}>Something went wrong</h2>
+                    <p style={{ color: '#666', marginBottom: '20px' }}>This page encountered an error.</p>
+                    {this.state.error && <p style={{ color: '#999', fontSize: '12px', fontFamily: 'monospace', maxWidth: '500px', margin: '0 auto 20px', wordBreak: 'break-word' }}>{this.state.error.message || String(this.state.error)}</p>}
+                    <button onClick={() => this.setState({ hasError: false, error: null })} style={{ padding: '10px 24px', background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '15px' }}>Try Again</button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 // Lightweight loading fallback for lazy pages
 const PageLoader = () => (
@@ -244,14 +265,14 @@ function AppContent() {
                     <Routes>
                         <Route path="/" element={<DashboardPage />} />
                         <Route path="/chat" element={<ChatPage />} />
-                        <Route path="/weather" element={<Suspense fallback={<PageLoader />}><WeatherPage /></Suspense>} />
-                        <Route path="/schemes" element={<Suspense fallback={<PageLoader />}><SchemesPage /></Suspense>} />
-                        <Route path="/crop-doctor" element={<Suspense fallback={<PageLoader />}><CropDoctorPage /></Suspense>} />
-                        <Route path="/prices" element={<Suspense fallback={<PageLoader />}><PricePage /></Suspense>} />
-                        <Route path="/crop-recommend" element={<Suspense fallback={<PageLoader />}><CropRecommendPage /></Suspense>} />
-                        <Route path="/farm-calendar" element={<Suspense fallback={<PageLoader />}><FarmCalendarPage /></Suspense>} />
-                        <Route path="/soil-analysis" element={<Suspense fallback={<PageLoader />}><SoilAnalysisPage /></Suspense>} />
-                        <Route path="/profile" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
+                        <Route path="/weather" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><WeatherPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/schemes" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><SchemesPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/crop-doctor" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><CropDoctorPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/prices" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><PricePage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/crop-recommend" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><CropRecommendPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/farm-calendar" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><FarmCalendarPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/soil-analysis" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><SoilAnalysisPage /></Suspense></PageErrorBoundary>} />
+                        <Route path="/profile" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><ProfilePage /></Suspense></PageErrorBoundary>} />
                         <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </main>

@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
+import LANGUAGES from '../languages';
 import { apiFetch } from '../utils/apiFetch';
 import * as cognitoAuth from '../services/cognitoAuth';
 
@@ -248,7 +249,7 @@ function ProfilePage() {
                                 setProfile(p => ({ ...p, language: lang }));
                                 setLanguage(lang); // instantly switch the app UI language
                             }}>
-                            {Object.entries(config.LANGUAGES).map(([code, lang]) =>
+                            {Object.entries(LANGUAGES).map(([code, lang]) =>
                                 <option key={code} value={code}>{lang.name}</option>
                             )}
                         </select>
