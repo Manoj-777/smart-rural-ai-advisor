@@ -1,7 +1,6 @@
 // src/utils/asyncTts.js
 // Shared utility for generating TTS audio asynchronously (for gTTS languages)
 
-import config from '../config';
 import { apiFetch } from './apiFetch';
 
 /**

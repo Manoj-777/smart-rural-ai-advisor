@@ -2,7 +2,6 @@
 // Government Schemes — Central + State tabs with structured cards & Ask AI per scheme
 
 import { useState, useEffect, useCallback } from 'react';
-import config from '../config';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';

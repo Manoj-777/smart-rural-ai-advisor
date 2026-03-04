@@ -15,18 +15,12 @@ def _get_cors_origin(origin=None):
     """Return the allowed origin or the CloudFront domain as default."""
     if origin and origin in ALLOWED_ORIGINS:
         return origin
-    return ALLOWED_ORIGINS[0]  # Default to CloudFront
+    return ALLOWED_ORIGINS[0]
 
 
 def success_response(data, message="Success", language="en", status_code=200, origin=None):
     """
     Standard success response envelope for API Gateway.
-    {
-        "status": "success",
-        "data": { ... },
-        "message": "...",
-        "language": "en"
-    }
     """
     return {
         "statusCode": status_code,

@@ -199,8 +199,8 @@ def lambda_handler(event, context):
             # API Gateway GET: read from query string; POST: read from body
             qs = event.get('queryStringParameters') or {}
             if qs:
-                scheme_name = _sanitize_input(qs.get('name', qs.get('search', 'all'))).lower()
-                farmer_state = _sanitize_input(qs.get('state', ''))
+                scheme_name = _sanitize_input(qs.get('query', qs.get('name', qs.get('search', 'all')))).lower()
+                farmer_state = _sanitize_input(qs.get('state', qs.get('farmer_state', '')))
             else:
                 body = json.loads(event.get('body', '{}')) if event.get('body') else {}
                 scheme_name = _sanitize_input(body.get('scheme_name', 'all')).lower()

@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { FarmerProvider, useFarmer } from './contexts/FarmerContext';
 import * as cognitoAuth from './services/cognitoAuth';
-import config from './config';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
 import ChatPage from './pages/ChatPage';
@@ -38,22 +37,15 @@ function ScrollToTop() {
     return null;
 }
 
-function TopBar() {
-    const { language, setLanguage } = useLanguage();
+// 404 fallback for unknown routes
+function NotFoundPage() {
+    const navigate = useNavigate();
     return (
-        <div className="top-bar">
-            <div className="top-bar__right">
-                <span className="top-bar__lang-icon">🌐</span>
-                <select
-                    className="top-bar__lang-select"
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                >
-                    {Object.entries(config.LANGUAGES).map(([code, lang]) => (
-                        <option key={code} value={code}>{lang.name}</option>
-                    ))}
-                </select>
-            </div>
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🌾</div>
+            <h2 style={{ color: '#15803d', marginBottom: '12px' }}>Page Not Found</h2>
+            <p style={{ color: '#666', marginBottom: '24px' }}>The page you are looking for does not exist.</p>
+            <button onClick={() => navigate('/')} style={{ padding: '10px 24px', background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '15px' }}>Go to Dashboard</button>
         </div>
     );
 }
@@ -260,6 +252,7 @@ function AppContent() {
                         <Route path="/farm-calendar" element={<Suspense fallback={<PageLoader />}><FarmCalendarPage /></Suspense>} />
                         <Route path="/soil-analysis" element={<Suspense fallback={<PageLoader />}><SoilAnalysisPage /></Suspense>} />
                         <Route path="/profile" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
+                        <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </main>
             </div>

@@ -59,7 +59,16 @@ def lambda_handler(event, context):
     Handles operations: get_crop_advisory, get_pest_alert, get_irrigation_advice.
     """
     try:
-        params = {p['name']: p['value'] for p in event.get('parameters', [])}
+        # Support both Bedrock agent format (parameters[]) and
+        # orchestrator invocation format (queryStringParameters{})
+        if 'parameters' in event and isinstance(event['parameters'], list):
+            params = {p['name']: p['value'] for p in event['parameters']}
+        elif event.get('queryStringParameters'):
+            params = event['queryStringParameters']
+        elif event.get('body'):
+            params = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+        else:
+            params = {}
 
         query = _sanitize_field(params.get('query', ''), MAX_QUERY_LENGTH)
         crop = _sanitize_field(params.get('crop', ''))

@@ -319,7 +319,6 @@ def _build_sources_line(tools_used):
         'get_weather': 'WeatherFunction(OpenWeather)',
         'get_crop_advisory': 'CropAdvisoryFunction(KB)',
         'get_pest_alert': 'CropAdvisoryFunction(Pest Tool)',
-        'get_irrigation_advice': 'CropAdvisoryFunction(Irrigation Tool)',
         'search_schemes': 'GovtSchemesFunction',
         'get_farmer_profile': 'FarmerProfileFunction',
     }
@@ -852,10 +851,11 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
     are code-generated, already screened by application-level guardrails).
     chat_history: list of previous converse() message dicts for conversation memory.
     model_id: optional override — use FOUNDATION_MODEL_LITE for simple queries.
-    Returns: (result_text, tools_used, tool_data_log)
+    Returns: (result_text, tools_used, tool_data_log, guardrail_intervened)
     """
     tools_used = []
     tool_data_log = []  # raw tool results for fact-checking
+    guardrail_intervened = False
 
     # Build messages
     system_prompt = DIRECT_SYSTEM_PROMPT
@@ -980,17 +980,18 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
 
             if stop_reason == "guardrail_intervened":
                 logger.warning(f"Direct Bedrock guardrail INTERVENED — output replaced ({len(result_text)} chars)")
+                guardrail_intervened = True
             logger.info(f"Direct Bedrock response: {len(result_text)} chars, tools={tools_used}, stopReason={stop_reason}")
-            return result_text, tools_used, tool_data_log
+            return result_text, tools_used, tool_data_log, guardrail_intervened
 
         # Exhausted turns
-        return "I'm having trouble processing your request. Please try again.", tools_used, tool_data_log
+        return "I'm having trouble processing your request. Please try again.", tools_used, tool_data_log, guardrail_intervened
 
     except Exception as e:
         logger.error(f"Direct Bedrock invocation error: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        return f"I apologize, I encountered an error. Please try again.", [], []
+        return f"I apologize, I encountered an error. Please try again.", [], [], False
 
 
 def _classify_intents(message_en, original_message=None):
@@ -1607,7 +1608,7 @@ def lambda_handler(event, context):
             # (not raw user text) and already passed application-level guardrails.
             logger.info(f'FAST PATH for feature page (elapsed {_time.time()-_t_start:.1f}s)')
             routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
-            result_text, tools_used, _ = _invoke_bedrock_direct(
+            result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
                 routed_prompt, farmer_context, skip_native_guardrail=True
             )
 
@@ -1619,13 +1620,17 @@ def lambda_handler(event, context):
                 intents,
                 farmer_context,
             )
-            result_text, tools_used, _ = _invoke_bedrock_direct(
+            result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
                 routed_prompt, farmer_context, chat_history=chat_history
             )
 
         # Clean up model thinking tags (Claude emits <thinking>...</thinking>)
         result_text = re.sub(r'<thinking>.*?</thinking>\s*', '', result_text, flags=re.DOTALL)
         result_text = result_text.strip()
+
+        # Audit: log each tool invoked during this request
+        for _tn in tools_used:
+            audit_tool_invocation(_tn, farmer_id, session_id, success=True)
 
         # Guard: if agent returned garbled/empty content, provide a fallback
         # Remove punctuation/spaces and check if any real text remains
@@ -1755,6 +1760,8 @@ def lambda_handler(event, context):
         logger.info(f'Total handler time: {_total_elapsed:.1f}s | feature_page={_is_feature_page} | audio={bool(audio_url)}')
 
         # Gap #6: Audit request completion
+        if _gr_intervened:
+            audit_bedrock_guardrail(farmer_id, session_id, 'output_blocked')
         audit_request_complete(
             farmer_id=farmer_id,
             session_id=session_id,
@@ -1762,7 +1769,7 @@ def lambda_handler(event, context):
             pipeline_mode='direct' if not _is_feature_page else 'fast_path',
             response_length=len(translated_reply or ''),
             elapsed_seconds=_total_elapsed,
-            bedrock_guardrail_triggered=False,
+            bedrock_guardrail_triggered=_gr_intervened,
             output_guardrail=output_guard if output_guard.get('modified') else None,
         )
 
