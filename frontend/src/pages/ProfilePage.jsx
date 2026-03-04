@@ -32,6 +32,7 @@ const STATE_OPTION_OBJECTS = [
     { value: 'Mizoram', key: 'stateMZ' },
     { value: 'Nagaland', key: 'stateNL' },
     { value: 'Odisha', key: 'stateOD' },
+    { value: 'Puducherry', key: 'statePY' },
     { value: 'Punjab', key: 'statePB' },
     { value: 'Rajasthan', key: 'stateRJ' },
     { value: 'Sikkim', key: 'stateSK' },
@@ -246,6 +247,13 @@ function ProfilePage() {
                             placeholder={t('profileNamePlaceholder')} />
                     </div>
                     <div className="form-group">
+                        <label>{t('profileState')}</label>
+                        <select className="form-input" value={profile.state}
+                            onChange={e => setProfile(p => ({ ...p, state: e.target.value, district: '' }))}>
+                            {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
+                        </select>
+                    </div>
+                    <div className="form-group">
                         <label>{t('profileDistrict')}</label>
                         <select className="form-input" value={profile.district}
                             onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}>
@@ -253,13 +261,6 @@ function ProfilePage() {
                             {(DISTRICT_MAP[profile.state] || []).map(d =>
                                 <option key={d} value={d}>{getDistrictName(d, language)}</option>
                             )}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>{t('profileState')}</label>
-                        <select className="form-input" value={profile.state}
-                            onChange={e => setProfile(p => ({ ...p, state: e.target.value, district: '' }))}>
-                            {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="form-group">

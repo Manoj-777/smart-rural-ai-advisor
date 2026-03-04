@@ -44,7 +44,7 @@
 - Treat seeds with Carbendazim 50 WP @ 2 g/kg or Tricyclazole @ 3 g/kg before sowing
 - Avoid late planting — early Kharif planting escapes peak blast period
 
-> **Verified from:** ICAR-CRRI Cuttack Rice Disease Guide (https://icar-crri.org/), TNAU Agritech Rice Crop Protection (https://agritech.tnau.ac.in/crop_protection/rice/rice_1.html), NCIPM IPM Package for Rice (http://ncipm.org.in/)
+> **Verified from:** ICAR-CRRI Cuttack Rice Disease Guide (https://crri.icar.gov.in/), TNAU Agritech Rice Crop Protection (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), NCIPM IPM Package for Rice (https://ncipm.icar.gov.in/)
 
 ---
 
@@ -83,7 +83,7 @@
 - Monitor ICAR Rust Surveillance Advisory (issued weekly Dec-Mar) for early warning
 - Destroy volunteer wheat and self-sown wheat plants that harbour rust between seasons
 
-> **Verified from:** ICAR-IIWBR Karnal Wheat Disease Guide (https://www.iiwbr.org/), TNAU Agritech Wheat Crop Protection (https://agritech.tnau.ac.in/crop_protection/wheat.html), ICAR Rust Monitoring System
+> **Verified from:** ICAR-IIWBR Karnal Wheat Disease Guide (https://iiwbr.icar.gov.in/), TNAU Agritech Wheat Crop Protection (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), ICAR Rust Monitoring System
 
 ---
 
@@ -128,7 +128,7 @@
 - Early sowing (before June 15 in Central India) helps crop escape peak moth flight
 - Install light traps @ 1/5 acres to monitor adult moth activity
 
-> **Verified from:** ICAR-CICR Nagpur Cotton IPM Guide (https://www.cicr.org.in/), NCIPM IPM Package for Cotton (http://ncipm.org.in/), TNAU Agritech Cotton Crop Protection (https://agritech.tnau.ac.in/crop_protection/cotton.html)
+> **Verified from:** ICAR-CICR Nagpur Cotton IPM Guide (https://cicr.icar.gov.in/), NCIPM IPM Package for Cotton (https://ncipm.icar.gov.in/), TNAU Agritech Cotton Crop Protection (https://agritech.tnau.ac.in/crop_protection/crop_prot_crop_insect_pest.html)
 
 ---
 
@@ -167,9 +167,9 @@
 - Adequate spacing for air circulation (60×20 cm for potato)
 - Hilling up (earthing up) — covers tubers, prevents sporangia from reaching tubers through soil
 - Dehaulming — cut and remove foliage 10-15 days before harvest to prevent tuber infection
-- Use ICAR-CPRI late blight forecast model (www.cpri.org.in) — spray schedule based on weather prediction
+- Use ICAR-CPRI late blight forecast model (https://cpri.icar.gov.in/) — spray schedule based on weather prediction
 
-> **Verified from:** ICAR-CPRI Shimla Late Blight Management (https://cpri.icar.gov.in/), TNAU Agritech Potato Diseases (https://agritech.tnau.ac.in/crop_protection/potato.html), NCIPM IPM Package for Potato (http://ncipm.org.in/)
+> **Verified from:** ICAR-CPRI Shimla Late Blight Management (https://cpri.icar.gov.in/), TNAU Agritech Potato Diseases (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), NCIPM IPM Package for Potato (https://ncipm.icar.gov.in/)
 
 ---
 
@@ -209,7 +209,7 @@
 - Avoid flood irrigation immediately after strong winds/storms (wounds + bacteria + water = rapid spread)
 - Seed treatment with Streptocycline (0.01%) for 30 minutes before sowing
 
-> **Verified from:** ICAR-CRRI Rice BLB Management (https://icar-crri.org/), TNAU Agritech Rice Bacterial Diseases (https://agritech.tnau.ac.in/crop_protection/rice/rice_1.html), IRRI Knowledge Bank (https://www.irri.org/)
+> **Verified from:** ICAR-CRRI Rice BLB Management (https://crri.icar.gov.in/), TNAU Agritech Rice Bacterial Diseases (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), IRRI Knowledge Bank (https://www.irri.org/)
 
 ---
 
@@ -288,7 +288,7 @@
 - Avoid injuring roots during cultivation — Fusarium enters through wounds
 - **TR4 containment:** If TR4 suspected — report immediately to state agriculture department. Quarantine zone, destroy infected plants, disinfect tools with 2% formalin. Do NOT move soil/suckers from affected area.
 
-> **Verified from:** ICAR-NRCB Tiruchirappalli Panama Wilt Management (https://nrcb.icar.gov.in/), TNAU Agritech Banana Diseases (https://agritech.tnau.ac.in/crop_protection/banana.html), FAO Fusarium Wilt TR4 Global Alert (https://www.fao.org/)
+> **Verified from:** ICAR-NRCB Tiruchirappalli Panama Wilt Management (https://nrcb.icar.gov.in/), TNAU Agritech Banana Diseases (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), FAO Fusarium Wilt TR4 Global Alert (https://www.fao.org/)
 
 ---
 
@@ -372,7 +372,7 @@
 - Remove and destroy severely infected plant parts
 - In greenhouses: maintain humidity <60%, improve ventilation
 
-> **Verified from:** TNAU Agritech Crop Protection — Chilli (https://agritech.tnau.ac.in/crop_protection/chillies.html), ICAR-IIHR Mango Disease Management (https://iihr.res.in/), NCIPM IPM Package for Chilli (http://ncipm.org.in/)
+> **Verified from:** TNAU Agritech Crop Protection — Chilli (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), ICAR-IIHR Mango Disease Management (https://iihr.res.in/), NCIPM IPM Package for Chilli (https://ncipm.icar.gov.in/)
 
 ---
 
@@ -414,7 +414,7 @@
 - Cold chain maintenance: Store mango at 12-13°C, banana at 13-14°C to slow anthracnose development
 - Pre-harvest spray schedule is essential — cannot control anthracnose only with post-harvest treatment
 
-> **Verified from:** ICAR-IIHR Mango Disease Guide (https://iihr.res.in/), TNAU Agritech Chilli Diseases (https://agritech.tnau.ac.in/crop_protection/chillies.html), ICAR-NRCB Post-Harvest Management (https://nrcb.icar.gov.in/)
+> **Verified from:** ICAR-IIHR Mango Disease Guide (https://iihr.res.in/), TNAU Agritech Chilli Diseases (https://agritech.tnau.ac.in/crop_protection/crop_prot.html), ICAR-NRCB Post-Harvest Management (https://nrcb.icar.gov.in/)
 
 ---
 
@@ -458,7 +458,7 @@
 - Light traps (mercury vapour) to monitor adult migration — install at field edges
 - Conserve natural enemies — spiders, mirid bugs, dragonflies are the best BPH controllers
 
-> **Verified from:** ICAR-CRRI BPH Management (https://icar-crri.org/), IRRI Knowledge Bank — BPH (https://www.irri.org/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/crop_protection/rice/rice_2.html)
+> **Verified from:** ICAR-CRRI BPH Management (https://crri.icar.gov.in/), IRRI Knowledge Bank — BPH (https://www.irri.org/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/crop_protection/crop_prot_crop_insect_pest.html)
 
 ---
 
@@ -500,7 +500,7 @@
 - Light traps @ 1/5 acres — catch and kill adult moths during peak flight
 - Moderately resistant varieties: Ratna, Surekha, Vikas (check state recommendations)
 
-> **Verified from:** ICAR-CRRI Stem Borer Management (https://icar-crri.org/), NCIPM IPM Package — Rice (http://ncipm.org.in/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/)
+> **Verified from:** ICAR-CRRI Stem Borer Management (https://crri.icar.gov.in/), NCIPM IPM Package — Rice (https://ncipm.icar.gov.in/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -542,7 +542,7 @@
 - Avoid summer host plants (bhindi, tomato, brinjal) near cotton fields — whitefly reservoir
 - Maintain clean field borders — destroy weed hosts (Abutilon, Sida, Parthenium)
 
-> **Verified from:** ICAR-CICR Whitefly Management in Cotton (https://www.cicr.org.in/), NCIPM IPM Package for Cotton (http://ncipm.org.in/), TNAU Agritech Cotton Pests (https://agritech.tnau.ac.in/)
+> **Verified from:** ICAR-CICR Whitefly Management in Cotton (https://cicr.icar.gov.in/), NCIPM IPM Package for Cotton (https://ncipm.icar.gov.in/), TNAU Agritech Cotton Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -583,7 +583,7 @@
 - Resistant varieties: Mustard — RH-749, NRCHB-101, Bio-902 (tolerant)
 - Intercrop mustard with chickpea or lentil — breaks pest cycle, provides habitat for natural enemies
 
-> **Verified from:** ICAR-DRMR Mustard Aphid Management (https://www.drmr.res.in/), NCIPM IPM Package for Rapeseed-Mustard (http://ncipm.org.in/), TNAU Agritech Mustard Pests (https://agritech.tnau.ac.in/)
+> **Verified from:** ICAR-DRMR Mustard Aphid Management (https://www.drmr.res.in/), NCIPM IPM Package for Rapeseed-Mustard (https://ncipm.icar.gov.in/), TNAU Agritech Mustard Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -629,7 +629,7 @@
 - Monitor pheromone traps from seedling emergence — early detection allows timely intervention
 - Border rows of Napier grass around maize — attracts FAW moths for egg-laying, then destroy heavily infested Napier
 
-> **Verified from:** ICAR-NBAIR FAW Advisory (https://www.nbair.res.in/), ICAR-IIMR Maize FAW Management (https://iimr.icar.gov.in/), FAO FAW Monitoring and Early Warning System (https://www.fao.org/fall-armyworm/)
+> **Verified from:** ICAR-NBAIR FAW Advisory (https://nbair.icar.gov.in/), ICAR-IIMR Maize FAW Management (https://iimr.icar.gov.in/), FAO FAW Monitoring and Early Warning System (https://www.fao.org/fall-armyworm/)
 
 ---
 
@@ -668,7 +668,7 @@
 - Paper/cloth bagging of individual mango fruits (from marble stage) — 100% protection but labour-intensive, practiced for export-grade mangoes
 - Deep ploughing around tree canopy in summer — exposes pupae in soil
 
-> **Verified from:** ICAR-IIHR Fruit Fly Management (https://iihr.res.in/), NCIPM IPM for Mango (http://ncipm.org.in/), TNAU Agritech Mango Pests (https://agritech.tnau.ac.in/)
+> **Verified from:** ICAR-IIHR Fruit Fly Management (https://iihr.res.in/), NCIPM IPM for Mango (https://ncipm.icar.gov.in/), TNAU Agritech Mango Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -792,7 +792,7 @@
 - Crop rotation: Avoid brinjal in same plot for consecutive seasons
 - Collection and destruction of crop residues after final harvest
 
-> **Verified from:** ICAR-IIVR Brinjal IPM (https://icar-iivr.org.in/), NCIPM IPM Package for Brinjal (http://ncipm.org.in/), TNAU Agritech Brinjal Pests (https://agritech.tnau.ac.in/)
+> **Verified from:** ICAR-IIVR Brinjal IPM (https://iivr.icar.gov.in/), NCIPM IPM Package for Brinjal (https://ncipm.icar.gov.in/), TNAU Agritech Brinjal Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -836,7 +836,7 @@
 - Remove old tree stumps and woody residues from field — these are termite food sources
 - Treated seed/sett is the single most cost-effective preventive measure
 
-> **Verified from:** ICAR Termite Management in Field Crops, NCIPM IPM Package for Sugarcane (http://ncipm.org.in/), TNAU Agritech Sugarcane Pests (https://agritech.tnau.ac.in/), ICAR-IISR Lucknow Sugarcane Pest Guide (https://www.iisrsugar.org/)
+> **Verified from:** ICAR Termite Management in Field Crops, NCIPM IPM Package for Sugarcane (https://ncipm.icar.gov.in/), TNAU Agritech Sugarcane Pests (https://agritech.tnau.ac.in/), ICAR-IISR Lucknow Sugarcane Pest Guide (https://iisr.icar.gov.in/)
 
 ---
 
@@ -866,7 +866,7 @@
 - **Western India (Gujarat, Maharashtra, Rajasthan):** Cotton pests (bollworm, whitefly, pink bollworm) dominate Kharif. Groundnut — white grub, leaf miner.
 - ⚠️ **Climate change is shifting pest windows** — early-arriving pests, new invasive species (FAW since 2018), extended pest seasons. AI system should update calendars based on real-time weather data.
 
-> **Verified from:** NCIPM Crop-wise IPM Packages (http://ncipm.org.in/), ICAR Crop Calendar and Pest Alerts (https://icar.org.in/), TNAU Agritech Seasonal Pest Calendar (https://agritech.tnau.ac.in/), State Agriculture Department Seasonal Advisories
+> **Verified from:** NCIPM Crop-wise IPM Packages (https://ncipm.icar.gov.in/), ICAR Crop Calendar and Pest Alerts (https://icar.org.in/), TNAU Agritech Seasonal Pest Calendar (https://agritech.tnau.ac.in/), State Agriculture Department Seasonal Advisories
 
 ---
 
@@ -932,7 +932,7 @@
 | Paecilomyces lilacinus | Egg-parasitic fungus | Root-knot nematodes (Meloidogyne spp.) in vegetables, banana, turmeric | Soil application: 2.5 kg/ha mixed with FYM at sowing. Nursery drench: 5 g/L. | KVK, IIHR, select State Labs, limited commercial availability | ₹150-250/kg |
 
 ### Key Biocontrol Sources in India:
-- **ICAR-NBAIR (National Bureau of Agricultural Insect Resources), Bengaluru** — Premier source for parasitoids, predators, entomopathogens. Website: https://www.nbair.res.in/
+- **ICAR-NBAIR (National Bureau of Agricultural Insect Resources), Bengaluru** — Premier source for parasitoids, predators, entomopathogens. Website: https://nbair.icar.gov.in/
 - **State Biocontrol Laboratories** — Most states have government biocontrol labs producing Trichogramma, NPV, Trichoderma, Pseudomonas. Contact through District Agriculture Officer (DAO) or KVK.
 - **KVKs (Krishi Vigyan Kendras)** — 730+ KVKs across India. Nearest KVK is the best first contact for biocontrol agents. Locate yours: https://kvk.icar.gov.in/
 - **TNAU Biocontrol Lab, Coimbatore** — Major source in South India.
@@ -965,7 +965,7 @@ ALWAYS:
   → Protect pollinators — avoid spraying during flowering
 ```
 
-> **Verified from:** NCIPM IPM Guidelines (http://ncipm.org.in/), ICAR-NBAIR Biocontrol Agents Catalogue (https://www.nbair.res.in/), TNAU Agritech IPM Practices (https://agritech.tnau.ac.in/itd/itd5_biocontrol.html), CIB&RC Registered Pesticides List (http://ppqs.gov.in/divisions/cib-rc/registered-products), FAO IPM Resources (https://www.fao.org/pest-and-pesticide-management/ipm/)
+> **Verified from:** NCIPM IPM Guidelines (https://ncipm.icar.gov.in/), ICAR-NBAIR Biocontrol Agents Catalogue (https://nbair.icar.gov.in/), TNAU Agritech IPM Practices (https://agritech.tnau.ac.in/itd/itd5_biocontrol.html), CIB&RC Registered Pesticides List (https://ppqs.gov.in/divisions/cib-rc/registered-products), FAO IPM Resources (https://www.fao.org/pest-and-pesticide-management/ipm/)
 
 ---
 
@@ -999,7 +999,7 @@ ALWAYS:
 - **Cultural control:** Remove and destroy infested plant debris after harvest (do NOT leave in field). Use insect-proof net houses (40-mesh) for nurseries. Avoid planting solanaceous crops consecutively.
 - **Azadirachtin (neem):** Shows consistent efficacy even where synthetic insecticide resistance has developed — include in rotation.
 
-> **Verified from:** Wikipedia — Tuta absoluta (https://en.wikipedia.org/wiki/Tuta_absoluta), CABI Invasive Species Compendium — Tuta absoluta (https://www.cabi.org/isc/datasheet/49260), FAO Global Action for Fall Armyworm Control (https://www.fao.org/), Biondi et al. 2018 — Annual Review of Entomology
+> **Verified from:** Wikipedia — Tuta absoluta (https://en.wikipedia.org/wiki/Tuta_absoluta), CABI Invasive Species Compendium — Tuta absoluta (https://cabidigitallibrary.org/doi/10.1079/cabicompendium.49260), FAO Global Action for Fall Armyworm Control (https://www.fao.org/), Biondi et al. 2018 — Annual Review of Entomology
 
 ---
 
@@ -1027,7 +1027,7 @@ ALWAYS:
 - Spray water jet (high-pressure) on lower fronds — dislodges nymphs and wax.
 - **Chemical spray NOT recommended as primary control** — disrupts natural enemy establishment. Use only in severe cases: Spiromesifen 22.9 SC @ 0.5 mL/L directed at lower fronds.
 
-> **Verified from:** ICAR-CPCRI Advisory on Rugose Spiralling Whitefly (https://cpcri.icar.gov.in/), ICAR-NBAIR Bengaluru (https://www.nbair.res.in/), KAU Advisory on RSW in Coconut
+> **Verified from:** ICAR-CPCRI Advisory on Rugose Spiralling Whitefly (https://cpcri.icar.gov.in/), ICAR-NBAIR Bengaluru (https://nbair.icar.gov.in/), KAU Advisory on RSW in Coconut
 
 ---
 
@@ -1075,7 +1075,7 @@ ALWAYS:
 - **Approved chemicals (government use):** Malathion 96% ULV, Chlorpyrifos 50% EC, Lambda-cyhalothrin 5% EC — all applied as Ultra Low Volume (ULV) spray by vehicle/aircraft.
 - Traditional: Light fires, beat drums, make loud noise — can deflect small hopper bands but ineffective against large swarms.
 
-> **Verified from:** PPQS Locust Warning Organisation (https://ppqs.gov.in/divisions/locust-control-research), FAO Desert Locust Watch (https://www.fao.org/ag/locusts/), IMD-LWO Locust Forecast
+> **Verified from:** PPQS Locust Warning Organisation (https://ppqs.gov.in/divisions/locust-control-research), FAO Desert Locust Watch (https://www.fao.org/locusts/en/), IMD-LWO Locust Forecast
 
 ---
 
@@ -1100,7 +1100,7 @@ ALWAYS:
 - **Crop residue destruction (CRITICAL):** After harvest, shred and destroy all cotton stalks before December 31 (many states have mandated this by law). Pink bollworm pupae survive in stalks — destruction is the most effective control for next season.
 - **Do NOT keep ratooned cotton** — serves as bridge for pink bollworm carryover.
 
-> **Verified from:** ICAR-CICR Nagpur Pink Bollworm Advisory (https://www.cicr.org.in/), ICAR-NBAIR, State Agriculture Extension Advisories (Maharashtra, Gujarat, Telangana)
+> **Verified from:** ICAR-CICR Nagpur Pink Bollworm Advisory (https://cicr.icar.gov.in/), ICAR-NBAIR, State Agriculture Extension Advisories (Maharashtra, Gujarat, Telangana)
 
 ---
 
@@ -1183,7 +1183,7 @@ ALWAYS:
 | **CropIn/Cropin AI** | Private (Indian) | AI-powered crop health monitoring via satellite imagery for large-area surveillance. Used by FPOs and state govts. |
 | **MAHAVEDH** | Maharashtra Govt | Automatic weather stations + pest advisory system — Maharashtra-specific crop pest alerts. |
 
-> **Verified from:** Ministry of Agriculture — Kisan Call Centre (https://dackkms.gov.in/), mKisan Portal (https://mkisan.gov.in/), PPQS Directorate (https://ppqs.gov.in/), FAO FAMEWS (https://www.fao.org/fall-armyworm/monitoring-tools/)
+> **Verified from:** Ministry of Agriculture — Kisan Call Centre (https://dackkms.gov.in/), mKisan Portal (https://mkisan.gov.in/), PPQS Directorate (https://ppqs.gov.in/), FAO FAMEWS (https://www.fao.org/fall-armyworm/monitoring-tools/en/)
 
 ---
 
