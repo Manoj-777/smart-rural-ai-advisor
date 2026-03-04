@@ -2277,9 +2277,15 @@ def lambda_handler(event, context):
                 routed_prompt, farmer_context, chat_history=chat_history
             )
         else:
-            logger.info("Invoking Bedrock Agent (fallback)...")
-            result_text, tools_used = _invoke_bedrock_agent(
-                english_message, session_id
+            # Bedrock Agent was deleted — use direct Bedrock converse() with tool routing
+            logger.info(f"Direct Bedrock converse() fallback | intents={intents}")
+            routed_prompt = _build_tool_first_prompt(
+                english_message,
+                intents,
+                farmer_context,
+            )
+            result_text, tools_used, _ = _invoke_bedrock_direct(
+                routed_prompt, farmer_context, chat_history=chat_history
             )
 
         # Clean up model thinking tags (Claude emits <thinking>...</thinking>)
