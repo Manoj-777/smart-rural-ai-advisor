@@ -9,7 +9,7 @@ import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
 import { CROP_KEYS, CROP_VALUES_EN, SOIL_KEYS, SOIL_VALUES_EN, DISTRICT_MAP } from '../i18n/translations';
 import { getDistrictName } from '../i18n/districtTranslations';
-import * as cognitoAuth from '../services/cognitoAuth';
+import { apiFetch } from '../utils/apiFetch';
 // State options with translation keys for localized display
 const STATE_OPTION_OBJECTS = [
     { value: 'Andhra Pradesh', key: 'stateAP' },
@@ -49,7 +49,7 @@ function LoginPage() {
     const [phone, setPhone] = useState('');
     const [pin, setPin] = useState('');
     const [name, setName] = useState('');
-    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'returning' | 'not-found' | 'forgot-pin' | 'reset-pin'
+    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'register-verify' | 'returning' | 'not-found' | 'forgot-pin' | 'reset-pin'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
@@ -59,6 +59,9 @@ function LoginPage() {
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
     const [otpDestination, setOtpDestination] = useState(''); // masked email e.g. m***@g***
+    const [regOtpCode, setRegOtpCode] = useState('');
+    const [regDemoOtp, setRegDemoOtp] = useState('');
+    const [forgotDemoOtp, setForgotDemoOtp] = useState('');
 
     // Registration form fields
     const [regState, setRegState] = useState('Tamil Nadu');
@@ -78,7 +81,17 @@ function LoginPage() {
         );
     };
 
-    // ── Sign up new farmer ──
+    const getRegistrationProfileData = () => ({
+        name: name.trim(),
+        state: regState,
+        district: regDistrict.trim(),
+        crops: regCrops,
+        soil_type: regSoilType,
+        land_size_acres: parseFloat(regLandSize) || 0,
+        language: regLanguage,
+    });
+
+    // ── Sign up new farmer: send OTP first ──
     const handleNewSignup = async () => {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         if (!name.trim()) { setError(t('loginNameRequired')); return; }
@@ -91,19 +104,22 @@ function LoginPage() {
         setLoading(true);
         setError('');
         try {
-            const profileData = {
-                name: name.trim(),
-                state: regState,
-                district: regDistrict.trim(),
-                crops: regCrops,
-                soil_type: regSoilType,
-                land_size_acres: parseFloat(regLandSize) || 0,
-                language: regLanguage,
-            };
-            await signUpAndLogin(phone, pin, name.trim(), profileData, regEmail.trim() || undefined);
-            if (regLanguage !== language) {
-                setLanguage(regLanguage);
+            const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+            const res = await apiFetch('/otp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: cleanPhone }),
+            });
+            const data = await res.json();
+            if (!res.ok || data?.status === 'error') {
+                throw new Error(data?.message || data?.error || t('otpSendFailed'));
             }
+
+            setRegDemoOtp(data?.demo_otp || '');
+            setRegOtpCode('');
+            setOtpDestination(data?.phone_masked || `+91 ${cleanPhone}`);
+            setMode('register-verify');
+            setError('');
         } catch (err) {
             const msg = err?.message || '';
             if (msg.includes('UsernameExistsException') || msg.includes('already exists')) {
@@ -115,32 +131,67 @@ function LoginPage() {
         setLoading(false);
     };
 
-    // ── Forgot PIN: send OTP ──
+    // ── Registration: verify OTP then create account ──
+    const handleRegisterVerify = async () => {
+        if (!regOtpCode || regOtpCode.length !== 6) {
+            setError(t('otpIncomplete') || 'Please enter the 6-digit OTP');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+        try {
+            const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+            const verifyRes = await apiFetch('/otp/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: cleanPhone, otp: regOtpCode }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || verifyData?.status === 'error') {
+                throw new Error(verifyData?.message || verifyData?.error || t('forgotPinInvalidOtp'));
+            }
+
+            const profileData = getRegistrationProfileData();
+            await signUpAndLogin(cleanPhone, pin, name.trim(), profileData, regEmail.trim() || undefined);
+            if (regLanguage !== language) {
+                setLanguage(regLanguage);
+            }
+        } catch (err) {
+            setError(err?.message || t('loginError'));
+        }
+        setLoading(false);
+    };
+
+    // ── Forgot PIN: send OTP (prototype backend flow) ──
     const handleForgotPin = async () => {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         setLoading(true);
         setError('');
         try {
-            const deliveryInfo = await cognitoAuth.forgotPassword(phone);
-            // Capture masked destination (e.g. "m***@g***") from Cognito response
-            const dest = deliveryInfo?.CodeDeliveryDetails?.Destination || deliveryInfo?.Destination || '';
-            setOtpDestination(dest);
+            const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+            const res = await apiFetch('/otp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: cleanPhone }),
+            });
+            const data = await res.json();
+            if (!res.ok || data?.status === 'error') {
+                throw new Error(data?.message || data?.error || t('otpSendFailed'));
+            }
+
+            setForgotDemoOtp(data?.demo_otp || '');
+            setOtpDestination(data?.phone_masked || `+91 ${cleanPhone}`);
             setMode('reset-pin');
             setError('');
         } catch (err) {
             const msg = err?.message || '';
-            if (msg.includes('UserNotFoundException') || msg.includes('does not exist')) {
-                setError(t('loginNotRegistered'));
-            } else if (msg.includes('LimitExceededException') || msg.includes('limit')) {
-                setError(t('forgotPinLimitExceeded'));
-            } else {
-                setError(msg || t('loginError'));
-            }
+            setError(msg || t('loginError'));
         }
         setLoading(false);
     };
 
-    // ── Reset PIN: verify OTP + set new PIN ──
+    // ── Reset PIN: verify OTP + set new PIN (prototype backend flow) ──
     const handleResetPin = async () => {
         if (!otpCode.trim()) { setError(t('forgotPinOtpRequired')); return; }
         if (newPin.length < 6) { setError(t('loginPinRequired')); return; }
@@ -148,16 +199,31 @@ function LoginPage() {
         setLoading(true);
         setError('');
         try {
-            await cognitoAuth.confirmForgotPassword(phone, otpCode.trim(), newPin);
+            const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+            const res = await apiFetch('/pin/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: cleanPhone,
+                    otp: otpCode.trim(),
+                    new_pin: newPin,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || data?.status === 'error') {
+                throw new Error(data?.message || data?.error || t('forgotPinInvalidOtp'));
+            }
+
             setMode('returning');
             setPin('');
             setOtpCode('');
             setNewPin('');
             setConfirmPin('');
+            setForgotDemoOtp('');
             setSuccessMsg(t('forgotPinSuccess'));
         } catch (err) {
             const msg = err?.message || '';
-            if (msg.includes('CodeMismatchException') || msg.includes('Invalid verification') || msg.includes('code')) {
+            if (msg.includes('Incorrect OTP') || msg.includes('Invalid verification') || msg.includes('code')) {
                 setError(t('forgotPinInvalidOtp'));
             } else if (msg.includes('ExpiredCodeException') || msg.includes('expired')) {
                 setError(t('forgotPinExpiredOtp'));
@@ -202,6 +268,53 @@ function LoginPage() {
                                 <option key={code} value={code}>{lang.name}</option>
                             ))}
                         </select>
+                    </div>
+                )}
+
+                {mode === 'register-verify' && (
+                    <div className="login-form">
+                        <h2>{t('otpVerifyTitle')}</h2>
+                        <p className="login-form-hint">
+                            {t('otpEnterCode')} {otpDestination || `+91 ${phone}`}
+                        </p>
+                        {!!regDemoOtp && (
+                            <div className="login-success" style={{ marginBottom: '10px' }}>
+                                🔐 {t('otpDemoLabel')}: <strong>{regDemoOtp}</strong>
+                            </div>
+                        )}
+                        <div className="login-form-group">
+                            <label>{t('forgotPinOtpLabel') || 'OTP'}</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                maxLength={6}
+                                value={regOtpCode}
+                                onChange={(e) => setRegOtpCode(e.target.value.replace(/\D/g, ''))}
+                                placeholder={t('forgotPinOtpPlaceholder') || 'Enter 6-digit OTP'}
+                                autoFocus
+                            />
+                        </div>
+                        {error && <div className="login-error">{error}</div>}
+                        <button
+                            className="login-btn login-btn-primary"
+                            onClick={handleRegisterVerify}
+                            disabled={loading || regOtpCode.length !== 6}
+                        >
+                            {loading ? '⏳ ...' : `✅ ${t('otpVerifyRegister')}`}
+                        </button>
+                        <button
+                            className="login-btn login-btn-secondary"
+                            onClick={handleNewSignup}
+                            disabled={loading}
+                        >
+                            🔁 {t('otpResend') || 'Resend Code'}
+                        </button>
+                        <button
+                            className="login-btn login-btn-back"
+                            onClick={() => { setMode('new'); setError(''); setRegOtpCode(''); setRegDemoOtp(''); }}
+                        >
+                            ← {t('loginBack')}
+                        </button>
                     </div>
                 )}
 
@@ -475,6 +588,11 @@ function LoginPage() {
                             📧 {t('forgotPinOtpSentEmail') || t('forgotPinOtpSent')}
                             {otpDestination && <strong style={{ display: 'block', marginTop: '6px', fontSize: '15px', letterSpacing: '0.5px' }}>✉️ {otpDestination}</strong>}
                         </p>
+                        {!!forgotDemoOtp && (
+                            <div className="login-success" style={{ marginBottom: '10px' }}>
+                                🔐 {t('otpDemoLabel')}: <strong>{forgotDemoOtp}</strong>
+                            </div>
+                        )}
                         <div className="login-form-group">
                             <label>{t('forgotPinOtpLabel')}</label>
                             <input

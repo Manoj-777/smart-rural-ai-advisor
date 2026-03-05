@@ -83,7 +83,6 @@ dynamodb = boto3.resource('dynamodb', config=_POOL_CONFIG) if _POOL_CONFIG else 
 cognito = boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'), config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 table = dynamodb.Table(os.environ.get('DYNAMODB_PROFILES_TABLE', 'farmer_profiles'))
 otp_table = dynamodb.Table(os.environ.get('DYNAMODB_OTP_TABLE', 'otp_codes'))
-sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'), config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 
 COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', '')
 STAGE = os.environ.get('STAGE', 'prod')
@@ -119,6 +118,9 @@ def lambda_handler(event, context):
         elif path == '/otp/verify' and method == 'POST':
             body = json.loads(event.get('body', '{}'))
             return verify_otp(body)
+        elif path == '/pin/reset' and method == 'POST':
+            body = json.loads(event.get('body', '{}'))
+            return reset_pin(body)
 
         # Profile endpoints
         farmer_id = event.get('pathParameters', {}).get('farmerId')
@@ -358,7 +360,7 @@ def put_profile(farmer_id, body):
 
 
 def send_otp(body):
-    """Generate OTP and send via SNS SMS. Auto-adds numbers to SNS sandbox if needed."""
+    """Generate OTP and store it for verification (no external delivery providers)."""
     phone = body.get('phone', '')
     clean_phone, phone_err = _validate_phone(phone)
     if phone_err:
@@ -368,81 +370,8 @@ def send_otp(body):
             'body': json.dumps({'error': phone_err})
         }
 
-    full_phone = f'+91{clean_phone}'
     otp_code = str(random.randint(100000, 999999))
     expiry = int(time.time()) + OTP_EXPIRY_SECONDS
-
-    sms_sent = False
-    sandbox_verification = False
-
-    # ── Step 1: Check if account is in SNS SMS Sandbox ──
-    in_sandbox = False
-    phone_verified_in_sandbox = False
-    try:
-        sandbox_status = sns.get_sms_sandbox_account_status()
-        in_sandbox = sandbox_status.get('IsInSandbox', False)
-        logger.info(f"SNS sandbox status: {'sandbox' if in_sandbox else 'production'}")
-    except Exception as e:
-        logger.warning(f"Could not check sandbox status: {e}")
-        in_sandbox = True
-
-    # ── Step 2: If in sandbox, check if this phone is verified ──
-    if in_sandbox:
-        try:
-            sandbox_numbers = sns.list_sms_sandbox_phone_numbers()
-            for entry in sandbox_numbers.get('PhoneNumbers', []):
-                if entry.get('PhoneNumber') == full_phone and entry.get('Status') == 'Verified':
-                    phone_verified_in_sandbox = True
-                    break
-            logger.info(f"Phone {full_phone} sandbox status: {'verified' if phone_verified_in_sandbox else 'not verified'}")
-        except Exception as e:
-            logger.warning(f"Could not check sandbox phone list: {e}")
-
-    # ── Step 3: Decide send strategy ──
-    # Strategy: Always try to send SMS. If monthly limit is reached, SNS accepts
-    # the call but silently drops the message. We always store the OTP code and
-    # return it so the frontend can show it as a fallback.
-    if not in_sandbox or phone_verified_in_sandbox:
-        # Production mode OR phone is verified in sandbox → send our OTP via SNS
-        try:
-            sns.publish(
-                PhoneNumber=full_phone,
-                Message=f'Your Smart Rural AI Advisor verification code is: {otp_code}. Valid for 5 minutes.',
-                MessageAttributes={
-                    'AWS.SNS.SMS.SenderID': {
-                        'DataType': 'String',
-                        'StringValue': 'RuralAI'
-                    },
-                    'AWS.SNS.SMS.SMSType': {
-                        'DataType': 'String',
-                        'StringValue': 'Transactional'
-                    }
-                }
-            )
-            sms_sent = True
-            logger.info(f"OTP SMS sent to +91{clean_phone[:3]}***{clean_phone[-2:]}")
-        except Exception as e:
-            logger.warning(f"SNS SMS failed: {e}")
-    else:
-        # Phone NOT verified in sandbox → auto-add to sandbox (AWS sends its own code)
-        try:
-            sns.create_sms_sandbox_phone_number(PhoneNumber=full_phone)
-            sandbox_verification = True
-            logger.info(f"Auto-added {full_phone} to SNS sandbox — AWS is sending verification code")
-        except Exception as sandbox_err:
-            err_msg = str(sandbox_err)
-            logger.warning(f"Sandbox create failed: {err_msg}")
-            if any(kw in err_msg.lower() for kw in ['already', 'pending', 'exists']):
-                try:
-                    sns.delete_sms_sandbox_phone_number(PhoneNumber=full_phone)
-                except Exception:
-                    pass
-                try:
-                    sns.create_sms_sandbox_phone_number(PhoneNumber=full_phone)
-                    sandbox_verification = True
-                    logger.info(f"Re-sent sandbox verification for {full_phone}")
-                except Exception as retry_err:
-                    logger.warning(f"Sandbox re-send also failed: {retry_err}")
 
     # ── Step 4: Store OTP in DynamoDB ──
     try:
@@ -452,7 +381,7 @@ def send_otp(body):
             'expiry_ttl': expiry,
             'created_at': datetime.now(UTC).replace(tzinfo=None).isoformat(),
             'verified': False,
-            'sandbox_verification': sandbox_verification
+            'sandbox_verification': False
         }
         otp_table.put_item(Item=otp_item)
     except Exception as e:
@@ -466,25 +395,19 @@ def send_otp(body):
     # ── Step 5: Build response ──
     # Security: NEVER return the OTP code in the API response
     # The OTP is stored in DynamoDB and verified server-side only
-    if sms_sent:
-        message = 'OTP sent to your phone via SMS'
-    elif sandbox_verification:
-        message = 'Verification code sent to your phone (first-time setup)'
-    else:
-        message = 'OTP generated — check your phone for the code'
+    message = 'OTP generated successfully'
 
     response_data = {
         'status': 'success',
         'message': message,
-        'sms_sent': sms_sent,
-        'sandbox_verification': sandbox_verification,
+        'sms_sent': False,
+        'sandbox_verification': False,
+        'sms_provider': None,
         'phone_masked': f'+91 {clean_phone[:3]}***{clean_phone[-2:]}'
     }
 
-    # Only include demo_otp in non-production (when SMS couldn't be sent)
-    # This allows local dev/testing while keeping production secure
-    if not sms_sent and not sandbox_verification and STAGE != 'prod':
-        response_data['demo_otp'] = otp_code
+    # Prototype mode: include generated OTP in response for deterministic testing
+    response_data['demo_otp'] = otp_code
 
     return {
         'statusCode': 200,
@@ -512,8 +435,6 @@ def verify_otp(body):
             'body': json.dumps({'error': 'Invalid OTP format. Must be 6 digits.'})
         }
 
-    full_phone = f'+91{clean_phone}'
-
     try:
         result = otp_table.get_item(Key={'phone': clean_phone})
         if 'Item' not in result:
@@ -526,8 +447,6 @@ def verify_otp(body):
         item = result['Item']
         expiry = int(item.get('expiry_ttl', 0))
         now = int(time.time())
-        is_sandbox = item.get('sandbox_verification', False)
-
         if now > expiry:
             # Clean up expired OTP
             otp_table.delete_item(Key={'phone': clean_phone})
@@ -537,7 +456,6 @@ def verify_otp(body):
                 'body': json.dumps({'status': 'error', 'message': 'OTP has expired. Please request a new one.'})
             }
 
-        # ── Verify OTP against stored code ──
         stored_otp = item.get('otp_code', '')
 
         if entered_otp != stored_otp:
@@ -566,4 +484,89 @@ def verify_otp(body):
             'statusCode': 500,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Verification failed. Please try again.'})
+        }
+
+
+def reset_pin(body):
+    """Reset Cognito PIN/password after verifying generated OTP."""
+    phone = body.get('phone', '')
+    entered_otp = str(body.get('otp', '')).strip()
+    new_pin = str(body.get('new_pin', '')).strip()
+
+    clean_phone, phone_err = _validate_phone(phone)
+    if phone_err:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': phone_err})
+        }
+
+    if not entered_otp or not re.match(r'^\d{6}$', entered_otp):
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Invalid OTP format. Must be 6 digits.'})
+        }
+
+    if len(new_pin) < 6:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'PIN must be at least 6 characters.'})
+        }
+
+    try:
+        result = otp_table.get_item(Key={'phone': clean_phone})
+        item = result.get('Item')
+        if not item:
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'status': 'error', 'message': 'No OTP found. Please request a new one.'})
+            }
+
+        expiry = int(item.get('expiry_ttl', 0))
+        if int(time.time()) > expiry:
+            otp_table.delete_item(Key={'phone': clean_phone})
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'status': 'error', 'message': 'OTP has expired. Please request a new one.'})
+            }
+
+        if entered_otp != item.get('otp_code', ''):
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'status': 'error', 'message': 'Incorrect OTP. Please try again.'})
+            }
+
+        username = f'+91{clean_phone}'
+        cognito.admin_set_user_password(
+            UserPoolId=COGNITO_USER_POOL_ID,
+            Username=username,
+            Password=new_pin,
+            Permanent=True
+        )
+
+        otp_table.delete_item(Key={'phone': clean_phone})
+
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'status': 'success', 'message': 'PIN reset successfully'})
+        }
+
+    except cognito.exceptions.UserNotFoundException:
+        return {
+            'statusCode': 404,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'status': 'error', 'message': 'User not found for this phone number.'})
+        }
+    except Exception as e:
+        logger.error(f"PIN reset error: {e}", exc_info=True)
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Failed to reset PIN. Please try again.'})
         }

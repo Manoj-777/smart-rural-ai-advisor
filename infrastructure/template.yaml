@@ -327,23 +327,12 @@ Resources:
                 - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/otp_codes'
             - Effect: Allow
               Action:
-                - sns:Publish
-                - sns:GetSMSAttributes
-                - sns:CreateSMSSandboxPhoneNumber
-                - sns:VerifySMSSandboxPhoneNumber
-                - sns:DeleteSMSSandboxPhoneNumber
-                - sns:GetSMSSandboxAccountStatus
-                - sns:ListSMSSandboxPhoneNumbers
-                - sms-voice:DescribeAccountAttributes
-                - sms-voice:DescribeVerifiedDestinationNumbers
-                - sms-voice:CreateVerifiedDestinationNumber
-                - sms-voice:VerifyDestinationNumber
-                - sms-voice:DeleteVerifiedDestinationNumber
                 - cloudwatch:GetMetricStatistics
               Resource: '*'
             - Effect: Allow
               Action:
                 - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminSetUserPassword
               Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
       Events:
         ProfileGetApi:
@@ -385,6 +374,16 @@ Resources:
           Type: Api
           Properties:
             Path: /otp/verify
+            Method: options
+        PinResetApi:
+          Type: Api
+          Properties:
+            Path: /pin/reset
+            Method: post
+        PinResetOptions:
+          Type: Api
+          Properties:
+            Path: /pin/reset
             Method: options
 
   TranscribeSpeechFunction:
