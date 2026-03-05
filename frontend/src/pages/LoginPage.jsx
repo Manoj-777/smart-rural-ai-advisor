@@ -392,6 +392,7 @@ function LoginPage() {
                                 <label>{t('profileState')} <span className="required-star">*</span></label>
                                 <select className="form-input" value={regState}
                                     onChange={(e) => { setRegState(e.target.value); setRegDistrict(''); }}>
+                                    <option value="" disabled>{t('selectState') || 'Select state...'}</option>
                                     {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                                 </select>
                             </div>
@@ -430,6 +431,7 @@ function LoginPage() {
                                 <label>{t('profileSoilType')} <span className="required-star">*</span></label>
                                 <select className="form-input" value={regSoilType}
                                     onChange={(e) => setRegSoilType(e.target.value)}>
+                                    <option value="" disabled>{t('selectSoilType') || 'Select soil type...'}</option>
                                     {SOIL_KEYS.map((key, i) =>
                                         <option key={key} value={SOIL_VALUES_EN[i]}>{t(key)}</option>
                                     )}

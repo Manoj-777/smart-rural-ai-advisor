@@ -218,21 +218,22 @@ function ProfilePage() {
                 <h3>📋 {t('profilePersonalDetails')}</h3>
                 <div className="form-grid">
                     <div className="form-group">
-                        <label>{t('profileName')}</label>
+                        <label>{t('profileName')} <span className="required-star">*</span></label>
                         <input className="form-input" type="text" value={profile.name}
                             onChange={e => setProfile(p => ({ ...p, name: e.target.value }))}
                             onKeyDown={e => e.key === 'Enter' && handleSave()}
                             placeholder={t('profileNamePlaceholder')} />
                     </div>
                     <div className="form-group">
-                        <label>{t('profileState')}</label>
+                        <label>{t('profileState')} <span className="required-star">*</span></label>
                         <select className="form-input" value={profile.state}
                             onChange={e => setProfile(p => ({ ...p, state: e.target.value, district: '' }))}>
+                            <option value="" disabled>{t('selectState') || 'Select state...'}</option>
                             {STATE_OPTION_OBJECTS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>{t('profileDistrict')}</label>
+                        <label>{t('profileDistrict')} <span className="required-star">*</span></label>
                         <select className="form-input" value={profile.district}
                             onChange={e => setProfile(p => ({ ...p, district: e.target.value }))}>
                             <option value="" disabled>{t('loginSelectDistrict')}</option>
@@ -242,7 +243,7 @@ function ProfilePage() {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>{t('profileLanguage')}</label>
+                        <label>{t('profileLanguage')} <span className="required-star">*</span></label>
                         <select className="form-input" value={profile.language}
                             onChange={e => {
                                 const lang = e.target.value;
@@ -261,7 +262,7 @@ function ProfilePage() {
             <div className="card">
                 <h3>🌾 {t('profileFarmDetails')}</h3>
                 <div className="form-group">
-                    <label>{t('profileCrops')}</label>
+                    <label>{t('profileCrops')} <span className="required-star">*</span></label>
                     <div className="crop-chips">
                         {CROP_KEYS.map((key, i) => (
                             <button
@@ -276,16 +277,17 @@ function ProfilePage() {
                 </div>
                 <div className="form-grid" style={{ marginTop: '16px' }}>
                     <div className="form-group">
-                        <label>{t('profileSoilType')}</label>
+                        <label>{t('profileSoilType')} <span className="required-star">*</span></label>
                         <select className="form-input" value={profile.soil_type}
                             onChange={e => setProfile(p => ({ ...p, soil_type: e.target.value }))}>
+                            <option value="" disabled>{t('selectSoilType') || 'Select soil type...'}</option>
                             {SOIL_KEYS.map((key, i) =>
                                 <option key={key} value={SOIL_VALUES_EN[i]}>{t(key)}</option>
                             )}
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>{t('profileLandSize')}</label>
+                        <label>{t('profileLandSize')} <span className="required-star">*</span></label>
                         <input className="form-input" type="number" value={profile.land_size_acres} min="0" step="0.5"
                             onChange={e => setProfile(p => ({ ...p, land_size_acres: parseFloat(e.target.value) || 0 }))}
                             onKeyDown={e => e.key === 'Enter' && handleSave()} />

@@ -157,10 +157,10 @@ function CropDoctorPage() {
                     <select
                         value={cropType}
                         onChange={(e) => setCropType(e.target.value)}
-                        className="input-field"
-                        style={{ width: '100%', padding: '12px 16px', fontSize: '15px', borderRadius: '12px', cursor: 'pointer' }}
+                        className="form-input"
+                        style={{ width: '100%', cursor: 'pointer' }}
                     >
-                        <option value="">{t('cropDocSelectCropType')}</option>
+                        <option value="" disabled>{t('cropDocSelectCropType')}</option>
                         {CROP_OPTIONS.map(c => (
                             <option key={c.value} value={c.value}>{t(c.key)}</option>
                         ))}

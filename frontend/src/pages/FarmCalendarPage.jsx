@@ -240,7 +240,7 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                                 }
                             }}
                         >
-                            <option value="">{t('soilSelectCrop') || 'Select crop...'}</option>
+                            <option value="" disabled>{t('soilSelectCrop') || 'Select crop...'}</option>
                             {CROP_OPTIONS.filter(c => !selectedCrops.includes(c.value)).map(c => (
                                 <option key={c.value} value={c.value}>{t(c.key)}</option>
                             ))}
@@ -270,14 +270,14 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                     <div className="ai-form-group">
                         <label>📍 {t('profileState') || 'State'}</label>
                         <select value={state} onChange={e => { setState(e.target.value); setDistrict(''); }}>
-                            <option value="">{t('selectState') || 'Select state...'}</option>
+                            <option value="" disabled>{t('selectState') || 'Select state...'}</option>
                             {STATE_OPTIONS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🏘️ {t('profileDistrict') || 'District (optional)'}</label>
                         <select value={district} onChange={e => setDistrict(e.target.value)}>
-                            <option value="">{t('selectDistrict') || 'Select district...'}</option>
+                            <option value="" disabled>{t('selectDistrict') || 'Select district...'}</option>
                             {(DISTRICT_MAP[state] || []).map(d => (
                                 <option key={d} value={d}>{getDistrictName(d, language)}</option>
                             ))}

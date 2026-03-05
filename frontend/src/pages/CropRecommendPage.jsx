@@ -206,44 +206,44 @@ Format clearly with numbered recommendations. Include practical advice specific 
             <div className="ai-feature-form">
                 <div className="ai-form-grid">
                     <div className="ai-form-group">
-                        <label>🏜️ {t('profileSoilType') || 'Soil Type'} *</label>
+                        <label>🏜️ {t('profileSoilType') || 'Soil Type'} <span className="required-star">*</span></label>
                         <select value={soilType} onChange={e => setSoilType(e.target.value)}>
-                            <option value="">{t('cropRecSelectSoil') || 'Select soil type...'}</option>
+                            <option value="" disabled>{t('cropRecSelectSoil') || 'Select soil type...'}</option>
                             {SOIL_TYPES.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
-                        <label>📅 {t('cropRecSeason') || 'Season'} *</label>
+                        <label>📅 {t('cropRecSeason') || 'Season'} <span className="required-star">*</span></label>
                         <select value={season} onChange={e => setSeason(e.target.value)}>
-                            <option value="">{t('cropRecSelectSeason') || 'Select season...'}</option>
+                            <option value="" disabled>{t('cropRecSelectSeason') || 'Select season...'}</option>
                             {SEASON_OPTIONS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>💧 {t('cropRecWater') || 'Water Source'}</label>
                         <select value={water} onChange={e => setWater(e.target.value)}>
-                            <option value="">{t('cropRecSelectWater') || 'Select water source...'}</option>
+                            <option value="" disabled>{t('cropRecSelectWater') || 'Select water source...'}</option>
                             {WATER_OPTIONS.map(w => <option key={w.value} value={w.value}>{t(w.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>💰 {t('cropRecBudget') || 'Budget'}</label>
                         <select value={budget} onChange={e => setBudget(e.target.value)}>
-                            <option value="">{t('cropRecSelectBudget') || 'Select budget range...'}</option>
+                            <option value="" disabled>{t('cropRecSelectBudget') || 'Select budget range...'}</option>
                             {BUDGET_OPTIONS.map(b => <option key={b.value} value={b.value}>{t(b.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>📍 {t('profileState') || 'State'}</label>
                         <select value={state} onChange={e => { setState(e.target.value); setDistrict(''); }}>
-                            <option value="">{t('selectState') || 'Select state...'}</option>
+                            <option value="" disabled>{t('selectState') || 'Select state...'}</option>
                             {STATE_OPTIONS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🏘️ {t('profileDistrict') || 'District'}</label>
                         <select value={district} onChange={e => setDistrict(e.target.value)}>
-                            <option value="">{t('selectDistrict') || 'Select district...'}</option>
+                            <option value="" disabled>{t('selectDistrict') || 'Select district...'}</option>
                             {(DISTRICT_MAP[state] || []).map(d => (
                                 <option key={d} value={d}>{getDistrictName(d, language)}</option>
                             ))}

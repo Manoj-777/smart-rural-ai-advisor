@@ -209,30 +209,30 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                 <h4 className="ai-form-section-title">🔬 {t('soilTestResults') || 'Soil Test Results'} <span className="ai-optional">({t('soilIfAvailable') || 'if available from soil testing lab'})</span></h4>
                 <div className="ai-form-grid">
                     <div className="ai-form-group">
-                        <label>pH {t('soilLevel') || 'Level'}</label>
+                        <label>pH {t('soilLevel') || 'Level'} <span className="required-star">*</span></label>
                         <select value={ph} onChange={e => setPh(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {PH_RANGES.map(p => <option key={p.value} value={p.value}>{t(p.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🟢 {t('soilNitrogen') || 'Nitrogen (N)'}</label>
                         <select value={nitrogen} onChange={e => setNitrogen(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {NUTRIENT_LEVELS.map(n => <option key={n.value} value={n.value}>{t(n.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🔵 {t('soilPhosphorus') || 'Phosphorus (P)'}</label>
                         <select value={phosphorus} onChange={e => setPhosphorus(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {NUTRIENT_LEVELS.map(n => <option key={n.value} value={n.value}>{t(n.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🟠 {t('soilPotassium') || 'Potassium (K)'}</label>
                         <select value={potassium} onChange={e => setPotassium(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {NUTRIENT_LEVELS.map(n => <option key={n.value} value={n.value}>{t(n.key)}</option>)}
                         </select>
                     </div>
@@ -242,23 +242,23 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                 <h4 className="ai-form-section-title" style={{ marginTop: '20px' }}>👁️ {t('soilObservations') || 'Visual Observations'}</h4>
                 <div className="ai-form-grid">
                     <div className="ai-form-group">
-                        <label>🎨 {t('soilColor') || 'Soil Color'}</label>
+                        <label>🎨 {t('soilColor') || 'Soil Color'} <span className="required-star">*</span></label>
                         <select value={soilColor} onChange={e => setSoilColor(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {SOIL_COLORS.map(c => <option key={c.value} value={c.value}>{t(c.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
-                        <label>💧 {t('soilDrainage') || 'Water Drainage'}</label>
+                        <label>💧 {t('soilDrainage') || 'Water Drainage'} <span className="required-star">*</span></label>
                         <select value={drainage} onChange={e => setDrainage(e.target.value)}>
-                            <option value="">{t('soilSelect') || 'Select...'}</option>
+                            <option value="" disabled>{t('soilSelect') || 'Select...'}</option>
                             {DRAINAGE.map(d => <option key={d.value} value={d.value}>{t(d.key)}</option>)}
                         </select>
                     </div>
                     <div className="ai-form-group">
                         <label>🌾 {t('soilTargetCrop') || 'Target Crop'}</label>
                         <select value={crop} onChange={e => setCrop(e.target.value)}>
-                            <option value="">{t('soilSelectCrop') || 'Select crop...'}</option>
+                            <option value="" disabled>{t('soilSelectCrop') || 'Select crop...'}</option>
                             <option value="General">{t('cropGeneral') || 'General (all crops)'}</option>
                             {CROP_OPTIONS.map(c => <option key={c.value} value={c.value}>{t(c.key)}</option>)}
                         </select>
