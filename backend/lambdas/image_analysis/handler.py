@@ -1,5 +1,5 @@
 # backend/lambdas/image_analysis/handler.py
-# Crop disease image analysis using Claude Sonnet 4.5 Vision
+# Crop disease image analysis using Amazon Nova Pro Vision (Bedrock)
 # Owner: Manoj RS
 # Endpoint: POST /image-analyze
 # See: Detailed_Implementation_Guide.md Section 17
@@ -115,7 +115,7 @@ def make_response(status_code, body_dict):
 
 def lambda_handler(event, context):
     """
-    Analyzes crop disease image using Claude Sonnet 4.5 Vision.
+    Analyzes crop disease image using Amazon Nova Pro Vision.
     Supports: JPEG, PNG, GIF, WebP  |  Max 4 MB  |  Auto-translates response.
     """
     # Handle CORS preflight
