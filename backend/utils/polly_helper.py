@@ -253,26 +253,27 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
             result = _polly_tts(safe_text, language_code, voice_id=voice_id)
         elif language_code in GTTS_SUPPORTED_LANGS:
             if USE_GTTS:
-                try:
-                    result = _gtts_tts(safe_text, language_code)
-                except Exception as gtts_err:
-                    tts_error = f"gTTS error ({language_code}): {gtts_err}"
-                    print(tts_error)
+                # gTTS has built-in retry logic - let it raise exception if all retries fail
+                result = _gtts_tts(safe_text, language_code)
             else:
                 tts_error = f"gTTS disabled by USE_GTTS for language={language_code}"
-                print(tts_error)
+                logger.warning(tts_error)
         else:
             tts_error = f"No TTS engine configured for language={language_code}"
-            print(tts_error)
+            logger.warning(tts_error)
 
 
         # Unpack result — _upload_audio_bytes now returns {'url': ..., 'key': ...}
-        if isinstance(result, dict):
-            audio_url = result.get('url')
-            audio_key = result.get('key')
-        else:
-            audio_url = result
-            audio_key = None
+        audio_url = None
+        audio_key = None
+        
+        if result:
+            if isinstance(result, dict):
+                audio_url = result.get('url')
+                audio_key = result.get('key')
+            else:
+                audio_url = result
+                audio_key = None
 
         if not audio_url and not tts_error:
             tts_error = f"TTS produced no audio for language={language_code}"
@@ -287,13 +288,14 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
         return audio_url
 
     except Exception as e:
-        tts_error = f"TTS fatal error: {e}"
-        print(tts_error)
+        # Only catch unexpected errors - gTTS/Polly errors should propagate
+        logger.error(f"TTS fatal error: {e}")
         if return_metadata:
             return {
                 'audio_url': None,
                 'audio_key': None,
                 'truncated': was_truncated,
-                'error': tts_error,
+                'error': str(e),
             }
-        return None
+        # Re-raise the exception so caller knows TTS failed
+        raise

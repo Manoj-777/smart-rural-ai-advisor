@@ -217,13 +217,10 @@ Resources:
       Policies:
         - Version: '2012-10-17'
           Statement:
-            - !If
-              - HasOpenWeatherSecretArn
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Ref OpenWeatherApiKeySecretArn
-              - !Ref AWS::NoValue
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: '*'
       Events:
         WeatherApi:
           Type: Api

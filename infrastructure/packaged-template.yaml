@@ -12,6 +12,8 @@ Globals:
           Ref: BedrockKBId
         OPENWEATHER_API_KEY:
           Ref: OpenWeatherApiKey
+        OPENWEATHER_API_KEY_SECRET_ARN:
+          Ref: OpenWeatherApiKeySecretArn
         S3_KNOWLEDGE_BUCKET:
           Fn::Sub: smart-rural-ai-${AWS::AccountId}
         DYNAMODB_PROFILES_TABLE: farmer_profiles
@@ -62,7 +64,13 @@ Parameters:
   OpenWeatherApiKey:
     Type: String
     Description: OpenWeatherMap API Key
+    Default: ''
     NoEcho: true
+  OpenWeatherApiKeySecretArn:
+    Type: String
+    Description: Optional AWS Secrets Manager secret ARN containing OpenWeather API
+      key (preferred)
+    Default: ''
   EnforceCodePolicy:
     Type: String
     AllowedValues:
@@ -90,6 +98,12 @@ Parameters:
     - 'false'
     Description: Enable DynamoDB TTL on existing rate_limits table (attribute ttl_epoch)
     Default: 'true'
+Conditions:
+  HasOpenWeatherSecretArn:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: OpenWeatherApiKeySecretArn
+      - ''
 Resources:
   AgentOrchestratorFunction:
     Type: AWS::Serverless::Function
@@ -205,11 +219,18 @@ Resources:
   WeatherFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/af95636b15abd55b1859a24289ed1347
+      CodeUri: s3://smart-rural-ai-948809294205/3bc8f61a8ae0be1004805e97b19ba59d
       Handler: handler.lambda_handler
       Environment:
         Variables:
           ENABLE_COORDINATE_VALIDATION: 'true'
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource: '*'
       Events:
         WeatherApi:
           Type: Api
@@ -236,7 +257,7 @@ Resources:
           Properties:
             Path: /health
             Method: get
-      CodeUri: s3://smart-rural-ai-948809294205/94b9a2e034a5c15b1481986fb3d36ee5
+      CodeUri: s3://smart-rural-ai-948809294205/0d9778c7885caed5c38454d15afd56ec
   ImageAnalysisFunction:
     Type: AWS::Serverless::Function
     Properties:
