@@ -3,7 +3,7 @@
 // Sign-up: phone + name + profile + PIN → auto-confirmed → JWT tokens
 // Sign-in: phone + PIN → JWT tokens
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
 import config from '../config';
@@ -46,10 +46,21 @@ const STATE_OPTION_OBJECTS = [
 function LoginPage() {
     const { t, language, setLanguage } = useLanguage();
     const { signUpAndLogin, signInWithPin, checkPhoneExists } = useFarmer();
-    const [phone, setPhone] = useState('');
-    const [pin, setPin] = useState('');
-    const [name, setName] = useState('');
-    const [mode, setMode] = useState('welcome'); // 'welcome' | 'new' | 'register-verify' | 'returning' | 'not-found' | 'forgot-pin' | 'reset-pin'
+
+    // Restore registration form from sessionStorage on refresh
+    const saved = (() => {
+        try {
+            const raw = JSON.parse(sessionStorage.getItem('reg_form') || '{}');
+            // Discard stale data from older versions that had pre-filled defaults
+            if (raw._v !== 2) { sessionStorage.removeItem('reg_form'); return {}; }
+            return raw;
+        } catch { return {}; }
+    })();
+
+    const [phone, setPhone] = useState(saved.phone || '');
+    const [pin, setPin] = useState(''); // never persist PIN
+    const [name, setName] = useState(saved.name || '');
+    const [mode, setMode] = useState(saved.mode === 'new' ? 'new' : 'welcome');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
@@ -58,18 +69,32 @@ function LoginPage() {
     const [otpCode, setOtpCode] = useState('');
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
-    const [otpDestination, setOtpDestination] = useState(''); // masked email e.g. m***@g***
+    const [otpDestination, setOtpDestination] = useState('');
     const [regOtpCode, setRegOtpCode] = useState('');
     const [regDemoOtp, setRegDemoOtp] = useState('');
     const [forgotDemoOtp, setForgotDemoOtp] = useState('');
 
     // Registration form fields
-    const [regState, setRegState] = useState('Tamil Nadu');
-    const [regDistrict, setRegDistrict] = useState('');
-    const [regCrops, setRegCrops] = useState([]);
-    const [regSoilType, setRegSoilType] = useState('Alluvial Soil');
-    const [regLandSize, setRegLandSize] = useState('');
-    const [regLanguage, setRegLanguage] = useState(language);
+    const [regState, setRegState] = useState(saved.regState || '');
+    const [regDistrict, setRegDistrict] = useState(saved.regDistrict || '');
+    const [regCrops, setRegCrops] = useState(saved.regCrops || []);
+    const [regSoilType, setRegSoilType] = useState(saved.regSoilType || '');
+    const [regLandSize, setRegLandSize] = useState(saved.regLandSize || '');
+    const [regLanguage, setRegLanguage] = useState(saved.regLanguage || '');
+
+    // Persist registration form to sessionStorage
+    useEffect(() => {
+        if (mode === 'new') {
+            sessionStorage.setItem('reg_form', JSON.stringify({
+                _v: 2, phone, name, mode, regState, regDistrict, regCrops,
+                regSoilType, regLandSize, regLanguage
+            }));
+        }
+    }, [mode, phone, name, regState, regDistrict, regCrops, regSoilType, regLandSize, regLanguage]);
+
+    const clearRegForm = useCallback(() => {
+        sessionStorage.removeItem('reg_form');
+    }, []);
 
     const isValidPhone = phone.replace(/\D/g, '').length >= 10;
     const isValidPin = pin.length >= 6;
@@ -99,6 +124,8 @@ function LoginPage() {
         if (!regDistrict) { setError(t('loginSelectDistrict')); return; }
         if (regCrops.length === 0) { setError(t('loginSelectCrop')); return; }
         if (!regLandSize || parseFloat(regLandSize) <= 0) { setError(t('loginEnterLand')); return; }
+        if (!regSoilType) { setError(t('loginSelectSoilType') || 'Please select soil type.'); return; }
+        if (!regLanguage) { setError(t('loginSelectLanguage') || 'Please select language.'); return; }
         setLoading(true);
         setError('');
         try {
@@ -152,6 +179,7 @@ function LoginPage() {
 
             const profileData = getRegistrationProfileData();
             await signUpAndLogin(cleanPhone, pin, name.trim(), profileData);
+            clearRegForm();
             if (regLanguage !== language) {
                 setLanguage(regLanguage);
             }
@@ -448,6 +476,7 @@ function LoginPage() {
                                 <label>{t('profileLanguage')} <span className="required-star">*</span></label>
                                 <select className="form-input" value={regLanguage}
                                     onChange={(e) => setRegLanguage(e.target.value)}>
+                                    <option value="" disabled>{t('selectLanguage') || 'Select language...'}</option>
                                     {Object.entries(config.LANGUAGES).map(([code, lang]) =>
                                         <option key={code} value={code}>{lang.name}</option>
                                     )}
@@ -459,11 +488,11 @@ function LoginPage() {
                         <button
                             className="login-btn login-btn-primary"
                             onClick={handleNewSignup}
-                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regDistrict || regCrops.length === 0 || !regLandSize}
+                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regState || !regDistrict || regCrops.length === 0 || !regLandSize || !regSoilType || !regLanguage}
                         >
                             {loading ? '⏳ ...' : `✅ ${t('loginStart')}`}
                         </button>
-                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); }}>
+                        <button className="login-btn login-btn-back" onClick={() => { setMode('welcome'); setError(''); clearRegForm(); }}>
                             ← {t('loginBack')}
                         </button>
                     </div>
