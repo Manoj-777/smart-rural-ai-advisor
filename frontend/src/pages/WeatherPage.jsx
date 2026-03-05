@@ -220,7 +220,7 @@ function WeatherPage() {
         fetchWeather(city.name, { lat: city.lat, lng: city.lng });
     }, [setLocationBoth]);
 
-    const handleSearch = () => {
+    const handleSearch = async () => {
         if (!locationDisplay.trim()) return;
         // Use English name if available, else use what user typed
         const searchTerm = locationEn || cleanLocationName(locationDisplay.trim());
@@ -228,12 +228,12 @@ function WeatherPage() {
         setSuggestions([]);
         setClickedPlace(searchTerm);
         setLocationBoth(searchTerm);
-        // Forward geocode to also move the map pin
-        forwardGeocode(searchTerm);
-        fetchWeather(searchTerm);
+        // Forward geocode first, then pass coordinates to weather fetch
+        const coords = await forwardGeocode(searchTerm);
+        fetchWeather(searchTerm, coords);
     };
 
-    // Forward geocode: get lat/lng and fly map there
+    // Forward geocode: get lat/lng, fly map there, and return coords for weather fetch
     const forwardGeocode = useCallback(async (query) => {
         try {
             const res = await fetch(
@@ -247,8 +247,10 @@ function WeatherPage() {
                 const lngN = parseFloat(lon);
                 setMarkerPos({ lat: latN, lng: lngN });
                 setFlyTarget({ lat: latN, lng: lngN });
+                return { lat: latN, lng: lngN };
             }
         } catch { /* ignore geocode failure */ }
+        return null;
     }, []);
 
     // Autocomplete: debounced forward geocode search as user types
@@ -328,7 +330,7 @@ function WeatherPage() {
         return handleCityClick(city);
     }, [handleCityClick]);
 
-    const handleSearchWrapped = () => {
+    const handleSearchWrapped = async () => {
         userOverrodeRef.current = true;
         return handleSearch();
     };
@@ -347,17 +349,23 @@ function WeatherPage() {
         prevProfileLocRef.current = profileLocation;
 
         // Re-run when profileLocation upgrades from 'Chennai' fallback → real profile/GPS value
-        forwardGeocode(profileLocation);
         setLocationBoth(profileLocation);
         setClickedPlace(profileLocation);
-        fetchWeather(profileLocation);
+        // Geocode district name first to get coordinates, then fetch weather with coords
+        (async () => {
+            const coords = await forwardGeocode(profileLocation);
+            fetchWeather(profileLocation, coords);
+        })();
     }, [profileLocation]);
 
     // Initial fetch on mount (uses whatever profileLocation is at mount time)
     useEffect(() => {
         if (!profileLocation) return;
-        forwardGeocode(profileLocation);
-        fetchWeather(profileLocation);
+        // Geocode district name first to get coordinates, then fetch weather with coords
+        (async () => {
+            const coords = await forwardGeocode(profileLocation);
+            fetchWeather(profileLocation, coords);
+        })();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
