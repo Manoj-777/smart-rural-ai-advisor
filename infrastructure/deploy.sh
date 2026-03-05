@@ -4,9 +4,13 @@
 
 set -e
 
-if [ -z "${OPENWEATHER_API_KEY}" ] || [ "${OPENWEATHER_API_KEY}" = "CHANGE_ME" ]; then
-    echo "ERROR: OPENWEATHER_API_KEY is missing or set to CHANGE_ME."
-    echo "Set it before deploy: export OPENWEATHER_API_KEY='<real-key>'"
+OPENWEATHER_SECRET_ARN_VALUE="${OPENWEATHER_API_KEY_SECRET_ARN:-}"
+OPENWEATHER_API_KEY_VALUE="${OPENWEATHER_API_KEY:-}"
+
+if [ -z "${OPENWEATHER_SECRET_ARN_VALUE}" ] && { [ -z "${OPENWEATHER_API_KEY_VALUE}" ] || [ "${OPENWEATHER_API_KEY_VALUE}" = "CHANGE_ME" ]; }; then
+    echo "ERROR: Provide either OPENWEATHER_API_KEY_SECRET_ARN (preferred) or OPENWEATHER_API_KEY."
+    echo "Example (preferred): export OPENWEATHER_API_KEY_SECRET_ARN='arn:aws:secretsmanager:...:secret:...'"
+    echo "Fallback: export OPENWEATHER_API_KEY='<real-key>'"
     exit 1
 fi
 
@@ -32,7 +36,8 @@ sam deploy \
     --region ap-south-1 \
         --parameter-overrides \
             "BedrockKBId=${BEDROCK_KB_ID_VALUE}" \
-            "OpenWeatherApiKey=${OPENWEATHER_API_KEY}" \
+                "OpenWeatherApiKey=${OPENWEATHER_API_KEY_VALUE}" \
+                "OpenWeatherApiKeySecretArn=${OPENWEATHER_SECRET_ARN_VALUE}" \
             "EnforceCodePolicy=${ENFORCE_CODE_POLICY_VALUE}" \
     --no-confirm-changeset
 

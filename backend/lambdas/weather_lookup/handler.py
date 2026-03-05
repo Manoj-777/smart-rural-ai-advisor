@@ -9,9 +9,11 @@ import os
 import logging
 import re
 import socket
+import base64
 import urllib.request
 import urllib.error
 import urllib.parse
+import boto3
 from utils.response_helper import success_response, error_response
 from utils.cors_helper import handle_cors_preflight
 
@@ -19,7 +21,11 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
+OPENWEATHER_API_KEY_SECRET_ARN = os.environ.get('OPENWEATHER_API_KEY_SECRET_ARN', '')
 OPENWEATHER_BASE = 'https://api.openweathermap.org/data/2.5'
+
+_secrets_client = None
+_cached_openweather_api_key = None
 
 # Feature flag: coordinate validation (default: OFF) — Bug 1.7
 ENABLE_COORDINATE_VALIDATION = os.environ.get('ENABLE_COORDINATE_VALIDATION', 'false').lower() == 'true'
@@ -37,6 +43,55 @@ def _openweather_base_url():
 
 def _coordinate_validation_enabled():
     return os.environ.get('ENABLE_COORDINATE_VALIDATION', 'false').lower() == 'true'
+
+
+def _resolve_openweather_api_key():
+    global _secrets_client, _cached_openweather_api_key
+
+    if _cached_openweather_api_key:
+        return _cached_openweather_api_key
+
+    secret_arn = OPENWEATHER_API_KEY_SECRET_ARN
+    if secret_arn:
+        try:
+            if _secrets_client is None:
+                _secrets_client = boto3.client('secretsmanager')
+
+            response = _secrets_client.get_secret_value(SecretId=secret_arn)
+            secret_string = response.get('SecretString')
+            if not secret_string and response.get('SecretBinary'):
+                secret_string = base64.b64decode(response['SecretBinary']).decode('utf-8')
+
+            candidate_key = None
+            if secret_string:
+                try:
+                    parsed = json.loads(secret_string)
+                    if isinstance(parsed, dict):
+                        candidate_key = (
+                            parsed.get('OPENWEATHER_API_KEY')
+                            or parsed.get('openweather_api_key')
+                            or parsed.get('api_key')
+                            or parsed.get('key')
+                        )
+                    elif isinstance(parsed, str):
+                        candidate_key = parsed
+                except json.JSONDecodeError:
+                    candidate_key = secret_string.strip()
+
+            if candidate_key and candidate_key != 'CHANGE_ME':
+                _cached_openweather_api_key = candidate_key
+                logger.info('Using OpenWeather API key from Secrets Manager')
+                return _cached_openweather_api_key
+
+            logger.warning('OpenWeather secret is present but empty/invalid; falling back to environment variable')
+        except Exception as exc:
+            logger.warning(f'Failed to retrieve OpenWeather API key from Secrets Manager; falling back to env var. Error: {str(exc)}')
+
+    if OPENWEATHER_API_KEY and OPENWEATHER_API_KEY != 'CHANGE_ME':
+        _cached_openweather_api_key = OPENWEATHER_API_KEY
+        return _cached_openweather_api_key
+
+    return ''
 
 # ── Security: Input validation constants ──
 MAX_LOCATION_LENGTH = 100
@@ -212,7 +267,8 @@ def lambda_handler(event, context):
         location = clean_location(location)
         logger.info(f"Cleaned location: {location}")
 
-        if not OPENWEATHER_API_KEY:
+        resolved_openweather_api_key = _resolve_openweather_api_key()
+        if not resolved_openweather_api_key:
             logger.error("OPENWEATHER_API_KEY not configured")
             return error_response('OpenWeather API key not configured', 500, origin=origin)
 
@@ -225,7 +281,7 @@ def lambda_handler(event, context):
         for candidate in location_candidates:
             current_params = urllib.parse.urlencode({
                 'q': f'{candidate},IN',
-                'appid': OPENWEATHER_API_KEY,
+                'appid': resolved_openweather_api_key,
                 'units': 'metric',
             })
             current_url = f"{_openweather_base_url()}/weather?{current_params}"
@@ -265,7 +321,7 @@ def lambda_handler(event, context):
             coord_params = urllib.parse.urlencode({
                 'lat': lat,
                 'lon': lon,
-                'appid': OPENWEATHER_API_KEY,
+                'appid': resolved_openweather_api_key,
                 'units': 'metric',
             })
             coord_url = f"{_openweather_base_url()}/weather?{coord_params}"
@@ -320,7 +376,7 @@ def lambda_handler(event, context):
         else:
             forecast_params = urllib.parse.urlencode({
                 'q': f'{matched_location},IN',
-                'appid': OPENWEATHER_API_KEY,
+                'appid': resolved_openweather_api_key,
                 'units': 'metric',
                 'cnt': 40,
             })

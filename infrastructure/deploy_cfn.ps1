@@ -10,8 +10,11 @@ Param(
 
 $ErrorActionPreference = "Stop"
 
-if ([string]::IsNullOrWhiteSpace($env:OPENWEATHER_API_KEY) -or $env:OPENWEATHER_API_KEY -eq "CHANGE_ME") {
-		throw "OPENWEATHER_API_KEY is missing or set to CHANGE_ME. Set a real key in your shell environment before deploy."
+$openWeatherSecretArn = $env:OPENWEATHER_API_KEY_SECRET_ARN
+$openWeatherApiKey = $env:OPENWEATHER_API_KEY
+
+if ([string]::IsNullOrWhiteSpace($openWeatherSecretArn) -and ([string]::IsNullOrWhiteSpace($openWeatherApiKey) -or $openWeatherApiKey -eq "CHANGE_ME")) {
+		throw "Provide OPENWEATHER_API_KEY_SECRET_ARN (preferred) or OPENWEATHER_API_KEY in your shell environment before deploy."
 }
 
 Write-Host "========================================="
@@ -36,7 +39,8 @@ aws cloudformation deploy `
 	--region $Region `
 	--parameter-overrides `
 		BedrockKBId=$BedrockKBId `
-		OpenWeatherApiKey=$($env:OPENWEATHER_API_KEY) `
+		OpenWeatherApiKey=$openWeatherApiKey `
+		OpenWeatherApiKeySecretArn=$openWeatherSecretArn `
 		EnforceCodePolicy=$EnforceCodePolicy `
 		CognitoUserPoolId=$CognitoUserPoolId `
 		EnableRateLimitTTL=$EnableRateLimitTTL

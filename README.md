@@ -379,10 +379,11 @@ The frontend is pre-configured to call the live API Gateway endpoint. No `.env` 
 
 ### Deploy Full Stack (SAM)
 
-Set secrets in your shell (never commit secrets in config files):
+Set secrets in your shell (never commit secrets in config files). Preferred: use a Secrets Manager ARN.
 
 ```bash
-export OPENWEATHER_API_KEY='<your-real-key>'
+export OPENWEATHER_API_KEY_SECRET_ARN='arn:aws:secretsmanager:ap-south-1:<account-id>:secret:<secret-name>'
+# Fallback (legacy): export OPENWEATHER_API_KEY='<your-real-key>'
 ```
 
 ```bash
@@ -392,7 +393,8 @@ bash infrastructure/deploy.sh
 ### Deploy Full Stack (Windows / CloudFormation)
 
 ```powershell
-$env:OPENWEATHER_API_KEY = "<your-real-key>"
+$env:OPENWEATHER_API_KEY_SECRET_ARN = "arn:aws:secretsmanager:ap-south-1:<account-id>:secret:<secret-name>"
+# Fallback (legacy): $env:OPENWEATHER_API_KEY = "<your-real-key>"
 ./infrastructure/deploy_cfn.ps1
 ```
 
