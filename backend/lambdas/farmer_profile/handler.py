@@ -9,7 +9,7 @@ import json
 import boto3
 import os
 import logging
-import random
+import secrets
 import re
 import time
 from datetime import datetime, UTC
@@ -97,6 +97,7 @@ CORS_HEADERS = get_cors_headers(ALLOWED_ORIGIN, methods='GET,PUT,POST,DELETE,OPT
 }
 
 OTP_EXPIRY_SECONDS = 300  # 5 minutes
+ENABLE_DEMO_OTP = os.environ.get('ENABLE_DEMO_OTP', 'false').lower() == 'true'
 
 
 def lambda_handler(event, context):
@@ -370,7 +371,7 @@ def send_otp(body):
             'body': json.dumps({'error': phone_err})
         }
 
-    otp_code = str(random.randint(100000, 999999))
+    otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
     expiry = int(time.time()) + OTP_EXPIRY_SECONDS
 
     # ── Step 4: Store OTP in DynamoDB ──
@@ -407,7 +408,8 @@ def send_otp(body):
     }
 
     # Prototype mode: include generated OTP in response for deterministic testing
-    response_data['demo_otp'] = otp_code
+    if ENABLE_DEMO_OTP:
+        response_data['demo_otp'] = otp_code
 
     return {
         'statusCode': 200,

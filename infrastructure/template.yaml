@@ -312,6 +312,7 @@ Resources:
           DYNAMODB_PROFILES_TABLE: farmer_profiles
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
           STAGE: prod
+          ENABLE_DEMO_OTP: 'true'
           ENABLE_FARMER_ID_VALIDATION: 'true'
       Policies:
         - Version: '2012-10-17'
