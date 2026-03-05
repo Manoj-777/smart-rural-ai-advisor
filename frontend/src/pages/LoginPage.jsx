@@ -70,7 +70,6 @@ function LoginPage() {
     const [regSoilType, setRegSoilType] = useState('Alluvial Soil');
     const [regLandSize, setRegLandSize] = useState('');
     const [regLanguage, setRegLanguage] = useState(language);
-    const [regEmail, setRegEmail] = useState('');
 
     const isValidPhone = phone.replace(/\D/g, '').length >= 10;
     const isValidPin = pin.length >= 6;
@@ -96,7 +95,6 @@ function LoginPage() {
         if (!isValidPhone) { setError(t('loginInvalidPhone')); return; }
         if (!name.trim()) { setError(t('loginNameRequired')); return; }
         if (!isValidPin) { setError(t('loginPinRequired')); return; }
-        if (!regEmail.trim() || !regEmail.includes('@')) { setError(t('loginEmailRequired') || 'Please enter a valid email for verification.'); return; }
         if (!regState) { setError(t('loginSelectState')); return; }
         if (!regDistrict) { setError(t('loginSelectDistrict')); return; }
         if (regCrops.length === 0) { setError(t('loginSelectCrop')); return; }
@@ -153,7 +151,7 @@ function LoginPage() {
             }
 
             const profileData = getRegistrationProfileData();
-            await signUpAndLogin(cleanPhone, pin, name.trim(), profileData, regEmail.trim() || undefined);
+            await signUpAndLogin(cleanPhone, pin, name.trim(), profileData);
             if (regLanguage !== language) {
                 setLanguage(regLanguage);
             }
@@ -388,19 +386,6 @@ function LoginPage() {
                             <span className="login-form-hint-small">{t('loginPinHint')}</span>
                         </div>
 
-                        {/* Email (required for verification) */}
-                        <div className="login-form-group">
-                            <label>{t('signupEmailLabel') || 'Email'} <span className="required-star">*</span></label>
-                            <input
-                                type="email"
-                                className="form-input"
-                                value={regEmail}
-                                onChange={(e) => setRegEmail(e.target.value)}
-                                placeholder={t('signupEmailPlaceholder')}
-                            />
-                            <span className="login-form-hint-small">📧 {t('profileEmailHint')}</span>
-                        </div>
-
                         {/* State & District */}
                         <div className="login-form-row">
                             <div className="login-form-group">
@@ -472,7 +457,7 @@ function LoginPage() {
                         <button
                             className="login-btn login-btn-primary"
                             onClick={handleNewSignup}
-                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regEmail.includes('@') || !regDistrict || regCrops.length === 0 || !regLandSize}
+                            disabled={loading || !isValidPhone || !name.trim() || !isValidPin || !regDistrict || regCrops.length === 0 || !regLandSize}
                         >
                             {loading ? '⏳ ...' : `✅ ${t('loginStart')}`}
                         </button>

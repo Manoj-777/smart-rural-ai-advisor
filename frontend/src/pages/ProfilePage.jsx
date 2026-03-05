@@ -82,11 +82,6 @@ function ProfilePage() {
     const [pinMessage, setPinMessage] = useState(null);
     const [changingPin, setChangingPin] = useState(false);
 
-    // Email for recovery
-    const [recoveryEmail, setRecoveryEmail] = useState('');
-    const [emailMessage, setEmailMessage] = useState(null);
-    const [savingEmail, setSavingEmail] = useState(false);
-
     // Delete account
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -179,23 +174,6 @@ function ProfilePage() {
             }
         }
         setChangingPin(false);
-    };
-
-    // ── Save recovery email ──
-    const handleSaveEmail = async () => {
-        if (!recoveryEmail.trim() || !recoveryEmail.includes('@')) {
-            setEmailMessage({ type: 'error', text: '❌ Please enter a valid email.' });
-            return;
-        }
-        setSavingEmail(true);
-        setEmailMessage(null);
-        try {
-            await cognitoAuth.updateEmail(recoveryEmail.trim());
-            setEmailMessage({ type: 'success', text: '✅ Email saved for PIN recovery!' });
-        } catch (err) {
-            setEmailMessage({ type: 'error', text: '❌ ' + (err?.message || 'Could not save email.') });
-        }
-        setSavingEmail(false);
     };
 
     // Find localized crop name for display
@@ -357,33 +335,6 @@ function ProfilePage() {
                     <button onClick={handleChangePin} disabled={changingPin || !oldPin || newPin.length < 6 || !confirmNewPin}
                         className="send-btn" style={{ padding: '10px 36px', fontSize: '14px', borderRadius: '10px' }}>
                         {changingPin ? '⏳ ...' : `🔐 ${t('changePinBtn')}`}
-                    </button>
-                </div>
-            </div>
-
-            {/* Recovery Email */}
-            <div className="card" style={{ marginTop: '18px' }}>
-                <h3>📧 {t('profileEmailLabel')}</h3>
-                <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>{t('profileEmailHint')}</p>
-                <div className="form-grid">
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label>{t('profileEmailLabel')}</label>
-                        <input className="form-input" type="email"
-                            value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)}
-                            placeholder={t('profileEmailPlaceholder')}
-                            onKeyDown={e => e.key === 'Enter' && !savingEmail && handleSaveEmail()} />
-                    </div>
-                </div>
-                {emailMessage && (
-                    <div className={`alert ${emailMessage.type === 'success' ? 'alert-success' : 'alert-error'}`}>
-                        {emailMessage.text}
-                    </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
-                    <button onClick={handleSaveEmail}
-                        disabled={savingEmail || !recoveryEmail.includes('@')}
-                        className="send-btn" style={{ padding: '10px 36px', fontSize: '14px', borderRadius: '10px' }}>
-                        {savingEmail ? '⏳ ...' : '💾 Save Email'}
                     </button>
                 </div>
             </div>
