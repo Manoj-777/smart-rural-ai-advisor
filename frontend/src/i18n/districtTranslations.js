@@ -3653,3 +3653,32 @@ DT['ur-IN'] = {
     'Coimbatore': 'کوئمبٹور', 'Salem': 'سیلم', 'Madurai': 'مدورائی',
     'Visakhapatnam': 'وشاکھاپٹنم',
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// Nominatim / OpenWeatherMap spelling aliases → map to DISTRICT_MAP keys
+// So both "Kanchipuram" (Nominatim) and "Kancheepuram" (DISTRICT_MAP) work
+// ═══════════════════════════════════════════════════════════════════════
+const SPELLING_ALIASES = {
+    'Kanchipuram': 'Kancheepuram',
+    'Villupuram': 'Viluppuram',
+    'Tumakuru': 'Tumkur',
+    'Mysuru': 'Mysore',
+    'Shivamogga': 'Shimoga',
+    'Belagavi': 'Belgaum',
+    'Ballari': 'Bellary',
+    'Mangaluru': 'Dakshina Kannada',
+    'Tirupattur': 'Tirupathur',
+    'Tuticorin': 'Thoothukudi',
+    'Gurgaon': 'Gurugram',
+    'Mahabubnagar': 'Mahbubnagar',
+    'Pondicherry': 'Puducherry',
+};
+// For each alias, copy the translation from the canonical DISTRICT_MAP key
+for (const [alias, canonical] of Object.entries(SPELLING_ALIASES)) {
+    for (const lang of Object.keys(DT)) {
+        if (lang === 'en-IN') continue;
+        if (DT[lang]?.[canonical] && !DT[lang][alias]) {
+            DT[lang][alias] = DT[lang][canonical];
+        }
+    }
+}

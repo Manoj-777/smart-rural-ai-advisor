@@ -10,7 +10,7 @@ import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 import { apiFetch } from '../utils/apiFetch';
 import config from '../config';
-import { cleanLocationName } from '../utils/locationUtils';
+import { cleanLocationName, toApiName, toDistrictMapName } from '../utils/locationUtils';
 
 // Inline SVG map pin — zero network requests, resolution-independent
 const MARKER_SVG = encodeURIComponent(
@@ -146,11 +146,13 @@ function WeatherPage() {
         setError(null);
         setWeather(null);
         try {
+            // Normalize district name to API-friendly name (e.g. Kancheepuram → Kanchipuram)
+            const apiLoc = toApiName(loc);
             // Pass lat/lon only when explicitly known (GPS/map click/city pick)
             // Avoid sending default map-center coordinates for profile-based lookups.
             const latlon = coords || gpsCoords || null;
             const qs = latlon ? `?lat=${latlon.lat}&lon=${latlon.lng || latlon.lon}` : '';
-            const res = await apiFetch(`/weather/${encodeURIComponent(loc)}${qs}`);
+            const res = await apiFetch(`/weather/${encodeURIComponent(apiLoc)}${qs}`);
             const data = await res.json();
             
             if (!res.ok) {
@@ -195,7 +197,10 @@ function WeatherPage() {
             const data = await res.json();
             const addr = data.address;
             const raw = addr.city || addr.town || addr.village || addr.county || addr.state_district || addr.state || 'Unknown';
-            return cleanLocationName(raw);
+            const cleaned = cleanLocationName(raw);
+            // Map Nominatim name back to DISTRICT_MAP canonical name for translations
+            // e.g. "Kanchipuram" → "Kancheepuram" so getDistrictName() finds the entry
+            return toDistrictMapName(cleaned);
         } catch {
             return `${lat.toFixed(2)},${lng.toFixed(2)}`;
         }
@@ -235,9 +240,12 @@ function WeatherPage() {
 
     // Forward geocode: get lat/lng, fly map there, and return coords for weather fetch
     const forwardGeocode = useCallback(async (query) => {
+        // Normalize district name for better Nominatim results
+        // e.g. "Kancheepuram" → "Kanchipuram", "Bangalore Urban" → "Bengaluru"
+        const apiQuery = toApiName(query);
         try {
             const res = await fetch(
-                `${config.NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(query)},India&limit=1&addressdetails=1`,
+                `${config.NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(apiQuery)},India&limit=1&addressdetails=1`,
                 { headers: { 'Accept-Language': 'en' } }
             );
             const results = await res.json();
@@ -248,6 +256,22 @@ function WeatherPage() {
                 setMarkerPos({ lat: latN, lng: lngN });
                 setFlyTarget({ lat: latN, lng: lngN });
                 return { lat: latN, lng: lngN };
+            }
+            // If API name failed, try original name as fallback
+            if (apiQuery !== query) {
+                const res2 = await fetch(
+                    `${config.NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(query)},India&limit=1&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const results2 = await res2.json();
+                if (results2.length > 0) {
+                    const { lat, lon } = results2[0];
+                    const latN = parseFloat(lat);
+                    const lngN = parseFloat(lon);
+                    setMarkerPos({ lat: latN, lng: lngN });
+                    setFlyTarget({ lat: latN, lng: lngN });
+                    return { lat: latN, lng: lngN };
+                }
             }
         } catch { /* ignore geocode failure */ }
         return null;
@@ -273,7 +297,7 @@ function WeatherPage() {
                 const items = results
                     .filter(r => r.lat && r.lon)
                     .map(r => ({
-                        name: cleanLocationName(r.address?.city || r.address?.town || r.address?.village || r.address?.county || r.address?.state_district || r.display_name.split(',')[0]),
+                        name: toDistrictMapName(cleanLocationName(r.address?.city || r.address?.town || r.address?.village || r.address?.county || r.address?.state_district || r.display_name.split(',')[0])),
                         display: r.display_name.length > 60 ? r.display_name.substring(0, 60) + '…' : r.display_name,
                         lat: parseFloat(r.lat),
                         lng: parseFloat(r.lon),
@@ -367,6 +391,13 @@ function WeatherPage() {
             fetchWeather(profileLocation, coords);
         })();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Re-translate display name when language changes
+    useEffect(() => {
+        if (locationEn) {
+            setLocationDisplay(getDistrictName(locationEn, language));
+        }
+    }, [language]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="weather-page">

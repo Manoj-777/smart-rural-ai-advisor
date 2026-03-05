@@ -487,11 +487,11 @@ def lambda_handler(event, context):
                     if attempt == max_retries - 1:
                         raise
 
-            if current and current.get('cod') == 200:
+            if current and _normalize_cod(current) == 200:
                 break
 
         # If city name lookup failed and we have lat/lon, retry with coordinates
-        if (not current or current.get('cod') != 200) and lat and lon:
+        if (not current or _normalize_cod(current) != 200) and lat and lon:
             logger.info(f"City name '{location}' not found, falling back to lat={lat}, lon={lon}")
             coord_params = urllib.parse.urlencode({
                 'lat': lat,
