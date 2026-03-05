@@ -379,10 +379,21 @@ The frontend is pre-configured to call the live API Gateway endpoint. No `.env` 
 
 ### Deploy Full Stack (SAM)
 
+Set secrets in your shell (never commit secrets in config files):
+
 ```bash
-cd infrastructure
-sam build
-sam deploy --guided   # Stack name: smart-rural-ai
+export OPENWEATHER_API_KEY='<your-real-key>'
+```
+
+```bash
+bash infrastructure/deploy.sh
+```
+
+### Deploy Full Stack (Windows / CloudFormation)
+
+```powershell
+$env:OPENWEATHER_API_KEY = "<your-real-key>"
+./infrastructure/deploy_cfn.ps1
 ```
 
 ### Deploy Individual Lambda

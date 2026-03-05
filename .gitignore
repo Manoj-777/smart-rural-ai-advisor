@@ -33,6 +33,8 @@ samconfig.toml
 **/samconfig.toml
 .aws-sam/
 infrastructure/packaged.yaml
+infrastructure/packaged-template.yaml
+.hypothesis/
 
 ## IDE
 .vscode/
