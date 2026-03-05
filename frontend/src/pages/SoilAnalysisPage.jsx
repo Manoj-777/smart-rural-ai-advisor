@@ -197,7 +197,7 @@ Keep advice practical for Indian farmers. Use bullet points.`;
 
     return (
         <div className="ai-feature-page">
-            <div className="page-header" style={{ paddingLeft: '24px', marginBottom: '8px' }}>
+            <div className="page-header" style={{ marginBottom: '8px' }}>
                 <div className="page-header-top">
                     <h2>🧪 {t('soilTitle') || 'AI Soil Health Analyzer'}</h2>
                 </div>

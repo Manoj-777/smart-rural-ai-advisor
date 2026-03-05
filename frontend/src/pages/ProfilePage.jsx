@@ -275,7 +275,7 @@ function ProfilePage() {
                         ))}
                     </div>
                 </div>
-                <div className="form-grid" style={{ marginTop: '16px' }}>
+                <div className="form-grid">
                     <div className="form-group">
                         <label>{t('profileSoilType')} <span className="required-star">*</span></label>
                         <select className="form-input" value={profile.soil_type}
@@ -304,7 +304,7 @@ function ProfilePage() {
             </div>
 
             {/* Change PIN */}
-            <div className="card" style={{ marginTop: '18px' }}>
+            <div className="card">
                 <h3>🔐 {t('changePinTitle')}</h3>
                 <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>{t('changePinSubtitle')}</p>
                 <div className="form-grid">
@@ -335,7 +335,7 @@ function ProfilePage() {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
                     <button onClick={handleChangePin} disabled={changingPin || !oldPin || newPin.length < 6 || !confirmNewPin}
-                        className="send-btn" style={{ padding: '10px 36px', fontSize: '14px', borderRadius: '10px' }}>
+                        className="send-btn" style={{ padding: '12px 48px', fontSize: '15px', borderRadius: '12px' }}>
                         {changingPin ? '⏳ ...' : `🔐 ${t('changePinBtn')}`}
                     </button>
                 </div>
@@ -343,7 +343,7 @@ function ProfilePage() {
 
             {/* Profile Summary */}
             {profile.name && (
-                <div className="card" style={{ marginTop: '18px' }}>
+                <div className="card">
                     <h3>📊 {t('profileSummary')}</h3>
                     <div className="profile-summary">
                         <div className="summary-item">
@@ -376,7 +376,7 @@ function ProfilePage() {
                 </div>
             )}
 
-            <div className="tip-box" style={{ marginTop: '18px' }}>
+            <div className="tip-box">
                 <span className="tip-icon">💡</span>
                 <span>{t('profileTip')}</span>
             </div>

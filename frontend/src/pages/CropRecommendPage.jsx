@@ -196,7 +196,7 @@ Format clearly with numbered recommendations. Include practical advice specific 
 
     return (
         <div className="ai-feature-page">
-            <div className="page-header" style={{ paddingLeft: '24px', marginBottom: '8px' }}>
+            <div className="page-header" style={{ marginBottom: '8px' }}>
                 <div className="page-header-top">
                     <h2>🌱 {t('cropRecTitle') || 'AI Crop Recommendation'}</h2>
                 </div>

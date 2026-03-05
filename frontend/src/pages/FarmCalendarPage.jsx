@@ -205,7 +205,7 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
 
     return (
         <div className="ai-feature-page">
-            <div className="page-header" style={{ paddingLeft: '24px', marginBottom: '8px' }}>
+            <div className="page-header" style={{ marginBottom: '8px' }}>
                 <div className="page-header-top">
                     <h2>📅 {t('farmCalTitle') || 'AI Farming Calendar'}</h2>
                 </div>
@@ -250,21 +250,13 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                             ))}
                         </select>
                         {selectedCrops.length > 0 && (
-                            <div className="crop-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                            <div className="crop-tags">
                                 {selectedCrops.map(crop => {
                                     const opt = CROP_OPTIONS.find(c => c.value === crop);
                                     return (
-                                        <span key={crop} style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                            background: '#e8f5e9', color: '#2e7d32', padding: '4px 10px',
-                                            borderRadius: '16px', fontSize: '0.85rem', fontWeight: 500
-                                        }}>
+                                        <span key={crop} className="crop-tag">
                                             {opt ? t(opt.key) : crop}
-                                            <button type="button" onClick={() => setSelectedCrops(selectedCrops.filter(c => c !== crop))}
-                                                style={{
-                                                    background: 'none', border: 'none', color: '#c62828',
-                                                    cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px'
-                                                }}>×</button>
+                                            <button type="button" className="crop-tag-remove" onClick={() => setSelectedCrops(selectedCrops.filter(c => c !== crop))}>×</button>
                                         </span>
                                     );
                                 })}

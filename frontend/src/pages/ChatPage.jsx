@@ -541,7 +541,7 @@ function ChatPage() {
 
             {/* Main chat area */}
             <div className="chat-main">
-                <div className="page-header" style={{ paddingLeft: '24px', marginBottom: '8px' }}>
+                <div className="page-header" style={{ marginBottom: '8px' }}>
                     <div className="page-header-top">
                         <h2>
                             💬 {t('chatTitle')}
