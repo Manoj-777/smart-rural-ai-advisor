@@ -7,7 +7,7 @@ import boto3
 import os
 import logging
 import time as _time
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -39,7 +39,7 @@ def put_farmer_profile(farmer_id, profile_data):
         item = {
             'farmer_id': farmer_id,
             **profile_data,
-            'updated_at': datetime.utcnow().isoformat()
+            'updated_at': datetime.now(UTC).replace(tzinfo=None).isoformat()
         }
         profiles_table.put_item(Item=item)
         return True
@@ -54,7 +54,7 @@ def save_chat_message(session_id, role, message, language='en', farmer_id=None, 
     When language != 'en', also stores message_en (English version) for pipeline context.
     """
     try:
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(UTC).replace(tzinfo=None).isoformat()
         ttl_epoch = int(_time.time()) + (CHAT_TTL_DAYS * 86400)
         item = {
             'session_id': session_id,

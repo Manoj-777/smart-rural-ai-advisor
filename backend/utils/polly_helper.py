@@ -9,9 +9,16 @@ import uuid
 import io
 import re
 import time
+import random
+import logging
+from botocore.config import Config
 
-polly = boto3.client('polly')
-s3 = boto3.client('s3')
+logger = logging.getLogger()
+
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+polly = boto3.client('polly', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('polly')
+s3 = boto3.client('s3', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('s3')
 
 S3_BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-knowledge-base')
 
@@ -54,6 +61,18 @@ GTTS_SUPPORTED_LANGS = {'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'or', 'a
 USE_GTTS = os.environ.get('USE_GTTS', 'true').lower() == 'true'
 GTTS_RETRY_ATTEMPTS = max(1, int(os.environ.get('GTTS_RETRY_ATTEMPTS', '3')))
 GTTS_RETRY_BACKOFF_SEC = float(os.environ.get('GTTS_RETRY_BACKOFF_SEC', '0.6'))
+ENABLE_GTTS_EXPONENTIAL_BACKOFF = os.environ.get('ENABLE_GTTS_EXPONENTIAL_BACKOFF', 'false').lower() == 'true'
+ENABLE_EXTENDED_AUDIO_EXPIRY = os.environ.get('ENABLE_EXTENDED_AUDIO_EXPIRY', 'false').lower() == 'true'
+ENABLE_VOICE_VALIDATION = os.environ.get('ENABLE_VOICE_VALIDATION', 'false').lower() == 'true'
+ENABLE_S3_VALIDATION = os.environ.get('ENABLE_S3_VALIDATION', 'false').lower() == 'true'
+ENABLE_TTS_LIST_FORMATTING = os.environ.get('ENABLE_TTS_LIST_FORMATTING', 'false').lower() == 'true'
+
+if ENABLE_S3_VALIDATION:
+    try:
+        s3.head_bucket(Bucket=S3_BUCKET)
+        logger.info(f"S3 bucket validated for Polly audio uploads: {S3_BUCKET}")
+    except Exception as bucket_err:
+        logger.warning(f"S3 bucket validation failed for '{S3_BUCKET}': {bucket_err}")
 
 
 def normalize_language_code(language_code, default='en'):
@@ -78,9 +97,22 @@ def _strip_markdown_for_tts(text):
     s = re.sub(r'\*(.+?)\*', r'\1', s)
     # Remove bullet markers at start of line: - item or • item → item
     s = re.sub(r'^[\s]*[\-•]\s+', '', s, flags=re.MULTILINE)
-    # Remove numbered list prefixes that look odd in speech: "1. " → ""
-    # Keep the text after the number
-    s = re.sub(r'^\d+\.\s+', '', s, flags=re.MULTILINE)
+    if os.environ.get('ENABLE_TTS_LIST_FORMATTING', 'false').lower() == 'true':
+        ordinals = {
+            '1': 'First, ',
+            '2': 'Second, ',
+            '3': 'Third, ',
+            '4': 'Fourth, ',
+            '5': 'Fifth, ',
+        }
+
+        def _replace_numbered(match):
+            number = match.group(1)
+            return ordinals.get(number, f"Point {number}, ")
+
+        s = re.sub(r'^(\d+)\.\s+', _replace_numbered, s, flags=re.MULTILINE)
+    else:
+        s = re.sub(r'^\d+\.\s+', '', s, flags=re.MULTILINE)
     # Remove common emojis (Unicode blocks for emoji)
     s = re.sub(r'[\U0001F300-\U0001F9FF\U00002600-\U000027BF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF]', '', s)
     # Remove other special chars: |, ~, `, >, ===
@@ -120,10 +152,11 @@ def _upload_audio_bytes(audio_bytes):
         ContentType='audio/mpeg'
     )
 
+    expiry_seconds = 7200 if os.environ.get('ENABLE_EXTENDED_AUDIO_EXPIRY', 'false').lower() == 'true' else 3600
     presigned = s3.generate_presigned_url(
         'get_object',
         Params={'Bucket': S3_BUCKET, 'Key': audio_key},
-        ExpiresIn=3600
+        ExpiresIn=expiry_seconds
     )
     return {'url': presigned, 'key': audio_key}
 
@@ -135,10 +168,11 @@ def refresh_audio_url(audio_key):
     try:
         # Verify the file exists
         s3.head_object(Bucket=S3_BUCKET, Key=audio_key)
+        expiry_seconds = 7200 if os.environ.get('ENABLE_EXTENDED_AUDIO_EXPIRY', 'false').lower() == 'true' else 3600
         return s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': S3_BUCKET, 'Key': audio_key},
-            ExpiresIn=3600
+            ExpiresIn=expiry_seconds
         )
     except Exception:
         return None
@@ -146,6 +180,9 @@ def refresh_audio_url(audio_key):
 
 def _polly_tts(safe_text, language_code, voice_id=None):
     selected_voice = voice_id or VOICE_MAP.get(language_code, 'Kajal')
+    if os.environ.get('ENABLE_VOICE_VALIDATION', 'false').lower() == 'true' and voice_id and voice_id not in VOICE_MAP.values():
+        logger.warning(f"Invalid voice_id '{voice_id}' received; using mapped/default voice")
+        selected_voice = VOICE_MAP.get(language_code, 'Kajal')
     response = polly.synthesize_speech(
         Text=safe_text,
         OutputFormat='mp3',
@@ -175,7 +212,12 @@ def _gtts_tts(safe_text, language_code):
         except Exception as err:
             last_error = err
             if attempt < GTTS_RETRY_ATTEMPTS:
-                time.sleep(GTTS_RETRY_BACKOFF_SEC * attempt)
+                if os.environ.get('ENABLE_GTTS_EXPONENTIAL_BACKOFF', 'false').lower() == 'true':
+                    delay = GTTS_RETRY_BACKOFF_SEC * (2 ** (attempt - 1))
+                    jitter = delay * random.uniform(-0.25, 0.25)
+                    time.sleep(max(0.1, delay + jitter))
+                else:
+                    time.sleep(GTTS_RETRY_BACKOFF_SEC * attempt)
 
     raise RuntimeError(f'gTTS failed after {GTTS_RETRY_ATTEMPTS} attempts: {last_error}')
 

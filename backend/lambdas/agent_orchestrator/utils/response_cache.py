@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 
 import boto3
 
@@ -40,6 +40,7 @@ def _normalize_query(text):
     import re
     t = text.lower().strip()
     t = re.sub(r'\s+', ' ', t)
+    from datetime import datetime, UTC
     # Remove punctuation for fuzzy matching
     t = re.sub(r'[^\w\s]', '', t)
     return t.strip()
@@ -132,7 +133,7 @@ def cache_response(query_text, location, crop, season, response_data, intents=No
             'location': (location or '')[:100],
             'crop': (crop or '')[:50],
             'season': (season or '')[:20],
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': datetime.now(UTC).replace(tzinfo=None).isoformat(),
             'expires_at': str(ttl_epoch),
             'ttl_seconds': ttl,
             'ttl': ttl_epoch,  # DynamoDB TTL attribute — auto-delete expired cache entries

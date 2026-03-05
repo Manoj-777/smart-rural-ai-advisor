@@ -7,10 +7,14 @@
 import json
 import logging
 import re
+import os
 from utils.response_helper import success_response, error_response
+from utils.cors_helper import handle_cors_preflight
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
 
 # ── Security: Input validation ──
 MAX_SEARCH_LENGTH = 200
@@ -193,6 +197,8 @@ def lambda_handler(event, context):
     try:
         # Handle CORS preflight
         if event.get('httpMethod') == 'OPTIONS':
+            if ENABLE_UNIFIED_CORS:
+                return handle_cors_preflight(methods='GET,POST,OPTIONS')
             return success_response({}, message='OK')
 
         if 'parameters' in event:

@@ -11,13 +11,18 @@ import uuid
 import time
 import os
 import logging
+from botocore.config import Config
 from utils.response_helper import success_response, error_response
+from utils.cors_helper import handle_cors_preflight
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-transcribe = boto3.client('transcribe')
-s3 = boto3.client('s3')
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+transcribe = boto3.client('transcribe', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('transcribe')
+s3 = boto3.client('s3', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('s3')
 
 BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-knowledge-base')
 
@@ -49,6 +54,8 @@ def lambda_handler(event, context):
     """
     # Handle CORS preflight
     if event.get('httpMethod') == 'OPTIONS':
+        if ENABLE_UNIFIED_CORS:
+            return handle_cors_preflight(methods='POST,OPTIONS')
         return success_response({}, message='OK')
 
     try:

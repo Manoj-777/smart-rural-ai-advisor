@@ -5,8 +5,20 @@
 
 import boto3
 import unicodedata
+import logging
+import os
+from botocore.config import Config
 
-translate = boto3.client('translate')
+logger = logging.getLogger()
+
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+translate = boto3.client('translate', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('translate')
+
+ENABLE_LANGUAGE_VALIDATION_LOGGING = os.environ.get('ENABLE_LANGUAGE_VALIDATION_LOGGING', 'false').lower() == 'true'
+
+# AWS Translate limit: 10,000 bytes per request
+_TRANSLATE_MAX_BYTES = 10_000
 
 # Supported languages (must match frontend config.js)
 SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]
@@ -55,8 +67,14 @@ def normalize_language_code(language_code, default='en'):
     normalized = (language_code or '').strip().lower().replace('_', '-')
     if not normalized:
         return default
+    original = normalized
     normalized = LANGUAGE_ALIASES.get(normalized, normalized)
-    return normalized if normalized in SUPPORTED_LANGUAGES else default
+    if normalized in SUPPORTED_LANGUAGES:
+        return normalized
+
+    if os.environ.get('ENABLE_LANGUAGE_VALIDATION_LOGGING', 'false').lower() == 'true':
+        logger.warning(f"Unsupported language code '{original}' normalized to default '{default}'")
+    return default
 
 
 def detect_and_translate(text, target_language='en'):
@@ -270,6 +288,83 @@ def _is_garbled_translation(original, translated):
     return False
 
 
+def _chunked_translate(text, source_lang, target_lang, max_bytes=None):
+    """Translate text that exceeds AWS Translate's per-request byte limit.
+
+    Splits on paragraph boundaries (double newlines) first, then on single
+    newlines, to keep semantic units together.  Each chunk is translated
+    individually and the results are joined back with the original
+    separators.
+
+    Bug 1.8 — prevents silent translation failures on long responses.
+    """
+    if max_bytes is None:
+        max_bytes = _TRANSLATE_MAX_BYTES
+    # Fast path: fits in one call
+    if len(text.encode('utf-8')) <= max_bytes:
+        resp = translate.translate_text(
+            Text=text,
+            SourceLanguageCode=source_lang,
+            TargetLanguageCode=target_lang,
+        )
+        return resp['TranslatedText']
+
+    # Split by paragraphs first, then lines if still too big
+    import re as _re
+    paragraphs = _re.split(r'(\n{2,})', text)  # keep separators
+    chunks = []
+    current = ''
+    for para in paragraphs:
+        candidate = current + para
+        if len(candidate.encode('utf-8')) > max_bytes and current:
+            chunks.append(current)
+            current = para
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+
+    # Translate each chunk
+    translated_parts = []
+    for i, chunk in enumerate(chunks):
+        if not chunk.strip():
+            translated_parts.append(chunk)
+            continue
+        # If a single chunk is STILL too large, split on single newlines
+        if len(chunk.encode('utf-8')) > max_bytes:
+            lines = chunk.split('\n')
+            sub_chunk = ''
+            for line in lines:
+                candidate = sub_chunk + '\n' + line if sub_chunk else line
+                if len(candidate.encode('utf-8')) > max_bytes and sub_chunk:
+                    resp = translate.translate_text(
+                        Text=sub_chunk,
+                        SourceLanguageCode=source_lang,
+                        TargetLanguageCode=target_lang,
+                    )
+                    translated_parts.append(resp['TranslatedText'])
+                    sub_chunk = line
+                else:
+                    sub_chunk = candidate
+            if sub_chunk.strip():
+                resp = translate.translate_text(
+                    Text=sub_chunk,
+                    SourceLanguageCode=source_lang,
+                    TargetLanguageCode=target_lang,
+                )
+                translated_parts.append(resp['TranslatedText'])
+        else:
+            resp = translate.translate_text(
+                Text=chunk,
+                SourceLanguageCode=source_lang,
+                TargetLanguageCode=target_lang,
+            )
+            translated_parts.append(resp['TranslatedText'])
+        logger.info(f"Translated chunk {i+1}/{len(chunks)} ({len(chunk.encode('utf-8'))} bytes)")
+
+    return ''.join(translated_parts)
+
+
 # Localized "Translation unavailable" message for each supported language
 _TRANSLATION_UNAVAILABLE = {
     'hi': '(अनुवाद उपलब्ध नहीं है — अंग्रेज़ी में दिखा रहे हैं)\n\n',
@@ -339,8 +434,16 @@ def translate_response(text, source_language='en', target_language='ta'):
         return t
 
     def _do_translate_protected(source_text):
-        """Translate with token-based markdown protection."""
+        """Translate with token-based markdown protection.
+        Handles text exceeding AWS Translate's 10 KB limit by chunking."""
         protected = _protect_markdown(source_text)
+        # Bug 1.8: chunk if text exceeds AWS Translate byte limit
+        if len(protected.encode('utf-8')) > _TRANSLATE_MAX_BYTES:
+            logger.warning(
+                f"Translation text exceeds {_TRANSLATE_MAX_BYTES} bytes "
+                f"({len(protected.encode('utf-8'))} bytes) — chunking"
+            )
+            return _chunked_translate(protected, normalized_source, normalized_target)
         response = translate.translate_text(
             Text=protected,
             SourceLanguageCode=normalized_source,
@@ -352,8 +455,16 @@ def translate_response(text, source_language='en', target_language='ta'):
         return result
 
     def _do_translate_plain(source_text):
-        """Plain text translation (fallback — no markdown protection)."""
+        """Plain text translation (fallback — no markdown protection).
+        Handles text exceeding AWS Translate's 10 KB limit by chunking."""
         plain = _light_markdown_to_plain(source_text)
+        # Bug 1.8: chunk if text exceeds AWS Translate byte limit
+        if len(plain.encode('utf-8')) > _TRANSLATE_MAX_BYTES:
+            logger.warning(
+                f"Plain translation text exceeds {_TRANSLATE_MAX_BYTES} bytes "
+                f"({len(plain.encode('utf-8'))} bytes) — chunking"
+            )
+            return _chunked_translate(plain, normalized_source, normalized_target)
         response = translate.translate_text(
             Text=plain,
             SourceLanguageCode=normalized_source,

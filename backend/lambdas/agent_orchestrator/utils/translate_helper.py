@@ -5,11 +5,24 @@
 
 import boto3
 import unicodedata
+import os
+import logging
+from botocore.config import Config
 
-translate = boto3.client('translate')
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+translate = boto3.client('translate', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('translate')
 
 # Supported languages (must match frontend config.js)
 SUPPORTED_LANGUAGES = ["en", "hi", "ta", "te", "kn", "ml", "mr", "bn", "gu", "pa", "or", "as", "ur"]
+
+# Feature flag: translation chunking for long payloads (default: OFF) — Bug 1.8
+ENABLE_TRANSLATION_CHUNKING = os.environ.get('ENABLE_TRANSLATION_CHUNKING', 'false').lower() == 'true'
+TRANSLATE_MAX_BYTES = int(os.environ.get('TRANSLATE_MAX_BYTES', '9000'))
+ENABLE_LANGUAGE_VALIDATION_LOGGING = os.environ.get('ENABLE_LANGUAGE_VALIDATION_LOGGING', 'false').lower() == 'true'
 
 # Max tolerated Latin-script ratio after excluding common non-translatable tokens.
 # Keeps checks conservative so technical terms (NPK, pH, URLs, units) don't trigger retries.
@@ -55,8 +68,14 @@ def normalize_language_code(language_code, default='en'):
     normalized = (language_code or '').strip().lower().replace('_', '-')
     if not normalized:
         return default
+    original = normalized
     normalized = LANGUAGE_ALIASES.get(normalized, normalized)
-    return normalized if normalized in SUPPORTED_LANGUAGES else default
+    if normalized in SUPPORTED_LANGUAGES:
+        return normalized
+
+    if os.environ.get('ENABLE_LANGUAGE_VALIDATION_LOGGING', 'false').lower() == 'true':
+        logger.warning(f"Unsupported language code '{original}' normalized to default '{default}'")
+    return default
 
 
 def detect_and_translate(text, target_language='en'):
@@ -364,8 +383,67 @@ def translate_response(text, source_language='en', target_language='ta'):
         result = _strip_html_artifacts(result)
         return result
 
+    def _chunk_text_for_translate(source_text, max_bytes=9000):
+        chunks = []
+        current = []
+        current_bytes = 0
+        for line in (source_text or '').split('\n'):
+            encoded = (line + '\n').encode('utf-8')
+            line_bytes = len(encoded)
+            if line_bytes > max_bytes:
+                # Hard split very long lines by characters.
+                segment = ''
+                for char in (line + '\n'):
+                    char_bytes = len(char.encode('utf-8'))
+                    if len(segment.encode('utf-8')) + char_bytes > max_bytes:
+                        if segment:
+                            chunks.append(segment)
+                        segment = char
+                    else:
+                        segment += char
+                if segment:
+                    chunks.append(segment)
+                continue
+
+            if current_bytes + line_bytes > max_bytes and current:
+                chunks.append(''.join(current))
+                current = [line + '\n']
+                current_bytes = line_bytes
+            else:
+                current.append(line + '\n')
+                current_bytes += line_bytes
+
+        if current:
+            chunks.append(''.join(current))
+        return [chunk for chunk in chunks if chunk.strip()]
+
+    def _translate_in_chunks(source_text):
+        chunking_enabled = os.environ.get('ENABLE_TRANSLATION_CHUNKING', 'false').lower() == 'true'
+        max_bytes = int(os.environ.get('TRANSLATE_MAX_BYTES', '9000'))
+        if not chunking_enabled:
+            return None
+
+        total_bytes = len((source_text or '').encode('utf-8'))
+        if total_bytes <= max_bytes:
+            return None
+
+        print(f"Translation chunking enabled: {total_bytes} bytes > {max_bytes} bytes")
+        translated_parts = []
+        for part in _chunk_text_for_translate(source_text, max_bytes=max_bytes):
+            translated_part = _postprocess_localized_text(_do_translate_protected(part), normalized_target)
+            translated_parts.append(translated_part)
+        return '\n'.join(translated_parts).strip()
+
     protected_candidate = None
     plain_candidate = None
+
+    # Optional chunking path for oversized requests.
+    try:
+        chunked = _translate_in_chunks(text)
+        if chunked:
+            return chunked
+    except Exception as chunk_err:
+        print(f"Chunked translate path failed: {chunk_err}")
 
     # Attempt 1: Token-protected translation (preserves markdown)
     try:

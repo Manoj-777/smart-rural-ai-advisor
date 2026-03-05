@@ -38,7 +38,7 @@ import sys
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, UTC
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -671,7 +671,7 @@ def main():
             'fail': fail_count,
             'pass_rate_pct': round(pass_count / total * 100, 1),
             'elapsed_sec': round(elapsed, 1),
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'timestamp': datetime.now(UTC).replace(tzinfo=None).isoformat() + 'Z',
             'by_category': by_cat,
         },
         'scenarios': results,

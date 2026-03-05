@@ -13,7 +13,9 @@ import re
 import unicodedata
 import time as _time
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
@@ -30,13 +32,14 @@ FAST_PATH_PREFIXES = ('crop-recommend-', 'soil-analysis-', 'farm-calendar-', 'pr
 from utils.response_helper import success_response, error_response
 from utils.translate_helper import detect_and_translate, translate_response, normalize_language_code, needs_localization_retry
 from utils.polly_helper import text_to_speech, refresh_audio_url
-from utils.dynamodb_helper import save_chat_message, get_farmer_profile, get_chat_history, get_session_message_count
+from utils.dynamodb_helper import save_chat_message, save_chat_messages_batch, get_farmer_profile, get_chat_history, get_session_message_count
 
 # Enterprise Guardrails (Gaps #1-#4, #6-#7)
 from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_guardrails
 from utils.rate_limiter import check_rate_limit
 from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session, rename_session as rename_chat_session
 from utils.response_cache import get_cached_response, cache_response
+from utils.cors_helper import handle_cors_preflight
 from utils.audit_logger import (
     audit_request_start, audit_guardrail_block, audit_pii_detected,
     audit_tool_invocation, audit_policy_decision, audit_request_complete,
@@ -67,9 +70,108 @@ LAMBDA_CROP = os.environ.get('LAMBDA_CROP', '')
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', '')
 LAMBDA_PROFILE = os.environ.get('LAMBDA_PROFILE', '')
 
+# Feature flag: Timeout protection (default: OFF)
+ENABLE_TIMEOUT_PROTECTION = os.environ.get('ENABLE_TIMEOUT_PROTECTION', 'false').lower() == 'true'
+TIMEOUT_BUFFER_MS = int(os.environ.get('TIMEOUT_BUFFER_MS', '5000'))  # 5 seconds before API Gateway timeout
+
+# Feature flag: Tool execution timeout (default: OFF) — Bug 1.2
+ENABLE_TOOL_TIMEOUT = os.environ.get('ENABLE_TOOL_TIMEOUT', 'false').lower() == 'true'
+TOOL_EXECUTION_TIMEOUT_SEC = int(os.environ.get('TOOL_EXECUTION_TIMEOUT_SEC', '25'))
+
+# Feature flag: Thread-safe parallel tool execution (default: OFF) — Bug 1.5
+ENABLE_THREAD_SAFE_TOOLS = os.environ.get('ENABLE_THREAD_SAFE_TOOLS', 'false').lower() == 'true'
+
+# Feature flag: Model fallback control (default: OFF) — Bug 1.4
+ENABLE_MODEL_FALLBACK = os.environ.get('ENABLE_MODEL_FALLBACK', 'false').lower() == 'true'
+
+# Feature flags: medium/low reliability improvements (default: OFF)
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+ENABLE_BACKOFF_JITTER = os.environ.get('ENABLE_BACKOFF_JITTER', 'false').lower() == 'true'
+ENABLE_MODEL_VALIDATION = os.environ.get('ENABLE_MODEL_VALIDATION', 'false').lower() == 'true'
+ENABLE_TOOL_INVOCATION_TIMEOUT = os.environ.get('ENABLE_TOOL_INVOCATION_TIMEOUT', 'false').lower() == 'true'
+ENABLE_TOOL_METRICS = os.environ.get('ENABLE_TOOL_METRICS', 'false').lower() == 'true'
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
+
+
+def _pool_config():
+    if not ENABLE_CONNECTION_POOLING:
+        return None
+    return Config(max_pool_connections=25)
+
+
+_POOL_CONFIG = _pool_config()
+
+
+def _check_timeout_approaching(context):
+    """
+    Check if Lambda is approaching API Gateway timeout.
+    Returns: (is_approaching: bool, remaining_ms: int)
+    """
+    # Read flag dynamically to support testing
+    enable_protection = os.environ.get('ENABLE_TIMEOUT_PROTECTION', 'false').lower() == 'true'
+    if not enable_protection:
+        return False, None
+    
+    buffer_ms = int(os.environ.get('TIMEOUT_BUFFER_MS', '5000'))
+    remaining_ms = context.get_remaining_time_in_millis()
+    is_approaching = remaining_ms < buffer_ms
+    return is_approaching, remaining_ms
+
+
+def _timeout_fallback_response(language='en'):
+    """
+    Generate graceful timeout fallback response.
+    Returns: dict with reply and timeout_fallback flag
+    """
+    messages = {
+        'en': 'Your request is taking longer than expected to process. Please try again with a simpler question.',
+        'hi': 'आपका अनुरोध संसाधित होने में अपेक्षा से अधिक समय ले रहा है। कृपया एक सरल प्रश्न के साथ पुनः प्रयास करें।',
+    }
+    
+    message = messages.get(language, messages['en'])
+    
+    return {
+        'reply': message,
+        'audio_url': None,
+        'timeout_fallback': True
+    }
+
+
+def _timeout_http_response(session_id, language='en'):
+    """HTTP response payload for graceful timeout fallback."""
+    fallback = _timeout_fallback_response(language)
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net'),
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        },
+        'body': json.dumps({
+            'reply': fallback['reply'],
+            'reply_en': fallback['reply'],
+            'detected_language': language,
+            'tools_used': [],
+            'audio_url': fallback['audio_url'],
+            'audio_key': None,
+            'session_id': session_id,
+            'mode': 'bedrock-direct',
+            'timeout_fallback': fallback['timeout_fallback'],
+        })
+    }
+
+
 # Bedrock Runtime client for direct model invocation (converse API with tool use)
-bedrock_rt = boto3.client('bedrock-runtime', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
-lambda_client = boto3.client('lambda', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
+_REGION = os.environ.get('AWS_REGION', 'ap-south-1')
+bedrock_rt = boto3.client('bedrock-runtime', region_name=_REGION, config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('bedrock-runtime', region_name=_REGION)
+lambda_client = boto3.client('lambda', region_name=_REGION, config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('lambda', region_name=_REGION)
+if ENABLE_TOOL_INVOCATION_TIMEOUT:
+    _lambda_timeout_config = Config(read_timeout=30, connect_timeout=5, max_pool_connections=25 if ENABLE_CONNECTION_POOLING else 10)
+    lambda_invoke_client = boto3.client('lambda', region_name=_REGION, config=_lambda_timeout_config)
+else:
+    lambda_invoke_client = lambda_client
+cloudwatch_client = boto3.client('cloudwatch', region_name=_REGION, config=_POOL_CONFIG) if (ENABLE_TOOL_METRICS and _POOL_CONFIG) else (boto3.client('cloudwatch', region_name=_REGION) if ENABLE_TOOL_METRICS else None)
 logger.info(f"Mode: Direct Bedrock converse() | Model: {FOUNDATION_MODEL}")
 
 
@@ -571,12 +673,50 @@ TOOL_TO_LAMBDA = {
 }
 
 
+def _emit_tool_metric(tool_name, duration_ms, success):
+    if not cloudwatch_client:
+        return
+    try:
+        cloudwatch_client.put_metric_data(
+            Namespace='SmartRuralAI/Tools',
+            MetricData=[
+                {
+                    'MetricName': 'ToolExecutionDurationMs',
+                    'Dimensions': [{'Name': 'ToolName', 'Value': str(tool_name)}],
+                    'Value': float(duration_ms),
+                    'Unit': 'Milliseconds',
+                },
+                {
+                    'MetricName': 'ToolExecutionSuccess',
+                    'Dimensions': [{'Name': 'ToolName', 'Value': str(tool_name)}],
+                    'Value': 1.0 if success else 0.0,
+                    'Unit': 'Count',
+                },
+            ],
+        )
+    except Exception as metric_err:
+        logger.warning(f"Tool metric emission failed for {tool_name}: {metric_err}")
+
+
+def _validated_model_id(model_id):
+    if not model_id:
+        return FOUNDATION_MODEL
+    if not os.environ.get('ENABLE_MODEL_VALIDATION', 'false').lower() == 'true':
+        return model_id
+    allowed = {FOUNDATION_MODEL, FOUNDATION_MODEL_LITE}
+    if model_id not in allowed:
+        logger.warning(f"Invalid model_id override '{model_id}' rejected; using FOUNDATION_MODEL")
+        return FOUNDATION_MODEL
+    return model_id
+
+
 def _execute_tool(tool_name, tool_input):
     """Execute a tool by invoking the corresponding Lambda function."""
     lambda_name = TOOL_TO_LAMBDA.get(tool_name)
     if not lambda_name:
         return {"error": f"Unknown tool: {tool_name}"}
 
+    start_time = _time.time()
     try:
         # Build Lambda payload based on tool
         if tool_name == "get_weather":
@@ -594,7 +734,7 @@ def _execute_tool(tool_name, tool_input):
         else:
             lambda_payload = {"body": json.dumps(tool_input)}
 
-        response = lambda_client.invoke(
+        response = lambda_invoke_client.invoke(
             FunctionName=lambda_name,
             InvocationType="RequestResponse",
             Payload=json.dumps(lambda_payload).encode(),
@@ -606,12 +746,18 @@ def _execute_tool(tool_name, tool_input):
             body = resp_payload["body"]
             if isinstance(body, str):
                 try:
-                    return json.loads(body)
+                    parsed = json.loads(body)
+                    _emit_tool_metric(tool_name, (_time.time() - start_time) * 1000.0, True)
+                    return parsed
                 except json.JSONDecodeError:
+                    _emit_tool_metric(tool_name, (_time.time() - start_time) * 1000.0, True)
                     return {"result": body}
+            _emit_tool_metric(tool_name, (_time.time() - start_time) * 1000.0, True)
             return body
+        _emit_tool_metric(tool_name, (_time.time() - start_time) * 1000.0, True)
         return resp_payload
     except Exception as e:
+        _emit_tool_metric(tool_name, (_time.time() - start_time) * 1000.0, False)
         logger.error(f"Tool execution error ({tool_name}): {str(e)}")
         return {"error": "Tool invocation failed"}
 
@@ -659,7 +805,9 @@ def _bedrock_converse_with_retry(bedrock_client, **kwargs):
                 'InternalServerException',
             )
             if retryable and attempt < MAX_RETRIES:
-                delay = RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.3)
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                if os.environ.get('ENABLE_BACKOFF_JITTER', 'false').lower() == 'true':
+                    delay = max(0.1, delay * (1 + random.uniform(-0.25, 0.25)))
                 logger.warning(
                     f"Bedrock {error_code} (attempt {attempt+1}/{1+MAX_RETRIES}) — "
                     f"retrying in {delay:.1f}s"
@@ -672,9 +820,12 @@ def _bedrock_converse_with_retry(bedrock_client, **kwargs):
         except Exception:
             raise
 
-    # ── MODEL FALLBACK ──
+    # Read flag dynamically so tests and runtime env updates are respected.
+    model_fallback_enabled = os.environ.get('ENABLE_MODEL_FALLBACK', 'false').lower() == 'true'
+
+    # ── MODEL FALLBACK (guarded by feature flag) ──
     fallback_model = MODEL_FALLBACK.get(primary_model)
-    if fallback_model and last_exc:
+    if model_fallback_enabled and fallback_model and last_exc:
         error_code = ''
         if isinstance(last_exc, ClientError):
             error_code = last_exc.response.get('Error', {}).get('Code', '')
@@ -691,6 +842,11 @@ def _bedrock_converse_with_retry(bedrock_client, **kwargs):
             logger.error(f"Model fallback ALSO FAILED ({fallback_model}): {fb_err}")
             # Raise the original exception — more informative
             raise last_exc
+    elif fallback_model and last_exc and not model_fallback_enabled:
+        logger.warning(
+            f"Primary model {primary_model} failed after {1+MAX_RETRIES} attempts; "
+            "model fallback is DISABLED"
+        )
 
     if last_exc:
         raise last_exc
@@ -988,7 +1144,7 @@ def _localize_response_hybrid(text_en, target_lang):
     return translate_response(text_en, 'en', target_lang), 'translate_fallback'
 
 
-def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None):
+def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=False, chat_history=None, model_id=None, lambda_context=None):
     """
     Call Bedrock model directly with tool use (converse API).
     Primary invocation path using Bedrock converse() API with tool use.
@@ -996,6 +1152,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
     are code-generated, already screened by application-level guardrails).
     chat_history: list of previous converse() message dicts for conversation memory.
     model_id: optional override — use FOUNDATION_MODEL_LITE for simple queries.
+    lambda_context: optional Lambda context for timeout checking.
     Returns: (result_text, tools_used, tool_data_log, guardrail_intervened)
     """
     tools_used = []
@@ -1035,8 +1192,15 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
     try:
         # Multi-turn tool use loop (max 5 turns)
         for turn in range(5):
+            # NEW: Check timeout before each turn
+            if ENABLE_TIMEOUT_PROTECTION and lambda_context:
+                is_approaching, remaining_ms = _check_timeout_approaching(lambda_context)
+                if is_approaching:
+                    logger.warning(f"Timeout approaching in turn {turn}: {remaining_ms}ms remaining")
+                    return _timeout_fallback_response(), tools_used, tool_data_log, False
+
             converse_kwargs = {
-                "modelId": model_id or FOUNDATION_MODEL,
+                "modelId": _validated_model_id(model_id),
                 "messages": messages,
                 "system": [{"text": system_prompt}],
                 "toolConfig": {"tools": DIRECT_TOOLS},
@@ -1075,26 +1239,102 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 tool_results = []
                 if len(pending_tools) >= 2:
                     logger.info(f"Parallel tool execution: {[t['name'] for t in pending_tools]}")
-                    with ThreadPoolExecutor(max_workers=len(pending_tools)) as pool:
+
+                    # Bug 1.5: thread-safe lock for shared lists
+                    _lock = threading.Lock() if ENABLE_THREAD_SAFE_TOOLS else None
+
+                    def _safe_append_tool(name):
+                        if _lock:
+                            with _lock:
+                                tools_used.append(name)
+                        else:
+                            tools_used.append(name)
+
+                    def _safe_append_log(entry):
+                        if _lock:
+                            with _lock:
+                                tool_data_log.append(entry)
+                        else:
+                            tool_data_log.append(entry)
+
+                    pool = ThreadPoolExecutor(max_workers=len(pending_tools))
+                    try:
                         futures = {
                             pool.submit(_execute_tool, t["name"], t["input"]): t
                             for t in pending_tools
                         }
-                        for future in as_completed(futures):
-                            t = futures[future]
-                            tool_name = t["name"]
-                            tool_input = t["input"]
-                            tool_id = t["id"]
-                            tools_used.append(tool_name)
-                            result = future.result()
-                            result = _enrich_tool_result(result, tool_name, tool_input, prompt)
-                            tool_data_log.append({"tool": tool_name, "input": tool_input, "output": result})
-                            tool_results.append({
-                                "toolResult": {
-                                    "toolUseId": tool_id,
-                                    "content": [{"json": result}],
-                                }
-                            })
+
+                        # Bug 1.2: use wait() with timeout instead of as_completed()
+                        if ENABLE_TOOL_TIMEOUT:
+                            done, not_done = wait(futures.keys(), timeout=TOOL_EXECUTION_TIMEOUT_SEC)
+
+                            # Process completed tools
+                            for future in done:
+                                t = futures[future]
+                                tool_name = t["name"]
+                                tool_input = t["input"]
+                                tool_id = t["id"]
+                                _safe_append_tool(tool_name)
+                                try:
+                                    result = future.result()
+                                    result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                                    _safe_append_log({"tool": tool_name, "input": tool_input, "output": result})
+                                    tool_results.append({
+                                        "toolResult": {
+                                            "toolUseId": tool_id,
+                                            "content": [{"json": result}],
+                                        }
+                                    })
+                                except Exception as e:
+                                    logger.error(f"Tool {tool_name} result error: {str(e)}")
+                                    tool_results.append({
+                                        "toolResult": {
+                                            "toolUseId": tool_id,
+                                            "content": [{"json": {"error": f"Tool execution failed: {str(e)}"}}],
+                                        }
+                                    })
+
+                            # Handle timed-out tools
+                            for future in not_done:
+                                t = futures[future]
+                                tool_name = t["name"]
+                                tool_id = t["id"]
+                                logger.error(f"Tool {tool_name} TIMED OUT after {TOOL_EXECUTION_TIMEOUT_SEC}s")
+                                _safe_append_tool(f"{tool_name}_TIMEOUT")
+                                _emit_tool_metric(tool_name, TOOL_EXECUTION_TIMEOUT_SEC * 1000.0, False)
+                                tool_results.append({
+                                    "toolResult": {
+                                        "toolUseId": tool_id,
+                                        "content": [{"json": {
+                                            "error": f"Tool execution timed out after {TOOL_EXECUTION_TIMEOUT_SEC} seconds",
+                                            "tool": tool_name,
+                                            "timeout": True,
+                                        }}],
+                                    }
+                                })
+                                future.cancel()
+                        else:
+                            # Original code path: no timeout
+                            for future in as_completed(futures):
+                                t = futures[future]
+                                tool_name = t["name"]
+                                tool_input = t["input"]
+                                tool_id = t["id"]
+                                _safe_append_tool(tool_name)
+                                result = future.result()
+                                result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                                _safe_append_log({"tool": tool_name, "input": tool_input, "output": result})
+                                tool_results.append({
+                                    "toolResult": {
+                                        "toolUseId": tool_id,
+                                        "content": [{"json": result}],
+                                    }
+                                })
+                    finally:
+                        if ENABLE_TOOL_TIMEOUT:
+                            pool.shutdown(wait=False, cancel_futures=True)
+                        else:
+                            pool.shutdown(wait=True)
                 else:
                     # Single tool — execute directly (no thread overhead)
                     for t in pending_tools:
@@ -1137,6 +1377,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
         import traceback
         logger.error(traceback.format_exc())
         return f"I apologize, I encountered an error. Please try again.", [], [], False
+
 
 
 def _classify_intents(message_en, original_message=None):
@@ -1283,6 +1524,8 @@ def lambda_handler(event, context):
     """
     # Handle CORS preflight
     if event.get('httpMethod') == 'OPTIONS':
+        if ENABLE_UNIFIED_CORS:
+            return handle_cors_preflight(methods='GET,POST,OPTIONS')
         return success_response({}, message='OK')
 
     # Correlation ID for end-to-end request tracing across CloudWatch logs
@@ -1360,6 +1603,7 @@ def lambda_handler(event, context):
         user_message = body.get('message', '')
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
+        idempotency_token = body.get('idempotency_token')
         language = body.get('language', None)  # Auto-detect if not provided
         # GPS location sent from frontend (browser Geolocation API)
         gps_location = body.get('gps_location', None)  # e.g. "Coimbatore"
@@ -1375,6 +1619,13 @@ def lambda_handler(event, context):
 
         if not user_message or not user_message.strip():
             return error_response('Message is required', 400)
+
+        # Early timeout check before any additional processing/guardrails/tooling
+        is_approaching, remaining_ms = _check_timeout_approaching(context)
+        if is_approaching:
+            logger.warning(f"Timeout approaching early in request: {remaining_ms}ms remaining, returning fallback")
+            requested_lang = normalize_language_code(language or 'en', default='en')
+            return _timeout_http_response(session_id, requested_lang)
 
         # ── Chat session message limit ──
         # Cap at 50 user interactions per session (100 messages = 50 user + 50 assistant).
@@ -1530,10 +1781,24 @@ def lambda_handler(event, context):
             except Exception as polly_err:
                 logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang,
-                            message_en=_clean_english_msg if detected_lang != 'en' else None)
-            save_chat_message(session_id, 'assistant', translated_policy_reply, detected_lang,
-                            message_en=policy_reply_en if detected_lang != 'en' else None)
+            save_chat_messages_batch([
+                {
+                    'session_id': session_id,
+                    'role': 'user',
+                    'message': user_message,
+                    'language': detected_lang,
+                    'message_en': _clean_english_msg if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:policy:user" if idempotency_token else None,
+                },
+                {
+                    'session_id': session_id,
+                    'role': 'assistant',
+                    'message': translated_policy_reply,
+                    'language': detected_lang,
+                    'message_en': policy_reply_en if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:policy:assistant" if idempotency_token else None,
+                },
+            ])
 
             return success_response({
                 'reply': translated_policy_reply,
@@ -1635,10 +1900,26 @@ def lambda_handler(event, context):
                 except Exception as polly_err:
                     logger.warning(f"Polly audio failed (non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
-                            message_en=_clean_english_msg if detected_lang != 'en' else None)
-            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
-                            message_en=result_text if detected_lang != 'en' else None)
+            save_chat_messages_batch([
+                {
+                    'session_id': session_id,
+                    'role': 'user',
+                    'message': user_message,
+                    'language': detected_lang,
+                    'farmer_id': farmer_id,
+                    'message_en': _clean_english_msg if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:greet:user" if idempotency_token else None,
+                },
+                {
+                    'session_id': session_id,
+                    'role': 'assistant',
+                    'message': translated_reply,
+                    'language': detected_lang,
+                    'farmer_id': farmer_id,
+                    'message_en': result_text if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:greet:assistant" if idempotency_token else None,
+                },
+            ])
 
             _total_elapsed = _time.time() - _t_start
             logger.info(f'Greeting shortcut completed in {_total_elapsed:.1f}s')
@@ -1715,10 +1996,26 @@ def lambda_handler(event, context):
                     except Exception as polly_err:
                         logger.warning(f"Polly TTS failed (cached, non-fatal): {polly_err}")
 
-            save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
-                            message_en=_raw_en_for_cache if detected_lang != 'en' else None)
-            save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
-                            message_en=result_text_en if detected_lang != 'en' else None)
+            save_chat_messages_batch([
+                {
+                    'session_id': session_id,
+                    'role': 'user',
+                    'message': user_message,
+                    'language': detected_lang,
+                    'farmer_id': farmer_id,
+                    'message_en': _raw_en_for_cache if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:cache:user" if idempotency_token else None,
+                },
+                {
+                    'session_id': session_id,
+                    'role': 'assistant',
+                    'message': translated_reply,
+                    'language': detected_lang,
+                    'farmer_id': farmer_id,
+                    'message_en': result_text_en if detected_lang != 'en' else None,
+                    'idempotency_token': f"{idempotency_token}:cache:assistant" if idempotency_token else None,
+                },
+            ])
 
             _total_elapsed = _time.time() - _t_start
             logger.info(f'Cache hit response in {_total_elapsed:.1f}s')
@@ -1753,7 +2050,8 @@ def lambda_handler(event, context):
 
         # Save user message EARLY (before Bedrock) — prevents data loss on timeout
         save_chat_message(session_id, 'user', user_message, detected_lang, farmer_id=farmer_id,
-                        message_en=_raw_en_for_cache if detected_lang != 'en' else None)
+                message_en=_raw_en_for_cache if detected_lang != 'en' else None,
+                idempotency_token=f"{idempotency_token}:user:early" if idempotency_token else None)
 
         # Retrieve conversation history for follow-up context (chat pages only, not feature pages)
         chat_history = []
@@ -1767,21 +2065,35 @@ def lambda_handler(event, context):
             # skip_native_guardrail=True because these prompts are code-generated
             # (not raw user text) and already passed application-level guardrails.
             logger.info(f'FAST PATH for feature page (elapsed {_time.time()-_t_start:.1f}s)')
+            
+            # Check timeout before expensive Bedrock operation
+            is_approaching, remaining_ms = _check_timeout_approaching(context)
+            if is_approaching:
+                logger.warning(f"Timeout approaching: {remaining_ms}ms remaining, returning fallback")
+                return _timeout_http_response(session_id, detected_lang)
+            
             routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
             result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
-                routed_prompt, farmer_context, skip_native_guardrail=True
+                routed_prompt, farmer_context, skip_native_guardrail=True, lambda_context=context
             )
 
         else:
             # Standard chat: direct Bedrock converse() with tool routing
             logger.info(f"Direct Bedrock converse() | intents={intents}")
+            
+            # Check timeout before expensive Bedrock operation
+            is_approaching, remaining_ms = _check_timeout_approaching(context)
+            if is_approaching:
+                logger.warning(f"Timeout approaching: {remaining_ms}ms remaining, returning fallback")
+                return _timeout_http_response(session_id, detected_lang)
+            
             routed_prompt = _build_tool_first_prompt(
                 english_message,
                 intents,
                 farmer_context,
             )
             result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
-                routed_prompt, farmer_context, chat_history=chat_history
+                routed_prompt, farmer_context, chat_history=chat_history, lambda_context=context
             )
 
         # Clean up model thinking tags (Claude emits <thinking>...</thinking>)
@@ -1917,7 +2229,8 @@ def lambda_handler(event, context):
         # --- Step 6: Save chat history ---
         # User message was already saved before Step 3 (early save for durability)
         save_chat_message(session_id, 'assistant', translated_reply, detected_lang, farmer_id=farmer_id,
-                        message_en=text_for_translation if detected_lang != 'en' else None)
+                message_en=text_for_translation if detected_lang != 'en' else None,
+                idempotency_token=f"{idempotency_token}:assistant:final" if idempotency_token else None)
 
         # --- Step 7: Return response (matches API contract) ---
         _total_elapsed = _time.time() - _t_start

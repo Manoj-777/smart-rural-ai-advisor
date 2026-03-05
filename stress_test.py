@@ -28,7 +28,7 @@ import sys
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Force unbuffered stdout so prints show immediately on Windows
 if hasattr(sys.stdout, "reconfigure"):
@@ -1541,7 +1541,7 @@ def main():
 
     summary = build_summary(results)
     summary["runtime_sec"] = elapsed
-    summary["timestamp"] = datetime.utcnow().isoformat() + "Z"
+    summary["timestamp"] = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
     summary["config"] = {
         "count": args.count,
         "concurrency": args.concurrency,

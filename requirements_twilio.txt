@@ -1,0 +1,2 @@
+# Twilio SMS Testing Requirements
+twilio>=8.0.0

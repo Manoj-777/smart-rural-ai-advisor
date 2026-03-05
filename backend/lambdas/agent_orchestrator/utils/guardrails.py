@@ -6,8 +6,14 @@
 
 import re
 import logging
+import os
 
 logger = logging.getLogger()
+
+# Feature flags (default: OFF)
+ENABLE_REGEX_DOS_PROTECTION = os.environ.get('ENABLE_REGEX_DOS_PROTECTION', 'false').lower() == 'true'
+REGEX_INPUT_MAX_LENGTH = int(os.environ.get('REGEX_INPUT_MAX_LENGTH', '2000'))
+ENABLE_SMART_TRUNCATION = os.environ.get('ENABLE_SMART_TRUNCATION', 'false').lower() == 'true'
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  GAP #4: INPUT VALIDATION — Length, encoding, structure
@@ -219,6 +225,13 @@ def check_prompt_injection(text):
     """
     if not text:
         return True, None, None, None
+
+    regex_dos_protection = os.environ.get('ENABLE_REGEX_DOS_PROTECTION', 'false').lower() == 'true'
+    if regex_dos_protection and len(text) > int(os.environ.get('REGEX_INPUT_MAX_LENGTH', '2000')):
+        logger.warning(
+            f"PROMPT INJECTION CHECK INPUT CAPPED for ReDoS protection: {len(text)} chars"
+        )
+        text = text[: int(os.environ.get('REGEX_INPUT_MAX_LENGTH', '2000'))]
 
     for pattern, threat_type, severity in INJECTION_PATTERNS:
         match = pattern.search(text)
@@ -485,20 +498,24 @@ def truncate_output(text, max_length=MAX_OUTPUT_LENGTH):
     if not text or len(text) <= max_length:
         return text, False
 
-    # Try to break at sentence end (.!?) within last 200 chars of limit
+    smart_truncation = os.environ.get('ENABLE_SMART_TRUNCATION', 'false').lower() == 'true'
+    sentence_window = 500 if smart_truncation else 200
+    fallback_window = 250 if smart_truncation else 100
+
+    # Try to break at sentence end (.!?) within the configured window
     truncated = text[:max_length]
     last_sentence_end = max(
-        truncated.rfind('. ', max_length - 200),
-        truncated.rfind('! ', max_length - 200),
-        truncated.rfind('? ', max_length - 200),
+        truncated.rfind('. ', max_length - sentence_window),
+        truncated.rfind('! ', max_length - sentence_window),
+        truncated.rfind('? ', max_length - sentence_window),
     )
 
-    if last_sentence_end > max_length - 200:
+    if last_sentence_end > max_length - sentence_window:
         truncated = truncated[:last_sentence_end + 1]
     else:
         # Fall back to last space
-        last_space = truncated.rfind(' ', max_length - 100)
-        if last_space > max_length - 100:
+        last_space = truncated.rfind(' ', max_length - fallback_window)
+        if last_space > max_length - fallback_window:
             truncated = truncated[:last_space]
 
     truncated = truncated.rstrip() + "\n\n(Response trimmed for readability.)"

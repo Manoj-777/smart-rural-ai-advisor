@@ -7,7 +7,7 @@
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger()
 
@@ -64,7 +64,7 @@ def audit_log(category, action, farmer_id='anonymous', session_id=None,
     """
     entry = {
         'audit': True,  # marker for log filtering
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(UTC).replace(tzinfo=None).isoformat() + 'Z',
         'epoch': time.time(),
         'category': category,
         'action': action,

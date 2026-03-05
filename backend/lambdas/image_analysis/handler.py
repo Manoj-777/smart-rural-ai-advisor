@@ -10,16 +10,21 @@ import logging
 import re
 import base64
 import os
+from botocore.config import Config
+from utils.cors_helper import get_cors_headers, handle_cors_preflight
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-bedrock = boto3.client('bedrock-runtime')
-translate_client = boto3.client('translate')
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+bedrock = boto3.client('bedrock-runtime', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('bedrock-runtime')
+translate_client = boto3.client('translate', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('translate')
 
 # CORS headers — MUST be on EVERY response (200, 400, 500)
 ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net')
-CORS_HEADERS = {
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
+CORS_HEADERS = get_cors_headers(ALLOWED_ORIGIN, methods='POST,OPTIONS') if ENABLE_UNIFIED_CORS else {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
@@ -115,6 +120,8 @@ def lambda_handler(event, context):
     """
     # Handle CORS preflight
     if event.get('httpMethod') == 'OPTIONS':
+        if ENABLE_UNIFIED_CORS:
+            return handle_cors_preflight(ALLOWED_ORIGIN, methods='POST,OPTIONS')
         return make_response(200, {})
 
     try:

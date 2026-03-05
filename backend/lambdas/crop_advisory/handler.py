@@ -8,13 +8,22 @@ import boto3
 import os
 import logging
 import re
+import time
+from botocore.config import Config
 from utils.response_helper import success_response, error_response
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-bedrock_kb = boto3.client('bedrock-agent-runtime')
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+bedrock_kb = boto3.client('bedrock-agent-runtime', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('bedrock-agent-runtime')
 KB_ID = os.environ.get('BEDROCK_KB_ID', '')
+
+# Feature flag: KB retry on throttling (default: OFF) — Bug 1.6
+ENABLE_KB_RETRY = os.environ.get('ENABLE_KB_RETRY', 'false').lower() == 'true'
+KB_RETRY_MAX_ATTEMPTS = int(os.environ.get('KB_RETRY_MAX_ATTEMPTS', '3'))
+KB_RETRY_BASE_DELAY = float(os.environ.get('KB_RETRY_BASE_DELAY', '1.0'))
 
 # ── Security: Input validation ──
 MAX_FIELD_LENGTH = 200
@@ -50,6 +59,42 @@ def _check_injection(text):
             logger.warning(f"Injection pattern detected: {pattern}")
             return True
     return False
+
+
+def _kb_retrieve_with_retry(bedrock_kb_client, **kwargs):
+    """Call Bedrock KB retrieve with optional throttling retry."""
+    retry_enabled = os.environ.get('ENABLE_KB_RETRY', 'false').lower() == 'true'
+    if not retry_enabled:
+        return bedrock_kb_client.retrieve(**kwargs)
+
+    max_attempts = int(os.environ.get('KB_RETRY_MAX_ATTEMPTS', '3'))
+    base_delay = float(os.environ.get('KB_RETRY_BASE_DELAY', '1.0'))
+
+    last_error = None
+    for attempt in range(max_attempts):
+        try:
+            response = bedrock_kb_client.retrieve(**kwargs)
+            if attempt > 0:
+                logger.info(f"KB retrieve succeeded on attempt {attempt + 1}/{max_attempts}")
+            return response
+        except Exception as exc:
+            err_name = exc.__class__.__name__
+            msg = str(exc)
+            is_throttled = 'ThrottlingException' in err_name or 'ThrottlingException' in msg
+            if is_throttled and attempt < max_attempts - 1:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"KB throttled (attempt {attempt + 1}/{max_attempts}), retrying in {delay:.1f}s"
+                )
+                time.sleep(delay)
+                last_error = exc
+                continue
+            last_error = exc
+            raise
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("_kb_retrieve_with_retry: unreachable")
 
 
 def lambda_handler(event, context):
@@ -136,7 +181,8 @@ def lambda_handler(event, context):
             return error_response(msg, 500)
 
         # Query Knowledge Base with natural language query
-        response = bedrock_kb.retrieve(
+        response = _kb_retrieve_with_retry(
+            bedrock_kb,
             knowledgeBaseId=KB_ID,
             retrievalQuery={'text': search_query},
             retrievalConfiguration={

@@ -12,8 +12,10 @@ import logging
 import random
 import re
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 from decimal import Decimal
+from botocore.config import Config
+from utils.cors_helper import get_cors_headers, handle_cors_preflight
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -24,6 +26,7 @@ MAX_FIELD_LENGTH = 200
 MAX_CROPS = 20
 MAX_LAND_SIZE = 10000  # acres
 PHONE_PATTERN = re.compile(r'^\d{10,15}$')
+FARMER_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
 
 ALLOWED_PROFILE_FIELDS = {
     'name', 'state', 'district', 'crops', 'soil_type',
@@ -72,17 +75,22 @@ def convert_decimals(obj):
     return obj
 
 
-dynamodb = boto3.resource('dynamodb')
-cognito = boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
+ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false').lower() == 'true'
+ENABLE_FARMER_ID_VALIDATION = os.environ.get('ENABLE_FARMER_ID_VALIDATION', 'false').lower() == 'true'
+_POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
+
+dynamodb = boto3.resource('dynamodb', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.resource('dynamodb')
+cognito = boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'), config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('cognito-idp', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 table = dynamodb.Table(os.environ.get('DYNAMODB_PROFILES_TABLE', 'farmer_profiles'))
 otp_table = dynamodb.Table(os.environ.get('DYNAMODB_OTP_TABLE', 'otp_codes'))
-sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
+sns = boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'), config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('sns', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
 
 COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID', '')
 STAGE = os.environ.get('STAGE', 'prod')
 
 ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net')
-CORS_HEADERS = {
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
+CORS_HEADERS = get_cors_headers(ALLOWED_ORIGIN, methods='GET,PUT,POST,DELETE,OPTIONS') if ENABLE_UNIFIED_CORS else {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
@@ -100,6 +108,8 @@ def lambda_handler(event, context):
 
         # Handle CORS preflight
         if method == 'OPTIONS':
+            if ENABLE_UNIFIED_CORS:
+                return handle_cors_preflight(ALLOWED_ORIGIN, methods='GET,PUT,POST,DELETE,OPTIONS')
             return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
 
         # OTP endpoints
@@ -118,6 +128,13 @@ def lambda_handler(event, context):
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'Missing farmerId in path'})
+            }
+
+        if os.environ.get('ENABLE_FARMER_ID_VALIDATION', 'false').lower() == 'true' and not FARMER_ID_PATTERN.match(str(farmer_id)):
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Invalid farmerId format'})
             }
 
         if method == 'GET':
@@ -232,7 +249,7 @@ def get_profile(farmer_id):
 
 def put_profile(farmer_id, body):
     """Create or update farmer profile with schema validation."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(UTC).replace(tzinfo=None).isoformat()
 
     # Security: reject unknown fields (allow only whitelisted)
     body_keys = set(body.keys())
@@ -281,7 +298,7 @@ def put_profile(farmer_id, body):
     # Convert to Decimal for DynamoDB (rejects Python float)
     land_size = Decimal(str(land_size))
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(UTC).replace(tzinfo=None).isoformat()
     item = {
         'farmer_id': farmer_id,
         'name': name,
@@ -433,7 +450,7 @@ def send_otp(body):
             'phone': clean_phone,
             'otp_code': otp_code,
             'expiry_ttl': expiry,
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': datetime.now(UTC).replace(tzinfo=None).isoformat(),
             'verified': False,
             'sandbox_verification': sandbox_verification
         }

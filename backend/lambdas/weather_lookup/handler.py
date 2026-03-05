@@ -13,12 +13,30 @@ import urllib.request
 import urllib.error
 import urllib.parse
 from utils.response_helper import success_response, error_response
+from utils.cors_helper import handle_cors_preflight
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
 OPENWEATHER_BASE = 'https://api.openweathermap.org/data/2.5'
+
+# Feature flag: coordinate validation (default: OFF) — Bug 1.7
+ENABLE_COORDINATE_VALIDATION = os.environ.get('ENABLE_COORDINATE_VALIDATION', 'false').lower() == 'true'
+
+# Feature flag: enforce HTTPS weather API scheme consistently (default: OFF) — Bug 1.26
+ENABLE_HTTPS_WEATHER_API = os.environ.get('ENABLE_HTTPS_WEATHER_API', 'false').lower() == 'true'
+ENABLE_UNIFIED_CORS = os.environ.get('ENABLE_UNIFIED_CORS', 'false').lower() == 'true'
+
+
+def _openweather_base_url():
+    if os.environ.get('ENABLE_HTTPS_WEATHER_API', 'false').lower() == 'true':
+        return OPENWEATHER_BASE.replace('http://', 'https://')
+    return OPENWEATHER_BASE
+
+
+def _coordinate_validation_enabled():
+    return os.environ.get('ENABLE_COORDINATE_VALIDATION', 'false').lower() == 'true'
 
 # ── Security: Input validation constants ──
 MAX_LOCATION_LENGTH = 100
@@ -59,6 +77,25 @@ def _validate_location(location):
     if any(ch in location for ch in ['<', '>', '{', '}', '|', ';', '`', '$', '\\']):
         return None, 'Invalid characters in location name'
     return location, None
+
+
+def _validate_coordinates(lat, lon):
+    """Validate latitude/longitude ranges. Returns (is_valid, error_message)."""
+    if not _coordinate_validation_enabled():
+        return True, None
+
+    try:
+        if lat not in (None, ''):
+            lat_f = float(lat)
+            if not (-90 <= lat_f <= 90):
+                return False, f"Invalid latitude: {lat}. Must be between -90 and 90."
+        if lon not in (None, ''):
+            lon_f = float(lon)
+            if not (-180 <= lon_f <= 180):
+                return False, f"Invalid longitude: {lon}. Must be between -180 and 180."
+        return True, None
+    except (TypeError, ValueError):
+        return False, 'Invalid coordinate format. Must be numeric.'
 
 def clean_location(name):
     """Strip administrative suffixes that confuse weather APIs."""
@@ -125,6 +162,8 @@ def lambda_handler(event, context):
 
         # CORS preflight: return immediately (do not run weather logic)
         if event.get('httpMethod') == 'OPTIONS':
+            if ENABLE_UNIFIED_CORS:
+                return handle_cors_preflight(origin=origin, methods='GET,POST,OPTIONS')
             return success_response({}, message='OK', origin=origin)
 
         # Handle API Gateway call
@@ -141,12 +180,19 @@ def lambda_handler(event, context):
         lat = qsp.get('lat')
         lon = qsp.get('lon')
 
+        # Bug 1.7: explicit coordinate validation behind feature flag
+        if _coordinate_validation_enabled() and (lat is not None or lon is not None):
+            valid_coords, coord_err = _validate_coordinates(lat, lon)
+            if not valid_coords:
+                logger.warning(f"Coordinate validation failed: {coord_err}")
+                return error_response(coord_err, 400, origin=origin)
+
         # Security: validate location input
         location, val_err = _validate_location(location)
         if val_err:
             return error_response(val_err, 400, origin=origin)
 
-        # Validate lat/lon if provided
+        # Existing behavior path (legacy): sanitize invalid coords by dropping them
         if lat:
             try:
                 lat_f = float(lat)
@@ -182,7 +228,7 @@ def lambda_handler(event, context):
                 'appid': OPENWEATHER_API_KEY,
                 'units': 'metric',
             })
-            current_url = f"{OPENWEATHER_BASE}/weather?{current_params}"
+            current_url = f"{_openweather_base_url()}/weather?{current_params}"
             for attempt in range(max_retries):
                 try:
                     logger.info(f"Fetching current weather for {candidate} (attempt {attempt + 1}/{max_retries})")
@@ -222,7 +268,7 @@ def lambda_handler(event, context):
                 'appid': OPENWEATHER_API_KEY,
                 'units': 'metric',
             })
-            coord_url = f"http://api.openweathermap.org/data/2.5/weather?{coord_params}"
+            coord_url = f"{_openweather_base_url()}/weather?{coord_params}"
             try:
                 coord_data = _http_get_json(coord_url, timeout=8)
                 if _normalize_cod(coord_data) == 200:
@@ -270,7 +316,7 @@ def lambda_handler(event, context):
                 'units': 'metric',
                 'cnt': 40,
             })
-            forecast_url = f"{OPENWEATHER_BASE}/forecast?{forecast_params}"
+            forecast_url = f"{_openweather_base_url()}/forecast?{forecast_params}"
         else:
             forecast_params = urllib.parse.urlencode({
                 'q': f'{matched_location},IN',
@@ -278,7 +324,7 @@ def lambda_handler(event, context):
                 'units': 'metric',
                 'cnt': 40,
             })
-            forecast_url = f"{OPENWEATHER_BASE}/forecast?{forecast_params}"
+            forecast_url = f"{_openweather_base_url()}/forecast?{forecast_params}"
         
         forecast_raw = None
         for attempt in range(max_retries):

@@ -8,7 +8,7 @@ import boto3
 import os
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger()
 
@@ -20,11 +20,24 @@ RATE_LIMIT_DAILY_MAX = int(os.environ.get('RATE_LIMIT_DAILY', '500'))
 
 # DynamoDB table for rate tracking (reuse chat_sessions or create dedicated)
 RATE_LIMIT_TABLE = os.environ.get('DYNAMODB_RATE_LIMIT_TABLE', 'rate_limits')
+ENABLE_RATE_LIMIT_TTL = os.environ.get('ENABLE_RATE_LIMIT_TTL', 'false').lower() == 'true'
 
 # Lazy-init DynamoDB resource (avoid cold-start cost if rate limiting disabled)
 _dynamodb = None
 _rate_table = None
 RATE_LIMITING_ENABLED = os.environ.get('ENABLE_RATE_LIMITING', 'true').lower() == 'true'
+
+
+def _rate_update_parts(ttl_epoch, now_iso):
+    if ENABLE_RATE_LIMIT_TTL:
+        return (
+            'SET hit_count = if_not_exists(hit_count, :zero) + :inc, ttl_epoch = :ttl, updated_at = :now',
+            {':zero': 0, ':inc': 1, ':ttl': ttl_epoch, ':now': now_iso},
+        )
+    return (
+        'SET hit_count = if_not_exists(hit_count, :zero) + :inc, updated_at = :now',
+        {':zero': 0, ':inc': 1, ':now': now_iso},
+    )
 
 
 def _get_rate_table():
@@ -59,25 +72,20 @@ def check_rate_limit(session_id, farmer_id='anonymous'):
         }
 
     now = time.time()
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(UTC).replace(tzinfo=None).isoformat()
     minute_key = f"{farmer_id}#{int(now // 60)}"
     hour_key = f"{farmer_id}#{int(now // 3600)}"
-    day_key = f"{farmer_id}#{datetime.utcnow().strftime('%Y-%m-%d')}"
+    day_key = f"{farmer_id}#{datetime.now(UTC).strftime('%Y-%m-%d')}"
 
     try:
         table = _get_rate_table()
 
         # Atomic increment for per-minute counter
+        minute_update_expr, minute_attrs = _rate_update_parts(int(now) + 120, now_iso)
         minute_resp = table.update_item(
             Key={'rate_key': minute_key, 'window': 'minute'},
-            UpdateExpression='SET hit_count = if_not_exists(hit_count, :zero) + :inc, '
-                           'ttl_epoch = :ttl, updated_at = :now',
-            ExpressionAttributeValues={
-                ':zero': 0,
-                ':inc': 1,
-                ':ttl': int(now) + 120,  # TTL: 2 minutes
-                ':now': now_iso,
-            },
+            UpdateExpression=minute_update_expr,
+            ExpressionAttributeValues=minute_attrs,
             ReturnValues='UPDATED_NEW',
         )
         minute_count = int(minute_resp['Attributes']['hit_count'])
@@ -97,16 +105,11 @@ def check_rate_limit(session_id, farmer_id='anonymous'):
             }
 
         # Atomic increment for per-hour counter
+        hour_update_expr, hour_attrs = _rate_update_parts(int(now) + 7200, now_iso)
         hour_resp = table.update_item(
             Key={'rate_key': hour_key, 'window': 'hour'},
-            UpdateExpression='SET hit_count = if_not_exists(hit_count, :zero) + :inc, '
-                           'ttl_epoch = :ttl, updated_at = :now',
-            ExpressionAttributeValues={
-                ':zero': 0,
-                ':inc': 1,
-                ':ttl': int(now) + 7200,  # TTL: 2 hours
-                ':now': now_iso,
-            },
+            UpdateExpression=hour_update_expr,
+            ExpressionAttributeValues=hour_attrs,
             ReturnValues='UPDATED_NEW',
         )
         hour_count = int(hour_resp['Attributes']['hit_count'])
@@ -126,16 +129,11 @@ def check_rate_limit(session_id, farmer_id='anonymous'):
             }
 
         # Atomic increment for daily counter
+        day_update_expr, day_attrs = _rate_update_parts(int(now) + 172800, now_iso)
         day_resp = table.update_item(
             Key={'rate_key': day_key, 'window': 'day'},
-            UpdateExpression='SET hit_count = if_not_exists(hit_count, :zero) + :inc, '
-                           'ttl_epoch = :ttl, updated_at = :now',
-            ExpressionAttributeValues={
-                ':zero': 0,
-                ':inc': 1,
-                ':ttl': int(now) + 172800,  # TTL: 2 days
-                ':now': now_iso,
-            },
+            UpdateExpression=day_update_expr,
+            ExpressionAttributeValues=day_attrs,
             ReturnValues='UPDATED_NEW',
         )
         day_count = int(day_resp['Attributes']['hit_count'])
