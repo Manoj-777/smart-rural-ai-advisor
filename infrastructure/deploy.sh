@@ -25,7 +25,14 @@ echo "========================================="
 cd "$(dirname "$0")"
 
 echo "Building SAM application..."
-sam build
+sam build --no-cached
+
+if [ ! -d ".aws-sam/build/AgentOrchestratorFunction/gtts" ]; then
+    echo "ERROR: Build verification failed - gTTS package not found in .aws-sam/build/AgentOrchestratorFunction/gtts"
+    echo "Check backend/lambdas/agent_orchestrator/requirements.txt and rerun deploy."
+    exit 1
+fi
+echo "Dependency check passed: gTTS packaged in AgentOrchestrator artifact."
 
 echo ""
 echo "Deploying to AWS..."

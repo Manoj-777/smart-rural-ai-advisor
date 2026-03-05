@@ -23,10 +23,20 @@ Write-Host "========================================="
 
 $templatePath = "infrastructure/template.yaml"
 $packagedPath = "infrastructure/packaged-template.yaml"
+$buildTemplatePath = ".aws-sam/build/template.yaml"
+
+Write-Host "Building SAM application (includes Lambda dependencies from requirements.txt)..."
+sam build --template-file $templatePath --no-cached
+
+$gttsBuildPath = ".aws-sam/build/AgentOrchestratorFunction/gtts"
+if (-not (Test-Path $gttsBuildPath)) {
+    throw "Build verification failed: missing gTTS package at '$gttsBuildPath'. Check backend/lambdas/agent_orchestrator/requirements.txt and rerun deploy."
+}
+Write-Host "Dependency check passed: gTTS packaged in AgentOrchestrator artifact."
 
 Write-Host "Packaging CloudFormation template..."
 aws cloudformation package `
-    --template-file $templatePath `
+    --template-file $buildTemplatePath `
     --s3-bucket $S3Bucket `
     --output-template-file $packagedPath `
     --region $Region

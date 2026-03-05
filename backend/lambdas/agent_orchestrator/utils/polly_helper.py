@@ -20,6 +20,7 @@ ENABLE_CONNECTION_POOLING = os.environ.get('ENABLE_CONNECTION_POOLING', 'false')
 _POOL_CONFIG = Config(max_pool_connections=25) if ENABLE_CONNECTION_POOLING else None
 polly = boto3.client('polly', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('polly')
 s3 = boto3.client('s3', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('s3')
+cloudwatch = boto3.client('cloudwatch', config=_POOL_CONFIG) if _POOL_CONFIG else boto3.client('cloudwatch')
 
 S3_BUCKET = os.environ.get('S3_KNOWLEDGE_BUCKET', 'smart-rural-ai-knowledge-base')
 
@@ -69,6 +70,56 @@ ENABLE_EXTENDED_AUDIO_EXPIRY = os.environ.get('ENABLE_EXTENDED_AUDIO_EXPIRY', 'f
 ENABLE_VOICE_VALIDATION = os.environ.get('ENABLE_VOICE_VALIDATION', 'false').lower() == 'true'
 ENABLE_S3_VALIDATION = os.environ.get('ENABLE_S3_VALIDATION', 'false').lower() == 'true'
 ENABLE_TTS_LIST_FORMATTING = os.environ.get('ENABLE_TTS_LIST_FORMATTING', 'false').lower() == 'true'
+ENABLE_GTTS_DEPENDENCY_CHECK = os.environ.get('ENABLE_GTTS_DEPENDENCY_CHECK', 'true').lower() == 'true'
+
+_gtts_dependency_ok = None
+
+
+def _emit_gtts_dependency_metric(is_missing):
+    try:
+        cloudwatch.put_metric_data(
+            Namespace='SmartRuralAI/TTS',
+            MetricData=[
+                {
+                    'MetricName': 'GTTSDependencyMissing',
+                    'Dimensions': [
+                        {
+                            'Name': 'FunctionName',
+                            'Value': os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'unknown'),
+                        }
+                    ],
+                    'Value': 1.0 if is_missing else 0.0,
+                    'Unit': 'Count',
+                }
+            ],
+        )
+    except Exception as metric_err:
+        logger.warning(f"Unable to publish gTTS dependency metric: {metric_err}")
+
+
+def _validate_gtts_dependency_once():
+    global _gtts_dependency_ok
+
+    if _gtts_dependency_ok is not None:
+        return _gtts_dependency_ok
+
+    if not USE_GTTS or not ENABLE_GTTS_DEPENDENCY_CHECK:
+        _gtts_dependency_ok = True
+        return _gtts_dependency_ok
+
+    try:
+        from gtts import gTTS as _gTTS  # noqa: F401
+        _gtts_dependency_ok = True
+        _emit_gtts_dependency_metric(is_missing=False)
+        return _gtts_dependency_ok
+    except Exception as dep_err:
+        _gtts_dependency_ok = False
+        logger.error(f"gTTS dependency check failed at startup: {dep_err}")
+        _emit_gtts_dependency_metric(is_missing=True)
+        return _gtts_dependency_ok
+
+
+_validate_gtts_dependency_once()
 
 if ENABLE_S3_VALIDATION:
     try:
@@ -199,6 +250,9 @@ def _polly_tts(safe_text, language_code, voice_id=None):
 
 def _gtts_tts(safe_text, language_code):
     """Free Google Translate TTS. No API key. Supports all major Indian languages."""
+    if not _validate_gtts_dependency_once():
+        raise RuntimeError('gTTS dependency missing in Lambda package; redeploy with SAM build')
+
     try:
         from gtts import gTTS
     except ImportError:

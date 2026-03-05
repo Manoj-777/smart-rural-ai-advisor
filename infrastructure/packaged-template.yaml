@@ -108,7 +108,7 @@ Resources:
   AgentOrchestratorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/9b4f550a3c48b7932b41549b827264bb
+      CodeUri: s3://smart-rural-ai-948809294205/bab7401b1168abd476133f36ca56abf2
       Handler: handler.lambda_handler
       Timeout: 120
       Environment:
@@ -198,10 +198,12 @@ Resources:
           Properties:
             Path: /voice
             Method: options
+    Metadata:
+      SamResourceId: AgentOrchestratorFunction
   CropAdvisoryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/1008cabc8cb7aad989e50aac857fd808
+      CodeUri: s3://smart-rural-ai-948809294205/53216135392be146298ca1e4b53c286a
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -216,10 +218,12 @@ Resources:
           - bedrock:RetrieveAndGenerate
           - bedrock:Retrieve
           Resource: '*'
+    Metadata:
+      SamResourceId: CropAdvisoryFunction
   WeatherFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/3bc8f61a8ae0be1004805e97b19ba59d
+      CodeUri: s3://smart-rural-ai-948809294205/af4a61486276d574a0d932650b9fe321
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -242,6 +246,8 @@ Resources:
           Properties:
             Path: /weather/{location}
             Method: options
+    Metadata:
+      SamResourceId: WeatherFunction
   HealthCheckFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -257,11 +263,11 @@ Resources:
           Properties:
             Path: /health
             Method: get
-      CodeUri: s3://smart-rural-ai-948809294205/0d9778c7885caed5c38454d15afd56ec
+      CodeUri: s3://smart-rural-ai-948809294205/c7b69ed8bdabca5b1db1572e9ab847a3
   ImageAnalysisFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/1d5cdeee90400a5622bdba5e0a4f2565
+      CodeUri: s3://smart-rural-ai-948809294205/5124aa8249f3043ad9c1129a46179654
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
@@ -287,10 +293,12 @@ Resources:
           Properties:
             Path: /image-analyze
             Method: options
+    Metadata:
+      SamResourceId: ImageAnalysisFunction
   GovtSchemesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/0b3192f213cb9447f5178935ae071a8b
+      CodeUri: s3://smart-rural-ai-948809294205/abfe5359fe31870147ddae230a368006
       Handler: handler.lambda_handler
       Events:
         SchemesApi:
@@ -303,10 +311,12 @@ Resources:
           Properties:
             Path: /schemes
             Method: options
+    Metadata:
+      SamResourceId: GovtSchemesFunction
   FarmerProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/612e7c6d5b3b5c0399cf0d13ea9ce354
+      CodeUri: s3://smart-rural-ai-948809294205/47ecbbdd79833f6c53e1064def48e621
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -390,10 +400,12 @@ Resources:
           Properties:
             Path: /otp/verify
             Method: options
+    Metadata:
+      SamResourceId: FarmerProfileFunction
   TranscribeSpeechFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/41edad088de72bc51a37123e75c28caf
+      CodeUri: s3://smart-rural-ai-948809294205/e75a3a89fd98bb8c9afa7bb298ebd5a4
       Handler: handler.lambda_handler
       Timeout: 60
       Policies:
@@ -422,6 +434,8 @@ Resources:
           Properties:
             Path: /transcribe
             Method: options
+    Metadata:
+      SamResourceId: TranscribeSpeechFunction
   RateLimitTTLConfiguratorRole:
     Type: AWS::IAM::Role
     Properties:
