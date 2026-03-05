@@ -157,6 +157,48 @@ body {
     scroll-behavior: smooth;
 }
 
+/* ── Scroll-down pill indicator ───────────────────────── */
+.scroll-pill {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    background: var(--primary);
+    color: white;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 20px;
+    box-shadow: 0 4px 16px rgba(22,163,74,0.35);
+    pointer-events: none;
+    animation: pillBounce 2.2s ease-in-out infinite;
+    opacity: 0.92;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.scroll-pill.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+    pointer-events: none;
+}
+.scroll-pill-icon {
+    display: inline-flex;
+    animation: pillArrow 2.2s ease-in-out infinite;
+}
+@keyframes pillBounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-4px); }
+}
+@keyframes pillArrow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+}
+
 /* ── Page Header ──────────────────────────────────────── */
 .page-header {
     margin-bottom: 20px;
@@ -2021,11 +2063,13 @@ body {
 .weather-map-section {
     display: flex;
     gap: 20px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
 }
 .weather-map-container {
     flex: 2;
     min-width: 0;
+    max-height: fit-content;
+    align-self: flex-start;
     background: var(--card-bg);
     border-radius: var(--radius);
     border: 1.5px solid var(--border);
@@ -2034,7 +2078,7 @@ body {
 }
 .weather-map {
     width: 100%;
-    height: 420px;
+    height: 250px;
     border-radius: var(--radius) var(--radius) 0 0;
     z-index: 1;
 }
@@ -2159,7 +2203,7 @@ body {
         flex-direction: column;
     }
     .weather-map {
-        height: 300px;
+        height: 240px;
     }
     .weather-cities-grid {
         max-height: none;
@@ -2843,11 +2887,7 @@ body {
     color: var(--text-light);
     margin-top: 4px;
     padding-left: 4px;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-.message:hover .message-time {
-    opacity: 1;
+    opacity: 0.7;
 }
 
 /* ── Clear History Button ─────────────────────────────── */
@@ -3600,7 +3640,7 @@ body {
 
     /* Weather */
     .weather-map {
-        height: 260px;
+        height: 200px;
     }
     .weather-sidebar {
         min-width: unset;
@@ -3848,7 +3888,7 @@ body {
         gap: 12px;
     }
     .weather-map {
-        height: 220px;
+        height: 180px;
     }
     .weather-map-container {
         border-radius: 12px;

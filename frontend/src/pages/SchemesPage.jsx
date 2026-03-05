@@ -1,13 +1,14 @@
 // src/pages/SchemesPage.jsx
 // Government Schemes — Central + State tabs with structured cards & Ask AI per scheme
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeHtml } from '../utils/sanitize';
 import { useFarmer } from '../contexts/FarmerContext';
 import { SchemesSkeleton } from '../components/SkeletonLoader';
 import schemeTranslations from '../i18n/schemeTranslations';
 import { apiFetch } from '../utils/apiFetch';
+import ScrollPill from '../components/ScrollPill';
 
 // Map English state name → translation key
 const STATE_KEY_MAP = {
@@ -25,6 +26,7 @@ const STATE_KEY_MAP = {
 
 function SchemesPage() {
     const { language, t } = useLanguage();
+    const scrollRef = useRef(null);
     const { farmerProfile } = useFarmer();
     const [centralSchemes, setCentralSchemes] = useState([]);
     const [stateSchemes, setStateSchemes] = useState([]);
@@ -262,7 +264,7 @@ function SchemesPage() {
                 <p>{t('schemesSubtitle')}</p>
             </div>
 
-            <div className="schemes-page-scroll">
+            <div className="schemes-page-scroll" ref={scrollRef}>
 
                 {/* Tabs */}
                 <div className="schemes-tabs">
@@ -331,6 +333,7 @@ function SchemesPage() {
                 </div>
 
             </div>{/* end schemes-page-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
         </div>
     );
 }

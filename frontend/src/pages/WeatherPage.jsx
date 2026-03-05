@@ -9,6 +9,7 @@ import { useFarmer } from '../contexts/FarmerContext';
 import { getDistrictName } from '../i18n/districtTranslations';
 import { WeatherSkeleton } from '../components/SkeletonLoader';
 import { apiFetch } from '../utils/apiFetch';
+import ScrollPill from '../components/ScrollPill';
 import config from '../config';
 import { cleanLocationName, toApiName, toDistrictMapName } from '../utils/locationUtils';
 
@@ -133,6 +134,7 @@ function WeatherPage() {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const debounceRef = useRef(null);
     const searchBoxRef = useRef(null);
+    const scrollRef = useRef(null);
 
     // Helper: set both English + display name together
     const setLocationBoth = useCallback((engName) => {
@@ -406,7 +408,7 @@ function WeatherPage() {
                 <p>{t('weatherSubtitle')}</p>
             </div>
 
-            <div className="weather-page-scroll">
+            <div className="weather-page-scroll" ref={scrollRef}>
 
             {/* Map + Search Section */}
             <div className="weather-map-section">
@@ -577,6 +579,7 @@ function WeatherPage() {
                 </div>
             )}
             </div>{/* end weather-page-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { getDistrictName } from '../i18n/districtTranslations';
 import LANGUAGES from '../languages';
 import { apiFetch } from '../utils/apiFetch';
 import * as cognitoAuth from '../services/cognitoAuth';
+import ScrollPill from '../components/ScrollPill';
 
 // Delete account confirmation phrase
 
@@ -73,6 +74,7 @@ function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
     const debounceRef = useRef(null);
+    const scrollRef = useRef(null);
     const hasLoadedRef = useRef(false);
 
     // Change PIN state
@@ -205,7 +207,7 @@ function ProfilePage() {
                 </p>
             </div>
 
-            <div className="profile-page-scroll">
+            <div className="profile-page-scroll" ref={scrollRef}>
 
             {message && (
                 <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}>
@@ -399,6 +401,7 @@ function ProfilePage() {
             </div>
 
             </div>{/* end profile-page-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (

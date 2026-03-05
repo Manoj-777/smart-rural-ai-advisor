@@ -9,6 +9,7 @@ import { mockPrices, mockPestAdvice } from '../services/mockApi';
 import { generateAsyncTts } from '../utils/asyncTts';
 import config from '../config';
 import { apiFetch } from '../utils/apiFetch';
+import ScrollPill from '../components/ScrollPill';
 
 /* ── Season helper based on current month ─────── */
 function getCurrentSeason() {
@@ -109,6 +110,7 @@ function TrendBadge({ trend, pt }) {
 
 function PricePage() {
     const { language, t } = useLanguage();
+    const scrollRef = useRef(null);
     const pt = getPriceT(language);
     const { farmerProfile } = useFarmer();
     const [tab, setTab] = useState('crops');
@@ -377,7 +379,7 @@ function PricePage() {
                 <p>{pt.pageSubtitle}</p>
             </div>
 
-            <div className="price-page-scroll">
+            <div className="price-page-scroll" ref={scrollRef}>
 
             {/* Tabs */}
             <div className="price-tabs">
@@ -537,6 +539,7 @@ function PricePage() {
                 </div>
             )}
             </div>{/* end price-page-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
         </div>
     );
 }

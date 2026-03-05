@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeHtml } from '../utils/sanitize';
 import { mockImageAnalyze } from '../services/mockApi';
 import { apiFetch } from '../utils/apiFetch';
+import ScrollPill from '../components/ScrollPill';
 
 function CropDoctorPage() {
     const { language, t } = useLanguage();
@@ -16,6 +17,7 @@ function CropDoctorPage() {
     const [error, setError] = useState('');
     const [cropType, setCropType] = useState('');
     const fileInputRef = useRef(null);
+    const scrollRef = useRef(null);
 
     const CROP_OPTIONS = [
         { value: 'Rice', key: 'cropRice' },
@@ -146,7 +148,7 @@ function CropDoctorPage() {
                 <p>{t('cropDocSubtitle')}</p>
             </div>
 
-            <div className="cropdoctor-page-scroll">
+            <div className="cropdoctor-page-scroll" ref={scrollRef}>
 
             <div>
                 {/* Crop Type Dropdown — always visible */}
@@ -255,6 +257,7 @@ function CropDoctorPage() {
                 </div>
             )}
             </div>{/* end cropdoctor-page-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
         </div>
     );
 }

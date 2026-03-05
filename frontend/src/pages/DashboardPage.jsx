@@ -1,9 +1,10 @@
 // src/pages/DashboardPage.jsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
+import ScrollPill from '../components/ScrollPill';
 
 // Daily tips rotate based on day-of-year
 const DAILY_TIPS = {
@@ -132,6 +133,7 @@ function DashboardPage() {
     const navigate = useNavigate();
     const [greeting, setGreeting] = useState('');
     const [currentTime, setCurrentTime] = useState(new Date());
+    const scrollRef = useRef(null);
 
     useEffect(() => {
         const hour = new Date().getHours();
@@ -184,7 +186,7 @@ function DashboardPage() {
                 <div className="dash-hero-art">🌾</div>
             </div>
 
-            <div className="dashboard-scroll">
+            <div className="dashboard-scroll" ref={scrollRef}>
 
             {/* Quick Actions */}
             <h3 className="dash-section-title">{t('dashQuickActions')}</h3>
@@ -208,6 +210,7 @@ function DashboardPage() {
                 </div>
             </div>
             </div>{/* end dashboard-scroll */}
+            <ScrollPill scrollRef={scrollRef} />
         </div>
     );
 }
