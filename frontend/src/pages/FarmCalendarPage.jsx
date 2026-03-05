@@ -134,6 +134,10 @@ function FarmCalendarPage() {
 
     const handleGenerate = async () => {
         setError('');
+        if (!state) {
+            setError(t('farmCalStateRequired') || 'Please select a state.');
+            return;
+        }
         setLoading(true);
         setResult(null);
 
@@ -268,7 +272,7 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                         )}
                     </div>
                     <div className="ai-form-group">
-                        <label>📍 {t('profileState') || 'State'}</label>
+                        <label>📍 {t('profileState') || 'State'} <span className="required-star">*</span></label>
                         <select value={state} onChange={e => { setState(e.target.value); setDistrict(''); }}>
                             <option value="" disabled>{t('selectState') || 'Select state...'}</option>
                             {STATE_OPTIONS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}

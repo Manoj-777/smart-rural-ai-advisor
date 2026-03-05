@@ -117,9 +117,9 @@ body {
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .top-bar__lang-select:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 .top-bar__lang-select:hover {
     border-color: #93c5fd;
@@ -651,7 +651,7 @@ body {
     background: rgba(220,38,38,0.1);
 }
 .chat-history-rename:hover {
-    background: rgba(59,130,246,0.1);
+    background: rgba(22,163,74,0.1);
 }
 .chat-history-rename-input {
     width: 100%;
@@ -1057,9 +1057,9 @@ body {
 }
 
 .input-bar input:focus {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
 }
 
 /* Live transcript streaming — ChatGPT-style voice-to-text indicator */
@@ -1496,7 +1496,7 @@ body {
     margin-top: 16px;
     border-radius: 12px;
     border: 1.5px solid #bfdbfe;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    background: linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%);
     overflow: hidden;
     animation: fadeSlideDown 0.3s ease;
 }
@@ -1593,9 +1593,9 @@ body {
     background: white;
 }
 .search-bar input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 .search-bar .search-icon {
     position: absolute;
@@ -1632,9 +1632,9 @@ body {
     box-sizing: border-box;
 }
 .form-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 
 /* Crop tag chips */
@@ -2206,9 +2206,9 @@ body {
     transition: border-color 0.2s;
 }
 .price-search:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 .price-filter {
     padding: 10px 16px;
@@ -2222,9 +2222,9 @@ body {
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .price-filter:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 .price-table-wrap {
     background: var(--card-bg);
@@ -3108,9 +3108,9 @@ body {
     z-index: 1;
 }
 .login-phone-input:focus-within {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.18);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
+    background: #f0fdf4;
 }
 .login-phone-prefix {
     padding: 14px 12px;
@@ -3258,18 +3258,18 @@ body {
     color: var(--text);
     outline: none;
     transition: all 0.2s;
-    caret-color: #3b82f6;
+    caret-color: #16a34a;
 }
 .otp-digit:focus,
 .otp-digit:focus-visible {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.2);
-    background: #eff6ff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(22,163,74,0.2);
+    background: #f0fdf4;
     outline: none !important;
 }
 .otp-digit.filled {
-    border-color: #3b82f6;
-    background: #eff6ff;
+    border-color: #16a34a;
+    background: #f0fdf4;
 }
 .otp-timer {
     font-size: 14px;
@@ -4224,9 +4224,9 @@ body {
 .ai-form-group select:focus,
 .ai-form-group input:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: #16a34a;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
-    background: #eff6ff;
+    background: #f0fdf4;
 }
 
 /* Consistent select/input styling for CropDoctor and Price pages */
@@ -4243,16 +4243,16 @@ body {
 }
 .cropdoctor-page select.form-input:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: #16a34a;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
-    background: #eff6ff;
+    background: #f0fdf4;
 }
 
 /* Textarea & multi-line inputs: expand focus glow */
 .ai-form-group textarea:focus {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
-    border-color: #3b82f6;
-    background: #eff6ff;
+    border-color: #16a34a;
+    background: #f0fdf4;
 }
 
 .ai-form-section-title {
@@ -4686,7 +4686,7 @@ body {
    Focus-visible — Keyboard accessibility ring
    ═══════════════════════════════════════════════════════════════════════ */
 :focus-visible {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid #16a34a;
     outline-offset: 3px;
     border-radius: 4px;
 }
@@ -4694,7 +4694,7 @@ button:focus-visible,
 a:focus-visible,
 select:focus-visible,
 input:focus-visible {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid #16a34a;
     outline-offset: 3px;
 }
 /* Suppress double outline on elements that already have custom :focus box-shadow */
