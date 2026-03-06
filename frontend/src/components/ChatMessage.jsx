@@ -11,24 +11,28 @@ function formatMessage(text) {
     return formatAndSanitize(text);
 }
 
-function formatTimestamp(ts) {
+function formatTimestamp(ts, t, language) {
     if (!ts) return '';
     const d = new Date(ts);
     const now = new Date();
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const locale = language || 'en-IN';
+    const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
 
-    if (isToday) return `Today, ${time}`;
-    if (isYesterday) return `Yesterday, ${time}`;
-    return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + time;
+    const todayLabel = (t && t('chatToday')) || 'Today';
+    const yesterdayLabel = (t && t('chatYesterday')) || 'Yesterday';
+
+    if (isToday) return `${todayLabel}, ${time}`;
+    if (isYesterday) return `${yesterdayLabel}, ${time}`;
+    return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + time;
 }
 
 function ChatMessage({ message, onUpdateAudioUrl }) {
     const isUser = message.role === 'user';
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [refreshedUrl, setRefreshedUrl] = useState(null);
     const [audioLoading, setAudioLoading] = useState(false);
     const refreshingRef = useRef(false);
@@ -116,7 +120,7 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
                 )}
                 <div className="message-footer">
                     {message.timestamp && (
-                        <span className="message-time">{formatTimestamp(message.timestamp)}</span>
+                        <span className="message-time">{formatTimestamp(message.timestamp, t, language)}</span>
                     )}
                 </div>
             </div>
