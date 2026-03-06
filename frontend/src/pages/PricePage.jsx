@@ -112,7 +112,7 @@ function PricePage() {
     const { language, t } = useLanguage();
     const scrollRef = useRef(null);
     const pt = getPriceT(language);
-    const { farmerProfile } = useFarmer();
+    const { farmerProfile, farmerId } = useFarmer();
     const [tab, setTab] = useState('crops');
     const [search, setSearch] = useState('');
     const [seasonFilter, setSeasonFilter] = useState('All');
@@ -264,7 +264,7 @@ function PricePage() {
                 const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: query, language, session_id: 'price-advisory' }),
+                    body: JSON.stringify({ message: query, language, session_id: 'price-advisory-' + Date.now(), farmer_id: farmerId || 'anonymous' }),
                 });
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
@@ -329,7 +329,7 @@ function PricePage() {
                 const res = await apiFetch(`/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: query, language, session_id: 'pest-advisory' }),
+                    body: JSON.stringify({ message: query, language, session_id: 'pest-advisory-' + Date.now(), farmer_id: farmerId || 'anonymous' }),
                 });
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
