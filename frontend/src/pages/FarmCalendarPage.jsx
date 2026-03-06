@@ -257,7 +257,7 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
     }
 
     return (
-        <div className="ai-feature-page">
+        <div className="ai-feature-page" style={{ maxWidth: '100%', margin: 0 }}>
             <div className="page-header" style={{ marginBottom: '8px' }}>
                 <div className="page-header-top">
                     <h2>📅 {t('farmCalTitle') || 'AI Farming Calendar'}</h2>
