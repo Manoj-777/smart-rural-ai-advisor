@@ -265,6 +265,8 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                 <p>{t('farmCalSubtitle') || 'Get month-wise farming activities, tips, and a smart planner for your farm.'}</p>
             </div>
 
+            <div className="ai-feature-page-scroll">
+
             {/* Month selector - visual calendar strip */}
             <div className="calendar-month-strip">
                 {MONTH_KEYS.map((mk, idx) => {
@@ -382,6 +384,8 @@ Be practical and specific to Indian farming conditions. Use bullet points and or
                     </p>
                 </div>
             )}
+
+            </div>
         </div>
     );
 }

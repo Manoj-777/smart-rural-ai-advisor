@@ -203,6 +203,8 @@ Format clearly with numbered recommendations. Include practical advice specific 
                 <p>{t('cropRecSubtitle') || 'Get personalized crop suggestions based on your farm conditions.'}</p>
             </div>
 
+            <div className="ai-feature-page-scroll">
+
             <div className="ai-feature-form">
                 <div className="ai-form-grid">
                     <div className="ai-form-group">
@@ -304,6 +306,8 @@ Format clearly with numbered recommendations. Include practical advice specific 
                     </p>
                 </div>
             )}
+
+            </div>
         </div>
     );
 }

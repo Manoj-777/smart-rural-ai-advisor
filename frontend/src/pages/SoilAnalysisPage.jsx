@@ -257,6 +257,8 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                 <p>{t('soilSubtitle') || 'Enter your soil test results or observations to get AI-powered fertilizer and improvement recommendations.'}</p>
             </div>
 
+            <div className="ai-feature-page-scroll">
+
             <div className="ai-feature-form">
                 {/* Soil test results section */}
                 <h4 className="ai-form-section-title">🔬 {t('soilTestResults') || 'Soil Test Results'} <span className="ai-optional">({t('soilIfAvailable') || 'if available from soil testing lab'})</span></h4>
@@ -366,6 +368,8 @@ Keep advice practical for Indian farmers. Use bullet points.`;
                     </p>
                 </div>
             )}
+
+            </div>
         </div>
     );
 }
