@@ -1978,7 +1978,10 @@ def lambda_handler(event, context):
         model_farmer_context = farmer_context
         _is_open_crop_query = _is_open_crop_recommendation_query(_clean_english_msg)
         _is_specific_profile_crop_query = _is_profile_crop_specific_query(_clean_english_msg)
-        if _is_open_crop_query and not _is_specific_profile_crop_query and farmer_context:
+        if _query_is_generic:
+            model_farmer_context = None
+            logger.info("Generic query — removed farmer context from model invocation")
+        elif _is_open_crop_query and not _is_specific_profile_crop_query and farmer_context:
             model_farmer_context = dict(farmer_context)
             model_farmer_context['crops'] = []
             logger.info("Open crop recommendation query — removed profile crops from model context")
