@@ -64,7 +64,7 @@ def _guardrail_config():
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
 FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
 HYBRID_LOCALIZATION_ENABLED = os.environ.get('HYBRID_LOCALIZATION_ENABLED', 'false').lower() == 'true'
-STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'true').lower() == 'true'
+STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'false').lower() == 'true'
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', '')
 LAMBDA_CROP = os.environ.get('LAMBDA_CROP', '')
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', '')
