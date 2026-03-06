@@ -1134,7 +1134,13 @@ def _strip_local_markdown_symbols(text, language_code='en'):
     s = text.replace('\r\n', '\n').replace('\r', '\n')
     s = re.sub(r'</?span[^>]*>', '', s, flags=re.IGNORECASE)
     s = s.replace('\uFFFD', '')
-    s = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', s)
+
+    _lang = normalize_language_code(language_code or 'en', default='en')
+    _is_indic = _lang in {'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'or', 'as', 'ur', 'hi'}
+    if _is_indic:
+        s = re.sub(r'[\u200b\ufeff]', '', s)
+    else:
+        s = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', s)
 
     filtered = []
     for ch in s:

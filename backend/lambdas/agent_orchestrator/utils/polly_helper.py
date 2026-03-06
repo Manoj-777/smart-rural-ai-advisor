@@ -11,6 +11,7 @@ import re
 import time
 import random
 import logging
+import unicodedata
 from botocore.config import Config
 
 logger = logging.getLogger()
@@ -135,7 +136,8 @@ def normalize_language_code(language_code, default='en'):
         return default
     return LANGUAGE_ALIASES.get(normalized, normalized)
 
-MAX_POLLY_TEXT_LENGTH = 2800
+POLLY_CHUNK_MAX_CHARS = max(500, int(os.environ.get('POLLY_CHUNK_MAX_CHARS', '2400')))
+GTTS_CHUNK_MAX_CHARS = max(300, int(os.environ.get('GTTS_CHUNK_MAX_CHARS', '900')))
 
 
 def _strip_markdown_for_tts(text):
@@ -180,22 +182,75 @@ def _strip_markdown_for_tts(text):
     return s.strip()
 
 
-def _truncate_text(text, max_length):
-    """Truncate text to max_length, breaking at a word boundary."""
-    normalized = (text or '').strip()
-    if len(normalized) <= max_length:
-        return normalized
-    truncated = normalized[:max_length]
-    last_space = truncated.rfind(' ')
-    if last_space > int(max_length * 0.7):
-        truncated = truncated[:last_space]
-    return f"{truncated}..."
-
-
-def _prepare_text_for_tts(text, max_length=MAX_POLLY_TEXT_LENGTH):
-    """Strip markdown and truncate for TTS."""
+def _prepare_text_for_tts(text):
+    """Strip markdown for TTS without truncating content."""
     cleaned = _strip_markdown_for_tts(text)
-    return _truncate_text(cleaned, max_length)
+    cleaned = unicodedata.normalize('NFC', cleaned)
+    return cleaned
+
+
+def _split_text_for_tts(text, chunk_max_chars):
+    """Split text into chunks without dropping content."""
+    normalized = (text or '').strip()
+    if not normalized:
+        return []
+    if len(normalized) <= chunk_max_chars:
+        return [normalized]
+
+    chunks = []
+    current = ''
+
+    def _flush_current():
+        nonlocal current
+        if current.strip():
+            chunks.append(current.strip())
+        current = ''
+
+    paragraphs = [p.strip() for p in re.split(r'\n+', normalized) if p.strip()]
+    for paragraph in paragraphs:
+        if len(paragraph) <= chunk_max_chars:
+            candidate = f"{current}\n{paragraph}".strip() if current else paragraph
+            if len(candidate) <= chunk_max_chars:
+                current = candidate
+            else:
+                _flush_current()
+                current = paragraph
+            continue
+
+        sentences = [s.strip() for s in re.split(r'(?<=[\.!\?\u0964\u0965])\s+', paragraph) if s.strip()]
+        for sentence in sentences:
+            if len(sentence) <= chunk_max_chars:
+                candidate = f"{current} {sentence}".strip() if current else sentence
+                if len(candidate) <= chunk_max_chars:
+                    current = candidate
+                else:
+                    _flush_current()
+                    current = sentence
+                continue
+
+            words = sentence.split(' ')
+            for word in words:
+                if not word:
+                    continue
+                if len(word) > chunk_max_chars:
+                    _flush_current()
+                    start = 0
+                    while start < len(word):
+                        chunks.append(word[start:start + chunk_max_chars])
+                        start += chunk_max_chars
+                    continue
+
+                candidate = f"{current} {word}".strip() if current else word
+                if len(candidate) <= chunk_max_chars:
+                    current = candidate
+                else:
+                    _flush_current()
+                    current = word
+
+        _flush_current()
+
+    _flush_current()
+    return chunks
 
 
 def _upload_audio_bytes(audio_bytes):
@@ -238,18 +293,28 @@ def _polly_tts(safe_text, language_code, voice_id=None):
     if os.environ.get('ENABLE_VOICE_VALIDATION', 'false').lower() == 'true' and voice_id and voice_id not in VOICE_MAP.values():
         logger.warning(f"Invalid voice_id '{voice_id}' received; using mapped/default voice")
         selected_voice = VOICE_MAP.get(language_code, 'Kajal')
-    response = polly.synthesize_speech(
-        Text=safe_text,
-        OutputFormat='mp3',
-        VoiceId=selected_voice,
-        Engine='neural',
-        LanguageCode=POLLY_LANG_MAP.get(language_code, 'en-IN')
-    )
-    return _upload_audio_bytes(response['AudioStream'].read())
+    chunks = _split_text_for_tts(safe_text, POLLY_CHUNK_MAX_CHARS)
+    total_chunks = len(chunks)
+    if total_chunks > 1:
+        logger.info(f'Polly chunking enabled: total_chunks={total_chunks}, total_chars={len(safe_text)}')
+
+    merged_audio = io.BytesIO()
+    for idx, chunk in enumerate(chunks, 1):
+        logger.info(f'Polly request: chunk={idx}/{total_chunks}, chars={len(chunk)}, lang={language_code}')
+        response = polly.synthesize_speech(
+            Text=chunk,
+            OutputFormat='mp3',
+            VoiceId=selected_voice,
+            Engine='neural',
+            LanguageCode=POLLY_LANG_MAP.get(language_code, 'en-IN')
+        )
+        merged_audio.write(response['AudioStream'].read())
+
+    return _upload_audio_bytes(merged_audio.getvalue())
 
 
-def _gtts_tts(safe_text, language_code):
-    """Free Google Translate TTS. No API key. Supports all major Indian languages."""
+def _gtts_tts_chunk(chunk_text, language_code, chunk_index=1, total_chunks=1):
+    """Generate one gTTS MP3 chunk with retry."""
     if not _validate_gtts_dependency_once():
         raise RuntimeError('gTTS dependency missing in Lambda package; redeploy with SAM build')
 
@@ -261,14 +326,22 @@ def _gtts_tts(safe_text, language_code):
     last_error = None
     for attempt in range(1, GTTS_RETRY_ATTEMPTS + 1):
         try:
-            print(f'gTTS: {len(safe_text)} chars for lang={language_code}, attempt={attempt}/{GTTS_RETRY_ATTEMPTS}')
-            tts = gTTS(text=safe_text, lang=language_code, slow=False)
+            logger.info(
+                f'gTTS request: chunk={chunk_index}/{total_chunks}, chars={len(chunk_text)}, '
+                f'lang={language_code}, attempt={attempt}/{GTTS_RETRY_ATTEMPTS}'
+            )
+            tts = gTTS(text=chunk_text, lang=language_code, slow=False)
             buf = io.BytesIO()
             tts.write_to_fp(buf)
             buf.seek(0)
-            return _upload_audio_bytes(buf.read())
+            return buf.read()
         except Exception as err:
             last_error = err
+            logger.warning(
+                f'gTTS attempt failed: chunk={chunk_index}/{total_chunks}, lang={language_code}, '
+                f'attempt={attempt}/{GTTS_RETRY_ATTEMPTS}, '
+                f'error_type={type(err).__name__}, error={err}'
+            )
             if attempt < GTTS_RETRY_ATTEMPTS:
                 if os.environ.get('ENABLE_GTTS_EXPONENTIAL_BACKOFF', 'false').lower() == 'true':
                     delay = GTTS_RETRY_BACKOFF_SEC * (2 ** (attempt - 1))
@@ -277,7 +350,29 @@ def _gtts_tts(safe_text, language_code):
                 else:
                     time.sleep(GTTS_RETRY_BACKOFF_SEC * attempt)
 
-    raise RuntimeError(f'gTTS failed after {GTTS_RETRY_ATTEMPTS} attempts: {last_error}')
+    raise RuntimeError(
+        f'gTTS failed after {GTTS_RETRY_ATTEMPTS} attempts '
+        f'(chunk={chunk_index}/{total_chunks}, lang={language_code}, '
+        f'error_type={type(last_error).__name__}): {last_error}'
+    )
+
+
+def _gtts_tts(safe_text, language_code):
+    """Free Google Translate TTS. No API key. Supports all major Indian languages."""
+    chunks = _split_text_for_tts(safe_text, GTTS_CHUNK_MAX_CHARS)
+    if not chunks:
+        return None
+
+    total_chunks = len(chunks)
+    if total_chunks > 1:
+        logger.info(f'gTTS chunking enabled: total_chunks={total_chunks}, total_chars={len(safe_text)}')
+
+    merged_audio = io.BytesIO()
+    for idx, chunk in enumerate(chunks, 1):
+        chunk_audio = _gtts_tts_chunk(chunk, language_code, chunk_index=idx, total_chunks=total_chunks)
+        merged_audio.write(chunk_audio)
+
+    return _upload_audio_bytes(merged_audio.getvalue())
 
 
 def text_to_speech(text, language_code='en', voice_id=None, return_metadata=False):
@@ -296,7 +391,7 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
     language_code = normalize_language_code(language_code, default='en')
 
     safe_text = _prepare_text_for_tts(text)
-    was_truncated = (text or '').strip() != safe_text
+    was_truncated = False
     if not safe_text:
         if return_metadata:
             return {'audio_url': None, 'audio_key': None, 'truncated': False}
@@ -315,13 +410,13 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
                     result = _gtts_tts(safe_text, language_code)
                 except Exception as gtts_err:
                     tts_error = f"gTTS error ({language_code}): {gtts_err}"
-                    print(tts_error)
+                    logger.warning(tts_error)
             else:
                 tts_error = f"gTTS disabled by USE_GTTS for language={language_code}"
-                print(tts_error)
+                logger.warning(tts_error)
         else:
             tts_error = f"No TTS engine configured for language={language_code}"
-            print(tts_error)
+            logger.warning(tts_error)
 
 
         # Unpack result — _upload_audio_bytes now returns {'url': ..., 'key': ...}
