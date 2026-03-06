@@ -1,6 +1,87 @@
-1. Rice (Paddy) — ✅ EXAMPLE (kept for reference)
+1. Rice (Paddy)
 
-(Your original Rice section retained — not repeated here to avoid redundancy.)
+Botanical Name: Oryza sativa
+Crop Type: Cereal / Kharif (main), Rabi (in some irrigated belts)
+Growing Season: June–November (Kharif); November–April (Rabi/Boro in eastern India)
+Duration: 100–150 days (short to long duration varieties)
+
+Soil Requirements
+
+Ideal Soil: Clay to clay loam with good water retention; puddled soils preferred for transplanted rice
+
+pH Range: 5.5–7.0
+
+Drainage: Can tolerate standing water during vegetative stage; drain 15–20 days before harvest
+
+Climate & Water
+
+Temperature: 22–32°C optimal; grain filling best at 20–25°C night temperature
+
+Rainfall: 1000–2000 mm (monsoon dependent for rainfed; supplemental irrigation for rabi)
+
+Water Need: 1200–2000 mm per crop cycle (includes land preparation); SRI method reduces water by 30–40%
+
+Irrigation: Continuous flooding (5 cm) or alternate wetting/drying (AWD) to save 20–30% water
+
+Regions in India
+
+Major States: West Bengal, Uttar Pradesh, Punjab, Andhra Pradesh, Telangana, Tamil Nadu, Odisha, Bihar, Assam, Chhattisgarh, Karnataka, Kerala
+
+Best Suited: Alluvial plains, deltaic regions, and irrigated command areas
+
+Planting Guide
+
+Seed Rate: 40–60 kg/ha (transplanting); 80–100 kg/ha (direct seeding DSR); SRI uses 5–7 kg/ha
+
+Spacing: 20 × 15 cm (transplanting), 20 × 10 cm (DSR rows)
+
+Nursery Duration: 20–25 days (short duration) to 30–40 days (long duration)
+
+Planting Methods: Transplanting (manual/machine), Direct Seeded Rice (DSR), System of Rice Intensification (SRI)
+
+Yield
+
+Average Yield: 2.5–4.0 t/ha (rainfed), 4.5–6.5 t/ha (irrigated), 7–10 t/ha (SRI/high-input hybrids)
+
+High-Yield Varieties: Pusa Basmati 1121/1509 (aromatic), Swarna (MTU 7029), IR 64, Samba Mahsuri (BPT 5204), CO 51, ADT series (Tamil Nadu), hybrid rice (DRRH, PHB series)
+
+Basmati Varieties: Pusa Basmati 1121 (export grade), 1509, 1718, Traditional Basmati
+
+Harvest Indicator: Grain moisture 20–22% for machine harvest; 80% panicles golden-yellow
+
+Key Nutrients
+
+NPK Requirement: 120–150:40–60:40–60 kg/ha (split N in 3 doses: basal, tillering, panicle initiation)
+
+Micronutrients: Zinc sulfate 25 kg/ha (critical in rice), Iron in alkaline soils, Silicon beneficial
+
+Organic Options: Azolla dual cropping for 20–30 kg N/ha, green manuring with Sesbania/Dhaincha
+
+Market Info
+
+MSP (Kharif 2025-26): Common Rice (Paddy) ₹2,300/quintal; Grade A Rice (Paddy) ₹2,340/quintal. Market range: ₹2,200–3,000/quintal for common varieties. Basmati paddy: ₹3,500–6,000/quintal depending on variety and quality. Best selling window: Oct–Dec for kharif crop. Store properly (moisture <14%) for 2–3 months to get 10–15% premium.
+
+Major Markets: FCI procurement centers, APMCs across grain belts, rice millers, Basmati exporters (APEDA registered)
+
+Common Diseases
+
+Bacterial Leaf Blight (BLB): Yellow to white lesions on leaf margins; treat with Streptocycline 0.01% + Copper oxychloride 0.25%
+
+Blast (Magnaporthe oryzae): Diamond-shaped spots on leaves; spray Tricyclazole 75WP @ 0.6 g/L or Isoprothiolane
+
+Sheath Blight: Oval lesions on leaf sheath near water line; spray Hexaconazole 5EC @ 2 ml/L
+
+Brown Plant Hopper (BPH): Hopperburn — drain water, spray Pymetrozine or Dinotefuran
+
+Yellow Stem Borer: Dead hearts (vegetative) or white ears (reproductive); use Cartap 4G granules in standing water
+
+False Smut: Green spore balls on panicle; preventive spray of Propiconazole at boot leaf stage
+
+Pest Management Notes: Use light traps for monitoring BPH/stem borer. Avoid excessive nitrogen (>150 kg/ha) which increases pest susceptibility. Encourage natural predators (spiders, Trichogramma). Apply neem oil 2% as preventive.
+
+Traditional Wisdom
+
+SRI method with single seedling, wider spacing, and intermittent irrigation gives 30–50% more yield with less water. Crop rotation with pulses (green gram/black gram) after rice improves soil nitrogen and breaks pest cycles. Zero-till DSR saves labor and water in Punjab/Haryana.
 
 2. Wheat
 
@@ -57,7 +138,7 @@ Micronutrients: Zn (broadcast or foliar ZnSO₄), S where deficiency visible
 
 Market Info
 
-MSP: Varies by season/state — government announces annually. (Check latest official MSP.)
+MSP (Rabi 2025-26): ₹2,275/quintal. Market price range: ₹2,200–2,900/quintal depending on grade and mandi. Best selling: April–May post-harvest or store for 2-3 months for 10-15% premium.
 
 Major Markets: APMCs across grain belts, private aggregators
 
@@ -124,7 +205,7 @@ Micronutrients: Boron for boll set, Zn where deficient
 
 Market Info
 
-MSP/Market: No national MSP for seed cotton; market price volatile — sell to ginners/APMCs
+MSP (Kharif 2025-26): Medium Staple ₹7,020/quintal, Long Staple ₹7,520/quintal. Market range: ₹6,500–8,200/quintal. CCI procurement active in Telangana/AP. Sell in batches — 50% at harvest, 50% in Feb-Mar for better realization.
 
 Common Diseases
 
@@ -189,7 +270,7 @@ Micronutrients: Mg, S, Zn as per soil tests
 
 Market Info
 
-FRP/MSP: State/season linked; price normally negotiated with mills; check seasonal fair & regulatory rates.
+FRP (2025-26): ₹3,150/quintal (Central FRP). States may announce higher SAP (State Advised Price) — e.g., UP SAP typically ₹30-50 above FRP. Market range: ₹2,900–3,600/quintal. Sell to registered sugar mills for guaranteed FRP payment.
 
 Major Markets: Sugar mills, direct industrial off­take
 
@@ -256,7 +337,7 @@ Micronutrients: Zn for enhancement where deficient
 
 Market Info
 
-MSP: MSP exists for maize in some seasons — check annual notification.
+MSP (Kharif 2025-26): ₹2,090/quintal. Market range: ₹1,900–2,500/quintal. Key mandis: Gulbarga, Davangere, Raipur. Poultry feed demand drives prices above MSP in deficit months.
 
 Major Markets: APMCs, feed industry procurement
 
@@ -323,7 +404,7 @@ Micronutrients: Boron important for pod fill; Zn where deficient
 
 Market Info
 
-MSP/Market: No uniform MSP for kernels; local prices vary. Groundnut oil demand affects prices.
+MSP (Kharif 2025-26): ₹6,377/quintal (in-shell). Market range: ₹5,800–7,500/quintal. Key mandis: Rajkot, Junagadh, Kurnool. Oil demand drives premium for bold kernels. NAFED/PM-AASHA procurement when price < MSP.
 
 Major Markets: Oilseed markets, processors
 
@@ -390,7 +471,7 @@ Micronutrients: Boron and Zn where deficient
 
 Market Info
 
-MSP: Historically announced for oilseeds in some seasons; check notifications.
+MSP (Kharif 2025-26): ₹4,600/quintal (Yellow). Market range: ₹4,200–5,500/quintal. Key mandis: Indore, Ujjain, Khandwa, Latur. Sell early in Oct-Nov if near MSP; late sales risk price drops. PM-AASHA covers oilseeds.
 
 Major Markets: Soya processors, solvent extraction units
 
@@ -794,7 +875,7 @@ Market Info
 
 Market: Growing demand for millet products (health foods); niche premium markets increasing
 
-Price: Stable to premium compared to staples in some markets
+MSP (Kharif 2025-26): Ragi (Finger Millet) ₹3,846/quintal. Market range: ₹3,500–4,500/quintal. International Year of Millets (2023) boosted demand. Sell to FPOs, organic buyers, or health food processors for premium. NAFED procurement available when market price < MSP.
 
 Common Diseases
 
@@ -859,7 +940,7 @@ Micronutrients: Mo for nodulation where deficient
 
 Market Info
 
-MSP: Pulses are supported in some seasons; check official announcements.
+MSP (Kharif 2025-26): Tur/Arhar ₹7,000/quintal. Market range: ₹6,500–8,500/quintal. Peak prices Jun-Sep (off-season). NAFED/NCCF procurement when market < MSP. Key mandis: Latur, Akola, Gulbarga.
 
 Major Markets: Pulse mandis & processors
 
@@ -1194,7 +1275,7 @@ Micronutrients: Mo for nodulation where deficient
 
 Market Info
 
-MSP: Pulses have periodic MSP support; check latest official notice.
+MSP (Kharif 2025-26): Urad ₹6,950/quintal. Market range: ₹6,400–8,000/quintal. Key mandis: Indore, Bhopal, Akola. Sell through NAFED procurement when market < MSP.
 
 Major Markets: Pulse mandis
 
@@ -1261,7 +1342,7 @@ Micronutrients: S important for oil content; Zn where deficient
 
 Market Info
 
-MSP: Mustard/rapeseed MSPs announced periodically; check current notifications.
+MSP (Rabi 2025-26): ₹5,650/quintal. Market range: ₹5,200–6,800/quintal. Key mandis: Alwar, Bharatpur, Kota, Agra. Oil content quality drives premium. NAFED procurement available under PM-AASHA.
 
 Major Markets: Oilseed markets & crushing industry
 

@@ -376,6 +376,53 @@ def _is_on_topic_query(text):
     return False
 
 
+
+# Generic query patterns: educational, definitional, or broad questions that
+# do NOT benefit from personalizing with the farmer's profile/location/crops.
+GENERIC_QUERY_PATTERNS = [
+    r'^what\s+is\b', r'^what\s+are\b', r'^define\b', r'^explain\b',
+    r'^how\s+does\b', r'^how\s+is\b', r'^how\s+do\b', r'^how\s+are\b',
+    r'^who\s+is\b', r'^who\s+are\b', r'^when\s+is\b', r'^when\s+was\b',
+    r'^where\s+is\b', r'^where\s+are\b', r'^why\s+is\b', r'^why\s+do\b',
+    r'^tell\s+me\s+about\b', r'^meaning\s+of\b', r'^difference\s+between\b',
+    r'^types\s+of\b', r'^list\b.*\btypes\b', r'^advantages\b', r'^benefits\s+of\b',
+    r'^history\s+of\b', r'^overview\s+of\b',
+    r'\bwhat\s+is\s+msp\b', r'\bwhat\s+is\s+pm.kisan\b',
+    r'\bhow\s+to\s+apply\b', r'\bhow\s+to\s+register\b',
+    r'\bgeneral\b.*\binformation\b', r'\bgeneral\b.*\bknowledge\b',
+]
+
+# Specific query indicators: phrases that signal the farmer wants advice
+# personalized to THEIR situation, land, location, or crops.
+SPECIFIC_QUERY_INDICATORS = [
+    r'\bmy\s+(farm|crop|land|soil|field|area|village|district|state)\b',
+    r'\bfor\s+my\b', r'\bin\s+my\s+area\b', r'\bmy\s+region\b',
+    r'\bshould\s+i\b', r'\bcan\s+i\b', r'\bwhat\s+should\s+i\b',
+    r'\brecommend\s+for\b', r'\bsuggest\s+for\b', r'\badvise\s+me\b',
+    r'\bbest\s+crop\s+for\b', r'\bwhich\s+crop\b', r'\bwhich\s+variety\b',
+    r'\bwhat\s+to\s+(grow|plant|sow)\b', r'\bcurrent\s+weather\b',
+    r'\bweather\s+(in|at|for|today)\b', r'\bforecast\b',
+]
+
+
+def _is_generic_query(english_text):
+    """Determine if the query is generic/educational (True) vs specific/personalized (False).
+    Generic queries should NOT be personalized with farmer profile data."""
+    text = (english_text or '').lower().strip()
+    if not text:
+        return False
+    # If it matches specific indicators, it's NOT generic
+    for pattern in SPECIFIC_QUERY_INDICATORS:
+        if re.search(pattern, text):
+            return False
+    # If it matches generic patterns, it IS generic
+    for pattern in GENERIC_QUERY_PATTERNS:
+        if re.search(pattern, text):
+            return True
+    # Default: not generic (assume farmer wants personalized advice)
+    return False
+
+
 def _off_topic_response():
     return (
         "I can help only with agriculture and rural livelihood topics, such as crops, pests, weather, "
@@ -447,12 +494,12 @@ def _append_sources(reply_en, tools_used):
     return text
 
 
-def _apply_code_policy(user_query_en, intents, result_text, tools_used, original_query=None, farmer_context=None):
+def _apply_code_policy(user_query_en, intents, result_text, tools_used, original_query=None, farmer_context=None, is_generic=False):
     policy_meta = {
         'code_policy_enforced': ENFORCE_CODE_POLICY,
         'off_topic_blocked': False,
-        'grounding_required': _requires_grounded_tools(intents),
-        'grounding_satisfied': bool(tools_used),
+        'grounding_required': _requires_grounded_tools(intents) and not is_generic,
+        'grounding_satisfied': bool(tools_used) or is_generic,
     }
 
     if not ENFORCE_CODE_POLICY:
@@ -511,8 +558,8 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
 
     text = _append_sources(text, cleaned_tools)
 
-    if len(text) > 5000:
-        text = text[:5000].rsplit(' ', 1)[0] + '...'
+    if len(text) > 7000:
+        text = text[:7000].rsplit(' ', 1)[0] + '...'
 
     return text, cleaned_tools, policy_meta
 
@@ -536,7 +583,7 @@ CRITICAL RULES:
 8. When farmer context is provided, ALWAYS use it to fill missing parameters (name, state, crop, soil_type) for tool calls — DO NOT ask the farmer for information already in their profile context. NEVER ask for the farmer's name — it is already provided. Address them by name directly.
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
 10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context. If gps_location is in the context, use it as the PRIMARY fallback location. If the farmer explicitly mentions a different location in the current query, ALWAYS use the farmer-mentioned location instead of gps_location/profile location.
-11. ANSWER ONLY WHAT THE FARMER ASKED. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. Be concise and focused.
+11. ANSWER WHAT THE FARMER ASKED with COMPREHENSIVE DETAIL. Provide thorough, expert-level advice with specific numbers (kg/hectare, litres/day, Rs/quintal, mm of water, days to harvest), step-by-step instructions, timelines, and actionable guidance. Include at least 400-800 words for substantive queries. Do NOT add unrelated topics, but DO give comprehensive depth on what they asked. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. 
 12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
 14. CRITICAL: You have knowledge about ALL major Indian crops — not just rice and wheat. The tool database covers 35+ crops including cotton, sugarcane, maize, groundnut, soybean, banana, coconut, tomato, onion, potato, millets (ragi/bajra/jowar), chilli, mango, brinjal, turmeric, black gram, mustard, sunflower, sesame, jute, lentil, barley, okra, pomegranate, guava, papaya, castor, safflower, chickpea, green gram, toor dal, and more. If the tool returns partial data (e.g., only 2 crops), STILL provide helpful advice about the farmer's requested crop using your general agricultural knowledge PLUS whatever the tool returned. NEVER say "I only have data for rice and wheat" or "the tool only returned data for X and Y" — that is misleading and unhelpful. Instead, combine tool data with your deep knowledge of Indian agriculture to give the best advice possible.
@@ -571,6 +618,19 @@ Chilli: Kharif+Rabi, 120-150d, loam pH6.0-7.0, drip, yield 3-12t/ha
 Turmeric: Kharif, 210-270d, loam pH4.5-7.5, drip, yield 8-15t/ha
 Mustard: Rabi, 90-120d, loam pH6.5-8.0, sprinkler, yield 1.0-3.0t/ha, MSP ₹5650/q
 
+MSP LOOKUP RULE: For MSP (Minimum Support Price) and market price queries, FIRST refer to the CROP REFERENCE data above — it contains current MSP rates for all major crops. You do NOT need to call search_schemes for MSP data. Provide the MSP value directly from CROP REFERENCE along with any additional context from get_crop_advisory if needed.
+
+
+MULTI-TOPIC QUERIES (CRITICAL): When the farmer asks about MULTIPLE topics in one message (e.g., pest + weather + MSP + schemes), you MUST:
+1. Address ALL topics mentioned — do NOT ignore any part of the question
+2. Keep EACH topic section focused but thorough (5-8 sentences) — cover ALL topics with adequate detail
+3. Structure your response with clear ### headings for each topic (e.g., ### Pest Issue, ### Weather, ### MSP, ### Government Schemes)
+4. For pest/disease in multi-topic: give the likely cause, one key treatment, and one organic option — NOT the full diagnosis
+5. For weather in multi-topic: give current temp, condition, and 1-2 day forecast — NOT the full week
+6. For schemes in multi-topic: list 2-3 most relevant schemes with ONE line each — NOT full eligibility details
+7. For MSP in multi-topic: give the exact price/quintal value from CROP REFERENCE — one line
+This ensures ALL parts of the farmer's question get answered within the response limit.
+
 You have access to tools for weather lookup, crop advisory (including irrigation), pest alerts, government schemes, and farmer profiles.
 Always call the relevant tool first, then synthesize the response from tool data."""
 
@@ -594,7 +654,7 @@ DIRECT_TOOLS = [
     {
         "toolSpec": {
             "name": "get_crop_advisory",
-            "description": "Get crop recommendations, growing advice, varieties, fertilizer schedules, and irrigation guidance from the Knowledge Base. Use query_type='irrigation' specifically for water requirements, irrigation scheduling, drip/sprinkler methods, and water management queries.",
+            "description": "Get crop recommendations, growing advice, varieties, fertilizer schedules, irrigation guidance, and MSP (Minimum Support Price) data from the Knowledge Base. Use query_type='irrigation' specifically for water requirements, irrigation scheduling, drip/sprinkler methods, and water management queries. Also use for MSP, market price, mandi rate queries.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -613,7 +673,7 @@ DIRECT_TOOLS = [
     {
         "toolSpec": {
             "name": "search_schemes",
-            "description": "Search Indian government agricultural schemes, subsidies, loans, and insurance programs.",
+            "description": "Search Indian government agricultural schemes, subsidies, loans, and insurance programs. Do NOT use this for MSP or market price queries — use get_crop_advisory or CROP REFERENCE instead.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -1204,7 +1264,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 "messages": messages,
                 "system": [{"text": system_prompt}],
                 "toolConfig": {"tools": DIRECT_TOOLS},
-                "inferenceConfig": {"temperature": 0.7},
+                "inferenceConfig": {"maxTokens": 4096, "temperature": 0.7},
             }
             # Gap #5: Attach Bedrock native guardrail if configured
             # (skipped for feature-page fast paths — their prompts are
@@ -1409,6 +1469,7 @@ def _classify_intents(message_en, original_message=None):
                   'వాతావరణం', 'వర్షం', 'ఉష్ణోగ్రత']
     crop_kw = ['crop', 'seed', 'soil', 'fertilizer', 'irrigation', 'yield', 'harvest', 'variety',
                'kharif', 'rabi', 'grow', 'plant', 'sow', 'cultivat',
+               'msp', 'minimum support price', 'market price', 'price', 'mandi', 'procurement',
                # Tamil crop words
                'பயிர்', 'விதை', 'மண்', 'உரம்', 'நெல்', 'நிலம்', 'வளர்', 'விவசாய',
                # Hindi crop words
@@ -1749,9 +1810,16 @@ def lambda_handler(event, context):
 
         # If user speaks in an Indic language but no specific intents detected,
         # default to 'crop' (most common farmer query) so it gets routed to a tool
+        # Check if this is a generic/educational query
+        _query_is_generic = _is_generic_query(english_message)
+
         if not intents and _contains_indic_chars(user_message):
-            logger.info("Indic-language query with no detected intents — defaulting to 'crop' intent")
-            intents = ['crop']
+            if _query_is_generic:
+                logger.info("Indic generic query — answering without tool routing")
+                intents = ['general']
+            else:
+                logger.info("Indic-language query with no detected intents — defaulting to 'crop' intent")
+                intents = ['crop']
 
         on_topic = _is_on_topic_query(english_message) or _is_on_topic_query(user_message)
         if ENFORCE_CODE_POLICY and not on_topic:
@@ -1840,12 +1908,17 @@ def lambda_handler(event, context):
 
             # Build context prefix — use GPS location if available, else profile district/state
             active_location = gps_location or farmer_context['district'] or farmer_context['state']
-            context_prefix = (
-                f"[Farmer context: {farmer_context['name']}, "
-                f"Location={active_location}, State={farmer_context['state']}, "
-                f"Crops={farmer_context['crops']}, Soil={farmer_context['soil_type']}] "
-            )
-            english_message = context_prefix + english_message
+            if _query_is_generic:
+                logger.info("Generic query detected — NOT injecting farmer profile into prompt")
+                # Keep farmer_context available for tools but don't prepend to message
+            else:
+                context_prefix = (
+                    f"[Farmer context: {farmer_context['name']}, "
+                    f"Location={active_location}, State={farmer_context['state']}, "
+                    f"Crops={farmer_context['crops']}, Soil={farmer_context['soil_type']}] "
+                )
+                english_message = context_prefix + english_message
+                logger.info("Specific query — injected farmer profile into prompt")
         elif gps_location:
             # No profile but we have GPS — create minimal context
             farmer_context = {
@@ -1956,7 +2029,7 @@ def lambda_handler(event, context):
         _cache_crop = (_fc.get('crops') or [''])[0] if isinstance(_fc.get('crops'), list) else str(_fc.get('crops', ''))
         _raw_en_for_cache = detection.get('translated_text', user_message)
 
-        cached = get_cached_response(_raw_en_for_cache, _cache_location, _cache_crop, intents=intents)
+        cached = get_cached_response(_raw_en_for_cache, _cache_location, _cache_crop, intents=intents) if not _query_is_generic else None
         if cached:
             logger.info(f"CACHE HIT — returning cached response (key={cached.get('_cache_key')})")
             # Use cached English reply
@@ -2134,6 +2207,7 @@ def lambda_handler(event, context):
                 tools_used,
                 original_query=user_message,
                 farmer_context=farmer_context,
+                is_generic=_query_is_generic,
             )
 
         # Gap #6: Audit policy decision
