@@ -29,35 +29,83 @@ function SortArrow({ column, sortCol, sortDir }) {
     );
 }
 
-/* ── Crop market price data (MSP + simulated market prices) ─────── */
+/* ── Crop market price data (MSP + simulated market prices) — 66 crops from crop_data.csv ─────── */
 const CROP_PRICES = [
+    // Cereals
     { name: 'Rice', season: 'Kharif', msp: 2300, marketMin: 2100, marketMax: 2800, unit: '₹/quintal', trend: 'up' },
-    { name: 'Wheat', season: 'Rabi', msp: 2275, marketMin: 2200, marketMax: 2900, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Cotton', season: 'Kharif', msp: 7020, marketMin: 6500, marketMax: 8200, unit: '₹/quintal', trend: 'up' },
-    { name: 'Sugarcane', season: 'Annual', msp: 3150, marketMin: 2900, marketMax: 3600, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Maize', season: 'Kharif', msp: 2090, marketMin: 1900, marketMax: 2500, unit: '₹/quintal', trend: 'down' },
-    { name: 'Groundnut', season: 'Kharif', msp: 6377, marketMin: 5800, marketMax: 7500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Soybean', season: 'Kharif', msp: 4600, marketMin: 4200, marketMax: 5500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Toor Dal', season: 'Kharif', msp: 7000, marketMin: 6500, marketMax: 8500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Mustard', season: 'Rabi', msp: 5650, marketMin: 5200, marketMax: 6800, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Chana', season: 'Rabi', msp: 5440, marketMin: 5000, marketMax: 6500, unit: '₹/quintal', trend: 'down' },
-    { name: 'Green Gram', season: 'Kharif', msp: 8558, marketMin: 7800, marketMax: 9500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Black Gram', season: 'Kharif', msp: 6950, marketMin: 6400, marketMax: 8000, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Sunflower', season: 'Kharif', msp: 6760, marketMin: 6200, marketMax: 7800, unit: '₹/quintal', trend: 'down' },
-    { name: 'Sesame', season: 'Kharif', msp: 8635, marketMin: 8000, marketMax: 10500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Jowar', season: 'Kharif', msp: 3180, marketMin: 2900, marketMax: 3800, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Bajra', season: 'Kharif', msp: 2500, marketMin: 2300, marketMax: 3000, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Ragi', season: 'Kharif', msp: 3846, marketMin: 3500, marketMax: 4500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Barley', season: 'Rabi', msp: 1735, marketMin: 1600, marketMax: 2100, unit: '₹/quintal', trend: 'down' },
-    { name: 'Jute', season: 'Kharif', msp: 5050, marketMin: 4600, marketMax: 5800, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Lentil', season: 'Rabi', msp: 6425, marketMin: 5900, marketMax: 7200, unit: '₹/quintal', trend: 'up' },
-    { name: 'Coconut', season: 'Perennial', msp: 10860, marketMin: 9800, marketMax: 12500, unit: '₹/quintal (copra)', trend: 'up' },
-    { name: 'Safflower', season: 'Rabi', msp: 5800, marketMin: 5300, marketMax: 6500, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Castor', season: 'Kharif', msp: 6291, marketMin: 5800, marketMax: 7200, unit: '₹/quintal', trend: 'up' },
-    { name: 'Tomato', season: 'Year-round', msp: null, marketMin: 800, marketMax: 4500, unit: '₹/quintal', trend: 'up' },
-    { name: 'Onion', season: 'Rabi', msp: null, marketMin: 600, marketMax: 3500, unit: '₹/quintal', trend: 'down' },
-    { name: 'Potato', season: 'Rabi', msp: null, marketMin: 500, marketMax: 2000, unit: '₹/quintal', trend: 'stable' },
-    { name: 'Okra', season: 'Kharif', msp: null, marketMin: 1200, marketMax: 3000, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Wheat', season: 'Rabi', msp: 2425, marketMin: 2200, marketMax: 3000, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Maize', season: 'Kharif+Rabi', msp: 2225, marketMin: 2000, marketMax: 2700, unit: '₹/quintal', trend: 'down' },
+    { name: 'Jowar', season: 'Kharif+Rabi', msp: 3371, marketMin: 3100, marketMax: 4100, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Bajra', season: 'Kharif', msp: 2625, marketMin: 2400, marketMax: 3200, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Barley', season: 'Rabi', msp: 1980, marketMin: 1800, marketMax: 2400, unit: '₹/quintal', trend: 'down' },
+    { name: 'Ragi', season: 'Kharif', msp: 4290, marketMin: 3900, marketMax: 5200, unit: '₹/quintal', trend: 'up' },
+    { name: 'Small Millets', season: 'Kharif', msp: 3500, marketMin: 3200, marketMax: 4300, unit: '₹/quintal', trend: 'stable' },
+    // Pulses
+    { name: 'Chickpea', season: 'Rabi', msp: 5650, marketMin: 5100, marketMax: 6900, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Pigeon Pea', season: 'Kharif', msp: 7550, marketMin: 6900, marketMax: 9200, unit: '₹/quintal', trend: 'up' },
+    { name: 'Green Gram', season: 'Kharif+Summer', msp: 8682, marketMin: 7900, marketMax: 10600, unit: '₹/quintal', trend: 'up' },
+    { name: 'Black Gram', season: 'Kharif', msp: 7400, marketMin: 6700, marketMax: 9000, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Lentil', season: 'Rabi', msp: 6700, marketMin: 6100, marketMax: 8200, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Peas', season: 'Rabi', msp: 6500, marketMin: 5900, marketMax: 7900, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Horse Gram', season: 'Kharif', msp: 5200, marketMin: 4700, marketMax: 6300, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Cowpea', season: 'Kharif+Summer', msp: 5800, marketMin: 5300, marketMax: 7100, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Moth Bean', season: 'Kharif', msp: 7500, marketMin: 6800, marketMax: 9200, unit: '₹/quintal', trend: 'stable' },
+    // Vegetables
+    { name: 'Potato', season: 'Rabi', msp: null, marketMin: 1100, marketMax: 1500, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Tomato', season: 'Rabi+Kharif', msp: null, marketMin: 1600, marketMax: 2200, unit: '₹/quintal', trend: 'up' },
+    { name: 'Onion', season: 'Rabi', msp: null, marketMin: 1800, marketMax: 2400, unit: '₹/quintal', trend: 'down' },
+    { name: 'Cabbage', season: 'Rabi', msp: null, marketMin: 1400, marketMax: 1800, unit: '₹/quintal', trend: 'down' },
+    { name: 'Cauliflower', season: 'Rabi', msp: null, marketMin: 2000, marketMax: 2700, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Brinjal', season: 'Year-round', msp: null, marketMin: 1600, marketMax: 2200, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Okra', season: 'Kharif+Summer', msp: null, marketMin: 2300, marketMax: 3000, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Carrot', season: 'Rabi', msp: null, marketMin: 2300, marketMax: 3000, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Radish', season: 'Rabi', msp: null, marketMin: 1100, marketMax: 1500, unit: '₹/quintal', trend: 'down' },
+    { name: 'Beans', season: 'Rabi+Kharif', msp: null, marketMin: 4100, marketMax: 5500, unit: '₹/quintal', trend: 'up' },
+    { name: 'Pumpkin', season: 'Kharif+Summer', msp: null, marketMin: 1400, marketMax: 1800, unit: '₹/quintal', trend: 'up' },
+    // Fibre Crops
+    { name: 'Cotton', season: 'Kharif', msp: 7710, marketMin: 7000, marketMax: 9400, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Jute', season: 'Kharif', msp: 5335, marketMin: 4900, marketMax: 6500, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Hemp', season: 'Kharif', msp: 4500, marketMin: 4100, marketMax: 5500, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Sunn Hemp', season: 'Kharif', msp: 6800, marketMin: 6200, marketMax: 8300, unit: '₹/quintal', trend: 'stable' },
+    // Oilseeds
+    { name: 'Groundnut', season: 'Kharif', msp: 6783, marketMin: 6200, marketMax: 8300, unit: '₹/quintal', trend: 'up' },
+    { name: 'Soybean', season: 'Kharif', msp: 4600, marketMin: 4200, marketMax: 5600, unit: '₹/quintal', trend: 'up' },
+    { name: 'Sunflower', season: 'Kharif+Rabi', msp: 7280, marketMin: 6600, marketMax: 8900, unit: '₹/quintal', trend: 'down' },
+    { name: 'Sesame', season: 'Kharif', msp: 8635, marketMin: 7900, marketMax: 10500, unit: '₹/quintal', trend: 'up' },
+    { name: 'Mustard', season: 'Rabi', msp: 5950, marketMin: 5400, marketMax: 7300, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Linseed', season: 'Rabi', msp: 7200, marketMin: 6600, marketMax: 8800, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Castor Seed', season: 'Kharif', msp: 6850, marketMin: 6200, marketMax: 8400, unit: '₹/quintal', trend: 'up' },
+    { name: 'Safflower', season: 'Rabi', msp: 5800, marketMin: 5300, marketMax: 7100, unit: '₹/quintal', trend: 'down' },
+    { name: 'Niger Seed', season: 'Kharif', msp: 8717, marketMin: 7900, marketMax: 10600, unit: '₹/quintal', trend: 'down' },
+    // Cash Crops
+    { name: 'Sugarcane', season: 'Annual', msp: 315, marketMin: 300, marketMax: 400, unit: '₹/quintal (FRP)', trend: 'stable' },
+    { name: 'Tobacco', season: 'Rabi', msp: null, marketMin: 16400, marketMax: 22000, unit: '₹/quintal', trend: 'down' },
+    // Plantation Crops
+    { name: 'Tea', season: 'Perennial', msp: null, marketMin: 20000, marketMax: 26800, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Coffee', season: 'Perennial', msp: null, marketMin: 41000, marketMax: 54900, unit: '₹/quintal', trend: 'up' },
+    { name: 'Rubber', season: 'Perennial', msp: null, marketMin: 15900, marketMax: 21400, unit: '₹/quintal', trend: 'up' },
+    { name: 'Coconut', season: 'Perennial', msp: 11582, marketMin: 10500, marketMax: 14100, unit: '₹/quintal (copra)', trend: 'up' },
+    { name: 'Arecanut', season: 'Perennial', msp: null, marketMin: 50000, marketMax: 67100, unit: '₹/quintal', trend: 'up' },
+    { name: 'Cocoa', season: 'Perennial', msp: null, marketMin: 22800, marketMax: 30500, unit: '₹/quintal', trend: 'up' },
+    // Spices
+    { name: 'Black Pepper', season: 'Perennial', msp: null, marketMin: 38200, marketMax: 51200, unit: '₹/quintal', trend: 'up' },
+    { name: 'Cardamom', season: 'Perennial', msp: null, marketMin: 109200, marketMax: 146400, unit: '₹/quintal', trend: 'up' },
+    { name: 'Turmeric', season: 'Kharif', msp: null, marketMin: 10900, marketMax: 14600, unit: '₹/quintal', trend: 'up' },
+    { name: 'Ginger', season: 'Kharif', msp: null, marketMin: 16400, marketMax: 22000, unit: '₹/quintal', trend: 'up' },
+    { name: 'Red Chilli', season: 'Kharif+Rabi', msp: null, marketMin: 14600, marketMax: 19500, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Coriander', season: 'Rabi', msp: null, marketMin: 7700, marketMax: 10400, unit: '₹/quintal', trend: 'up' },
+    { name: 'Cumin', season: 'Rabi', msp: null, marketMin: 22800, marketMax: 30500, unit: '₹/quintal', trend: 'up' },
+    { name: 'Fenugreek', season: 'Rabi', msp: null, marketMin: 6800, marketMax: 9200, unit: '₹/quintal', trend: 'up' },
+    { name: 'Clove', season: 'Perennial', msp: null, marketMin: 86400, marketMax: 115900, unit: '₹/quintal', trend: 'up' },
+    { name: 'Cinnamon', season: 'Perennial', msp: null, marketMin: 31800, marketMax: 42700, unit: '₹/quintal', trend: 'stable' },
+    { name: 'Nutmeg', season: 'Perennial', msp: null, marketMin: 59200, marketMax: 79300, unit: '₹/quintal', trend: 'up' },
+    // Fodder Crops
+    { name: 'Berseem', season: 'Rabi', msp: null, marketMin: 700, marketMax: 1000, unit: '₹/quintal (green)', trend: 'stable' },
+    { name: 'Napier Grass', season: 'Perennial', msp: null, marketMin: 500, marketMax: 700, unit: '₹/quintal (green)', trend: 'stable' },
+    { name: 'Sorghum Fodder', season: 'Kharif', msp: null, marketMin: 600, marketMax: 900, unit: '₹/quintal (green)', trend: 'stable' },
+    { name: 'Cowpea Fodder', season: 'Kharif', msp: null, marketMin: 700, marketMax: 900, unit: '₹/quintal (green)', trend: 'stable' },
+    { name: 'Lucerne', season: 'Rabi', msp: null, marketMin: 1100, marketMax: 1500, unit: '₹/quintal (green)', trend: 'stable' },
+    { name: 'Maize Fodder', season: 'Kharif+Rabi', msp: null, marketMin: 600, marketMax: 800, unit: '₹/quintal (green)', trend: 'stable' },
 ];
 
 /* ── Pesticide / Input prices ─────── */
@@ -80,7 +128,7 @@ const PEST_RATES = [
     { name: 'Pheromone Traps (set of 5)', category: 'Trap', price: 350, unit: '₹/set', usage: 'Fruit Fly, Bollworm monitoring' },
 ];
 
-const SEASONS = ['All', 'Kharif', 'Rabi', 'Annual', 'Perennial', 'Year-round'];
+const SEASONS = ['All', 'Kharif', 'Rabi', 'Kharif+Rabi', 'Kharif+Summer', 'Annual', 'Perennial', 'Year-round', 'Rabi+Kharif'];
 const PEST_CATEGORIES = ['All', 'Bio-pesticide', 'Bio-fungicide', 'Bio-insecticide', 'Insecticide', 'Fungicide', 'Herbicide', 'Trap'];
 
 /* ── AI Advisory labels ─────── */
