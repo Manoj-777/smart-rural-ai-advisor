@@ -14,6 +14,7 @@ import re
 import time
 from datetime import datetime, UTC
 from decimal import Decimal
+from boto3.dynamodb.conditions import Attr
 from botocore.config import Config
 from utils.cors_helper import get_cors_headers, handle_cors_preflight
 
@@ -27,6 +28,7 @@ MAX_CROPS = 20
 MAX_LAND_SIZE = 10000  # acres
 PHONE_PATTERN = re.compile(r'^\d{10,15}$')
 FARMER_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
+CANONICAL_FARMER_ID_PATTERN = re.compile(r'^ph_[6-9]\d{9}$')
 
 ALLOWED_PROFILE_FIELDS = {
     'name', 'state', 'district', 'crops', 'soil_type',
@@ -54,6 +56,60 @@ def _validate_phone(phone):
     if not re.match(r'^[6-9]\d{9}$', clean):
         return None, 'Invalid Indian phone number'
     return clean, None
+
+
+def _extract_phone_from_farmer_id(farmer_id):
+    value = str(farmer_id or '').strip()
+    if not CANONICAL_FARMER_ID_PATTERN.match(value):
+        return None
+    return value[3:]
+
+
+def _normalize_phone_from_item(item):
+    for field in ('phone_normalized', 'phone', 'phone_number', 'mobile'):
+        raw = item.get(field)
+        if raw is None:
+            continue
+        digits = re.sub(r'\D', '', str(raw))
+        if len(digits) >= 10:
+            candidate = digits[-10:]
+            if re.match(r'^[6-9]\d{9}$', candidate):
+                return candidate
+
+    fid = str(item.get('farmer_id', '')).strip()
+    if CANONICAL_FARMER_ID_PATTERN.match(fid):
+        return fid[3:]
+
+    return None
+
+
+def _find_conflicting_profile_ids(clean_phone, current_farmer_id):
+    conflicts = set()
+    scan_kwargs = {
+        'ProjectionExpression': 'farmer_id, phone, phone_normalized, phone_number, mobile',
+        'FilterExpression': (
+            Attr('phone_normalized').eq(clean_phone)
+            | Attr('phone').eq(clean_phone)
+            | Attr('phone_number').eq(clean_phone)
+            | Attr('mobile').eq(clean_phone)
+            | Attr('farmer_id').contains(clean_phone)
+        )
+    }
+
+    while True:
+        response = table.scan(**scan_kwargs)
+        for item in response.get('Items', []):
+            item_farmer_id = str(item.get('farmer_id', '')).strip()
+            if not item_farmer_id or item_farmer_id == current_farmer_id:
+                continue
+            if _normalize_phone_from_item(item) == clean_phone:
+                conflicts.add(item_farmer_id)
+
+        if 'LastEvaluatedKey' not in response:
+            break
+        scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+
+    return sorted(conflicts)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -253,6 +309,13 @@ def get_profile(farmer_id):
 def put_profile(farmer_id, body):
     """Create or update farmer profile with schema validation."""
     now = datetime.now(UTC).replace(tzinfo=None).isoformat()
+    canonical_phone = _extract_phone_from_farmer_id(farmer_id)
+    if not canonical_phone:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Invalid farmerId format. Expected ph_XXXXXXXXXX'})
+        }
 
     # Security: reject unknown fields (allow only whitelisted)
     body_keys = set(body.keys())
@@ -304,6 +367,8 @@ def put_profile(farmer_id, body):
     now = datetime.now(UTC).replace(tzinfo=None).isoformat()
     item = {
         'farmer_id': farmer_id,
+        'phone': canonical_phone,
+        'phone_normalized': canonical_phone,
         'name': name,
         'state': state,
         'district': district,
@@ -320,18 +385,37 @@ def put_profile(farmer_id, body):
     # with a created_at from the body (frontend can track it) or fallback to now
     item['created_at'] = body.get('created_at', now)
 
+    try:
+        conflicting_ids = _find_conflicting_profile_ids(canonical_phone, farmer_id)
+    except Exception as e:
+        logger.warning(f"Phone uniqueness check skipped (non-fatal): {e}")
+        conflicting_ids = []
+
+    if conflicting_ids:
+        return {
+            'statusCode': 409,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({
+                'status': 'error',
+                'error': 'This phone number is already linked to another profile',
+                'conflicting_farmer_ids': conflicting_ids
+            })
+        }
+
     # If item already exists, preserve its created_at using an update expression
     try:
         table.update_item(
             Key={'farmer_id': farmer_id},
             UpdateExpression='SET #n = :name, #s = :state, district = :district, crops = :crops, '
                            'soil_type = :soil_type, land_size_acres = :land_size, '
-                           '#lang = :language, updated_at = :updated_at, '
+                           '#lang = :language, #phone = :phone, phone_normalized = :phone_normalized, '
+                           'updated_at = :updated_at, '
                            'created_at = if_not_exists(created_at, :now)',
             ExpressionAttributeNames={
                 '#n': 'name',
                 '#s': 'state',
-                '#lang': 'language'
+                '#lang': 'language',
+                '#phone': 'phone'
             },
             ExpressionAttributeValues={
                 ':name': item['name'],
@@ -341,6 +425,8 @@ def put_profile(farmer_id, body):
                 ':soil_type': item['soil_type'],
                 ':land_size': land_size,
                 ':language': item['language'],
+                ':phone': item['phone'],
+                ':phone_normalized': item['phone_normalized'],
                 ':updated_at': now,
                 ':now': now
             }
