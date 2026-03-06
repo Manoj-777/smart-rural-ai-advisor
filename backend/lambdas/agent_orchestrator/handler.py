@@ -423,6 +423,41 @@ def _is_generic_query(english_text):
     return False
 
 
+def _is_open_crop_recommendation_query(english_text):
+    """True when user asks open-ended crop suitability (no specific crop requested)."""
+    text = (english_text or '').lower().strip()
+    if not text:
+        return False
+
+    patterns = [
+        r'\bwhich\s+crops?\s+(are\s+)?suitable\b',
+        r'\bwhat\s+crops?\s+(can|should)\s+i\s+grow\b',
+        r'\bbest\s+crops?\s+for\s+(my|this)\s+(soil|location|area|region)\b',
+        r'\bwhich\s+crops?\s+for\s+(my|this)\s+(soil|location|area|region)\b',
+        r'\bsuitable\s+crops?\s+for\s+(my|this)\s+(soil|location|area|region)\b',
+    ]
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
+def _is_profile_crop_specific_query(english_text):
+    """True when user explicitly asks about their own crop(s) and expects profile personalization."""
+    text = (english_text or '').lower().strip()
+    if not text:
+        return False
+
+    patterns = [
+        r'\bmy\s+crop\b',
+        r'\bmy\s+crops\b',
+        r'\bfor\s+my\s+crop\b',
+        r'\bfor\s+my\s+crops\b',
+        r'\bbest\s+season\s+to\s+grow\s+my\s+crops\b',
+        r'\bseason\s+for\s+my\s+crops\b',
+        r'\bwhen\s+should\s+i\s+grow\s+my\s+crops\b',
+        r'\bmy\s+crop\s+season\b',
+    ]
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
 def _off_topic_response():
     return (
         "I can help only with agriculture and rural livelihood topics, such as crops, pests, weather, "
@@ -1938,6 +1973,18 @@ def lambda_handler(event, context):
             english_message = context_prefix + english_message
             logger.info(f"GPS location (no profile): {gps_location}")
 
+        # For open-ended crop suitability queries, do not bias with stored profile crops.
+        # Keep location/soil context, but remove crops from model/tool context.
+        model_farmer_context = farmer_context
+        _is_open_crop_query = _is_open_crop_recommendation_query(_clean_english_msg)
+        _is_specific_profile_crop_query = _is_profile_crop_specific_query(_clean_english_msg)
+        if _is_open_crop_query and not _is_specific_profile_crop_query and farmer_context:
+            model_farmer_context = dict(farmer_context)
+            model_farmer_context['crops'] = []
+            logger.info("Open crop recommendation query — removed profile crops from model context")
+        elif _is_specific_profile_crop_query and farmer_context:
+            logger.info("Specific profile-crop query — retaining profile crops in model context")
+
         # --- Step 2b: Greeting shortcut (skip Bedrock call for "hi", "hello", etc.) ---
         _raw_en = detection.get('translated_text', user_message)
         if _is_greeting_or_chitchat(_raw_en) and not intents:
@@ -2153,7 +2200,7 @@ def lambda_handler(event, context):
             
             routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
             result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
-                routed_prompt, farmer_context, skip_native_guardrail=True, lambda_context=context
+                routed_prompt, model_farmer_context, skip_native_guardrail=True, lambda_context=context
             )
 
         else:
@@ -2169,10 +2216,10 @@ def lambda_handler(event, context):
             routed_prompt = _build_tool_first_prompt(
                 english_message,
                 intents,
-                farmer_context,
+                model_farmer_context,
             )
             result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
-                routed_prompt, farmer_context, chat_history=chat_history, lambda_context=context
+                routed_prompt, model_farmer_context, chat_history=chat_history, lambda_context=context
             )
 
         # Clean up model thinking tags (Claude emits <thinking>...</thinking>)
