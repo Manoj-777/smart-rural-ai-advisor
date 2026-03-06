@@ -14,7 +14,16 @@ function formatMessage(text) {
 function formatTimestamp(ts) {
     if (!ts) return '';
     const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
+
+    if (isToday) return `Today, ${time}`;
+    if (isYesterday) return `Yesterday, ${time}`;
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + time;
 }
 
 function ChatMessage({ message, onUpdateAudioUrl }) {
