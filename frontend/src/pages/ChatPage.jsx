@@ -54,6 +54,25 @@ function saveSessionMessages(sessionId, messages) {
     try { localStorage.setItem(STORAGE_KEY + '_' + sessionId, JSON.stringify(messages.slice(-MAX_STORED))); } catch { /* */ }
 }
 
+function normalizeMessagesWithTimestamps(messages) {
+    if (!Array.isArray(messages)) return [];
+    const baseNow = Date.now();
+    return messages.map((msg, idx) => {
+        if (!msg || typeof msg !== 'object') return msg;
+        const fallbackTs = msg.timestamp
+            ?? msg.createdAt
+            ?? msg.created_at
+            ?? msg.updatedAt
+            ?? msg.updated_at
+            ?? msg.ts
+            ?? (baseNow + idx);
+        return {
+            ...msg,
+            timestamp: fallbackTs,
+        };
+    });
+}
+
 /* ── DynamoDB sync (cross-device, per-farmer) ──────────────── */
 async function dbListSessions(farmerId) {
     try {
@@ -127,7 +146,7 @@ function ChatPage() {
         return id;
     });
 
-    const [messages, setMessages] = useState(() => loadSessionMessages(activeSessionId));
+    const [messages, setMessages] = useState(() => normalizeMessagesWithTimestamps(loadSessionMessages(activeSessionId)));
     const [input, setInput] = useState('');
     const [liveTranscript, setLiveTranscript] = useState('');  // streaming partial text
     const [loading, setLoading] = useState(false);
@@ -165,12 +184,13 @@ function ChatPage() {
 
                 // If current session has messages in DB but not locally, load them
                 const sid = activeIdRef.current;
-                const localMsgs = loadSessionMessages(sid);
+                const localMsgs = normalizeMessagesWithTimestamps(loadSessionMessages(sid));
                 if (localMsgs.length === 0) {
                     const dbMsgs = await dbGetSessionMessages(farmerId, sid);
                     if (dbMsgs.length > 0) {
-                        saveSessionMessages(sid, dbMsgs);
-                        setMessages(dbMsgs);
+                        const normalizedDbMsgs = normalizeMessagesWithTimestamps(dbMsgs);
+                        saveSessionMessages(sid, normalizedDbMsgs);
+                        setMessages(normalizedDbMsgs);
                     }
                 }
             }
@@ -235,7 +255,7 @@ function ChatPage() {
         setActiveSessionId(sid);
         localStorage.setItem(ACTIVE_SESSION_KEY, sid);
         // Load from local first, then try DB if empty
-        const localMsgs = loadSessionMessages(sid);
+        const localMsgs = normalizeMessagesWithTimestamps(loadSessionMessages(sid));
         setMessages(localMsgs);
         setInput('');
         setSessionFull(false);  // Will be re-detected on next send if still full
@@ -244,8 +264,9 @@ function ChatPage() {
         if (localMsgs.length === 0 && farmerId && farmerId !== 'anonymous') {
             dbGetSessionMessages(farmerId, sid).then(dbMsgs => {
                 if (dbMsgs.length > 0) {
-                    saveSessionMessages(sid, dbMsgs);
-                    if (activeIdRef.current === sid) setMessages(dbMsgs);
+                    const normalizedDbMsgs = normalizeMessagesWithTimestamps(dbMsgs);
+                    saveSessionMessages(sid, normalizedDbMsgs);
+                    if (activeIdRef.current === sid) setMessages(normalizedDbMsgs);
                 }
             });
         }

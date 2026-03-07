@@ -152,6 +152,17 @@ CORS_HEADERS = get_cors_headers(ALLOWED_ORIGIN, methods='GET,PUT,POST,DELETE,OPT
     'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,OPTIONS'
 }
 
+
+def _error_body(message, language='en'):
+    """Canonical error envelope with legacy `error` compatibility field."""
+    return {
+        'status': 'error',
+        'data': None,
+        'message': message,
+        'language': language,
+        'error': message,
+    }
+
 OTP_EXPIRY_SECONDS = 300  # 5 minutes
 ENABLE_DEMO_OTP = os.environ.get('ENABLE_DEMO_OTP', 'false').lower() == 'true'
 
@@ -186,14 +197,14 @@ def lambda_handler(event, context):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'error': 'Missing farmerId in path'})
+                'body': json.dumps(_error_body('Missing farmerId in path'))
             }
 
         if os.environ.get('ENABLE_FARMER_ID_VALIDATION', 'false').lower() == 'true' and not FARMER_ID_PATTERN.match(str(farmer_id)):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'error': 'Invalid farmerId format'})
+                'body': json.dumps(_error_body('Invalid farmerId format'))
             }
 
         if method == 'GET':
@@ -207,7 +218,7 @@ def lambda_handler(event, context):
             return {
                 'statusCode': 405,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'error': f'Method {method} not allowed'})
+                'body': json.dumps(_error_body(f'Method {method} not allowed'))
             }
 
     except Exception as e:
@@ -215,7 +226,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Internal server error'})
+            'body': json.dumps(_error_body('Internal server error'))
         }
 
 
@@ -314,7 +325,7 @@ def put_profile(farmer_id, body):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid farmerId format. Expected ph_XXXXXXXXXX'})
+            'body': json.dumps(_error_body('Invalid farmerId format. Expected ph_XXXXXXXXXX'))
         }
 
     # Security: reject unknown fields (allow only whitelisted)
@@ -454,7 +465,7 @@ def send_otp(body):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': phone_err})
+            'body': json.dumps(_error_body(phone_err))
         }
 
     otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
@@ -476,7 +487,7 @@ def send_otp(body):
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Failed to generate OTP'})
+            'body': json.dumps(_error_body('Failed to generate OTP'))
         }
 
     # ── Step 5: Build response ──
@@ -514,13 +525,13 @@ def verify_otp(body):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': phone_err})
+            'body': json.dumps(_error_body(phone_err))
         }
     if not entered_otp or not re.match(r'^\d{6}$', entered_otp):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid OTP format. Must be 6 digits.'})
+            'body': json.dumps(_error_body('Invalid OTP format. Must be 6 digits.'))
         }
 
     try:
@@ -529,7 +540,7 @@ def verify_otp(body):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'No OTP found. Please request a new one.'})
+                'body': json.dumps(_error_body('No OTP found. Please request a new one.'))
             }
 
         item = result['Item']
@@ -541,7 +552,7 @@ def verify_otp(body):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'OTP has expired. Please request a new one.'})
+                'body': json.dumps(_error_body('OTP has expired. Please request a new one.'))
             }
 
         stored_otp = item.get('otp_code', '')
@@ -550,7 +561,7 @@ def verify_otp(body):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'Incorrect OTP. Please try again.'})
+                'body': json.dumps(_error_body('Incorrect OTP. Please try again.'))
             }
 
         # OTP is valid — mark as verified and clean up
@@ -571,7 +582,7 @@ def verify_otp(body):
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Verification failed. Please try again.'})
+            'body': json.dumps(_error_body('Verification failed. Please try again.'))
         }
 
 
@@ -586,21 +597,21 @@ def reset_pin(body):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': phone_err})
+            'body': json.dumps(_error_body(phone_err))
         }
 
     if not entered_otp or not re.match(r'^\d{6}$', entered_otp):
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Invalid OTP format. Must be 6 digits.'})
+            'body': json.dumps(_error_body('Invalid OTP format. Must be 6 digits.'))
         }
 
     if len(new_pin) < 6:
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'PIN must be at least 6 characters.'})
+            'body': json.dumps(_error_body('PIN must be at least 6 characters.'))
         }
 
     try:
@@ -610,7 +621,7 @@ def reset_pin(body):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'No OTP found. Please request a new one.'})
+                'body': json.dumps(_error_body('No OTP found. Please request a new one.'))
             }
 
         expiry = int(item.get('expiry_ttl', 0))
@@ -619,14 +630,14 @@ def reset_pin(body):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'OTP has expired. Please request a new one.'})
+                'body': json.dumps(_error_body('OTP has expired. Please request a new one.'))
             }
 
         if entered_otp != item.get('otp_code', ''):
             return {
                 'statusCode': 400,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'status': 'error', 'message': 'Incorrect OTP. Please try again.'})
+                'body': json.dumps(_error_body('Incorrect OTP. Please try again.'))
             }
 
         username = f'+91{clean_phone}'
@@ -649,12 +660,12 @@ def reset_pin(body):
         return {
             'statusCode': 404,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'status': 'error', 'message': 'User not found for this phone number.'})
+            'body': json.dumps(_error_body('User not found for this phone number.'))
         }
     except Exception as e:
         logger.error(f"PIN reset error: {e}", exc_info=True)
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'error': 'Failed to reset PIN. Please try again.'})
+            'body': json.dumps(_error_body('Failed to reset PIN. Please try again.'))
         }

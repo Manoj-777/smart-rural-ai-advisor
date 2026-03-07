@@ -14,6 +14,7 @@ function formatMessage(text) {
 function formatTimestamp(ts) {
     if (!ts) return '';
     const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 

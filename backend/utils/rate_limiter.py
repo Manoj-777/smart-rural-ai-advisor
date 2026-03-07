@@ -160,13 +160,12 @@ def check_rate_limit(session_id, farmer_id='anonymous'):
         }
 
     except Exception as e:
-        # If rate limiting fails, ALLOW the request (fail-open)
-        # Don't block real farmers because of a rate-limit infrastructure issue
-        logger.error(f"Rate limiter error (failing open): {str(e)}")
+        # Fail closed on rate-limit persistence errors to avoid bypass under infra faults
+        logger.error(f"Rate limiter error (failing closed): {str(e)}")
         return {
-            'allowed': True,
-            'reason': None,
-            'remaining_rpm': RATE_LIMIT_REQUESTS_PER_MINUTE,
-            'remaining_rph': RATE_LIMIT_REQUESTS_PER_HOUR,
-            'retry_after_seconds': None,
+            'allowed': False,
+            'reason': 'Rate limiting service temporarily unavailable. Please retry shortly.',
+            'remaining_rpm': 0,
+            'remaining_rph': 0,
+            'retry_after_seconds': 30,
         }

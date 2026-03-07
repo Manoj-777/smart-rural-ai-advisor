@@ -40,11 +40,17 @@ LANGUAGE_MAP = {
     'mr-IN': 'mr-IN',   # Marathi
     'gu-IN': 'gu-IN',   # Gujarati
     'pa-IN': 'pa-IN',   # Punjabi (Gurmukhi)
+    'or-IN': 'or-IN',   # Odia
     'ab-IN': 'ab-IN',   # Fallback
 }
 
 # Languages not supported by Amazon Transcribe — fall back to Hindi
-UNSUPPORTED_LANGUAGES = {'or-IN', 'as-IN', 'ur-IN'}
+UNSUPPORTED_LANGUAGES = {'as-IN', 'ur-IN'}
+
+
+def _generate_job_id():
+    """Generate a collision-resistant transcription job ID."""
+    return f"voice-{uuid.uuid4().hex}"
 
 
 def lambda_handler(event, context):
@@ -88,7 +94,7 @@ def lambda_handler(event, context):
 
         # Decode audio and upload to S3 (Transcribe reads from S3)
         audio_bytes = base64.b64decode(audio_base64)
-        job_id = f"voice-{uuid.uuid4().hex[:8]}"
+        job_id = _generate_job_id()
         s3_key = f"audio-uploads/{job_id}.{file_ext}"
 
         s3.put_object(

@@ -192,6 +192,19 @@ STATE_SCHEMES = {
 }
 
 
+def _filter_state_schemes(farmer_state):
+    """Return state-specific schemes when a farmer state is provided."""
+    normalized_state = (farmer_state or '').strip().lower()
+    if not normalized_state:
+        return STATE_SCHEMES
+
+    for state_name, schemes in STATE_SCHEMES.items():
+        if state_name.lower() == normalized_state:
+            return {state_name: schemes}
+
+    return {}
+
+
 def lambda_handler(event, context):
     """Returns government scheme information."""
     try:
@@ -230,7 +243,7 @@ def lambda_handler(event, context):
 
         result_data = {
             'schemes': result,
-            'state_schemes': STATE_SCHEMES,
+            'state_schemes': _filter_state_schemes(farmer_state),
             'note': 'Contact Kisan Call Centre at 1800-180-1551 for more details'
         }
 

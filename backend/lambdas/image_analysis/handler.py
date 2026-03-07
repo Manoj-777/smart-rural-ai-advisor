@@ -101,7 +101,7 @@ def detect_media_type(image_base64):
     for prefix, media_type in SUPPORTED_TYPES.items():
         if image_base64.startswith(prefix):
             return media_type
-    return 'image/jpeg'  # Safe default
+    return None
 
 
 def make_response(status_code, body_dict):
@@ -159,6 +159,11 @@ def lambda_handler(event, context):
 
         # Detect format
         media_type = detect_media_type(image_base64)
+        if not media_type:
+            return make_response(400, {
+                'error': 'Unsupported or corrupted image format. Please upload a valid JPEG, PNG, GIF, or WebP image.'
+            })
+
         logger.info(f"Crop: {crop_name} | Size: {image_size_mb:.1f} MB | "
                     f"Type: {media_type} | State: {farmer_state}")
 
@@ -207,9 +212,14 @@ def lambda_handler(event, context):
 
         # Map our media_type to Converse API format name
         format_map = {'image/jpeg': 'jpeg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp'}
-        img_format = format_map.get(media_type, 'jpeg')
+        img_format = format_map[media_type]
 
-        image_bytes = base64.b64decode(image_base64)
+        try:
+            image_bytes = base64.b64decode(image_base64, validate=True)
+        except Exception:
+            return make_response(400, {
+                'error': 'Invalid image data. Please upload a valid image file.'
+            })
 
         # Bedrock call with retry logic
         MAX_RETRIES = 2

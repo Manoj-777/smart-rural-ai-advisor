@@ -247,6 +247,10 @@ TOXICITY_PATTERNS = [
     (re.compile(r'(destroy|ruin|sabotage|contaminate|damage)\s+(my\s+)?(neighbor|neighbour|someone|their|other)\s*\'?s?\s*(crop|farm|field|cattle|livestock|animal)', re.IGNORECASE),
      'sabotage', 'high'),
 
+    # Indirect sabotage phrasing targeting others
+    (re.compile(r'(make|cause|help|ensure)\s+(my\s+)?(neighbor|neighbour|someone|their|other)\s*\'?s?\s*(crop|farm|field|yield)\s+(fail|decline|drop|die|wither)', re.IGNORECASE),
+     'sabotage', 'high'),
+
     # Illegal pesticide use (banned substances)
     (re.compile(r'\b(endosulfan|monocrotophos|methyl\s*parathion|phorate|triazophos|methomyl|aldicarb|captafol)\b', re.IGNORECASE),
      'banned_pesticide', 'medium'),

@@ -39,11 +39,12 @@ def _sanitize_field(value, max_len=MAX_FIELD_LENGTH):
     return value
 
 def _check_injection(text):
-    """Check for prompt injection patterns in user input."""
+    """Check for prompt, SQL, and command injection patterns in user input."""
     if not text:
         return False
     lower = text.lower()
     INJECTION_PATTERNS = [
+        # Prompt injection
         r'ignore\s+(all\s+)?previous\s+instructions',
         r'you\s+are\s+now\s+a',
         r'system\s*prompt',
@@ -53,6 +54,20 @@ def _check_injection(text):
         r'override\s+',
         r'repeat\s+the\s+above',
         r'what\s+(is|are)\s+your\s+(instructions|rules|prompt)',
+        # SQL injection
+        r'\bunion\s+select\b',
+        r'\bdrop\s+table\b',
+        r'\bdelete\s+from\b',
+        r'\binsert\s+into\b',
+        r'\bupdate\s+\w+\s+set\b',
+        r'\bselect\s+.+\s+from\b',
+        r"'\s*or\s*'?[0-9a-z_]+'?\s*=\s*'?[0-9a-z_]+'?",
+        r'--\s*$',
+        # Command injection
+        r'&&',
+        r'\|\|',
+        r'\b(?:cmd\.exe|powershell|bash|sh)\b\s*(?:-c|/c|-enc)?',
+        r'\b(?:rm\s+-rf|wget\s+http|curl\s+http|nc\s+-e|chmod\s+\+x)\b',
     ]
     for pattern in INJECTION_PATTERNS:
         if re.search(pattern, lower):

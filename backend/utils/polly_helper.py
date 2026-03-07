@@ -98,6 +98,7 @@ def _strip_markdown_for_tts(text):
     # Remove bullet markers at start of line: - item or • item → item
     s = re.sub(r'^[\s]*[\-•]\s+', '', s, flags=re.MULTILINE)
     if os.environ.get('ENABLE_TTS_LIST_FORMATTING', 'false').lower() == 'true':
+        has_indic_script = bool(re.search(r'[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]', s))
         ordinals = {
             '1': 'First, ',
             '2': 'Second, ',
@@ -108,6 +109,8 @@ def _strip_markdown_for_tts(text):
 
         def _replace_numbered(match):
             number = match.group(1)
+            if has_indic_script:
+                return f"{number}. "
             return ordinals.get(number, f"Point {number}, ")
 
         s = re.sub(r'^(\d+)\.\s+', _replace_numbered, s, flags=re.MULTILINE)

@@ -7,6 +7,7 @@ import boto3
 import os
 import logging
 import time as _time
+import threading
 from datetime import datetime, UTC
 from botocore.config import Config
 
@@ -28,6 +29,7 @@ ENABLE_CHAT_IDEMPOTENCY = os.environ.get('ENABLE_CHAT_IDEMPOTENCY', 'false').low
 PROFILE_CACHE_TTL_SEC = int(os.environ.get('PROFILE_CACHE_TTL_SEC', '120'))
 
 _profile_cache = {}
+_profile_cache_lock = threading.Lock()
 
 
 def _idempotency_token_exists(session_id, idempotency_token):
@@ -60,7 +62,8 @@ def get_farmer_profile(farmer_id):
     """Retrieve farmer profile by ID. Returns dict or None."""
     cache_enabled = os.environ.get('ENABLE_PROFILE_CACHE', 'false').lower() == 'true'
     if cache_enabled and farmer_id:
-        cached = _profile_cache.get(farmer_id)
+        with _profile_cache_lock:
+            cached = _profile_cache.get(farmer_id)
         if cached and cached.get('expires_at', 0) > _time.time():
             return cached.get('profile')
 
@@ -68,10 +71,11 @@ def get_farmer_profile(farmer_id):
         response = profiles_table.get_item(Key={'farmer_id': farmer_id})
         item = response.get('Item')
         if cache_enabled and farmer_id:
-            _profile_cache[farmer_id] = {
-                'profile': item,
-                'expires_at': _time.time() + PROFILE_CACHE_TTL_SEC,
-            }
+            with _profile_cache_lock:
+                _profile_cache[farmer_id] = {
+                    'profile': item,
+                    'expires_at': _time.time() + PROFILE_CACHE_TTL_SEC,
+                }
         return item
     except Exception as e:
         logger.error(f"DynamoDB get profile error: {e}")
@@ -169,23 +173,25 @@ def save_chat_messages_batch(messages):
         )
 
     try:
-        with sessions_table.batch_writer() as writer:
-            for msg in messages[:25]:
-                timestamp = msg.get('timestamp') or datetime.now(UTC).replace(tzinfo=None).isoformat()
-                ttl_epoch = int(_time.time()) + (CHAT_TTL_DAYS * 86400)
-                item = {
-                    'session_id': msg.get('session_id'),
-                    'timestamp': timestamp,
-                    'role': msg.get('role'),
-                    'message': msg.get('message', ''),
-                    'language': msg.get('language', 'en'),
-                    'ttl': ttl_epoch,
-                }
-                if msg.get('farmer_id'):
-                    item['farmer_id'] = msg.get('farmer_id')
-                if msg.get('message_en') and item.get('language') != 'en':
-                    item['message_en'] = msg.get('message_en')
-                writer.put_item(Item=item)
+        for chunk_start in range(0, len(messages), 25):
+            chunk = messages[chunk_start:chunk_start + 25]
+            with sessions_table.batch_writer() as writer:
+                for msg in chunk:
+                    timestamp = msg.get('timestamp') or datetime.now(UTC).replace(tzinfo=None).isoformat()
+                    ttl_epoch = int(_time.time()) + (CHAT_TTL_DAYS * 86400)
+                    item = {
+                        'session_id': msg.get('session_id'),
+                        'timestamp': timestamp,
+                        'role': msg.get('role'),
+                        'message': msg.get('message', ''),
+                        'language': msg.get('language', 'en'),
+                        'ttl': ttl_epoch,
+                    }
+                    if msg.get('farmer_id'):
+                        item['farmer_id'] = msg.get('farmer_id')
+                    if msg.get('message_en') and item.get('language') != 'en':
+                        item['message_en'] = msg.get('message_en')
+                    writer.put_item(Item=item)
         return True
     except Exception as e:
         logger.error(f"DynamoDB batch save chat error: {e}")

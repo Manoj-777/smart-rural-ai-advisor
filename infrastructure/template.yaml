@@ -104,7 +104,6 @@ Resources:
     Properties:
       CodeUri: ../backend/lambdas/agent_orchestrator/
       Handler: handler.lambda_handler
-      Timeout: 120
       Environment:
         Variables:
           FOUNDATION_MODEL: apac.amazon.nova-pro-v1:0

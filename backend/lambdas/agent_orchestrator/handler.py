@@ -39,7 +39,7 @@ from utils.guardrails import run_all_guardrails, mask_pii_in_log, run_output_gua
 from utils.rate_limiter import check_rate_limit
 from utils.chat_history import list_sessions, get_session_messages, save_session, delete_session as delete_chat_session, rename_session as rename_chat_session
 from utils.response_cache import get_cached_response, cache_response
-from utils.cors_helper import handle_cors_preflight
+from utils.cors_helper import handle_cors_preflight, get_cors_headers
 from utils.audit_logger import (
     audit_request_start, audit_guardrail_block, audit_pii_detected,
     audit_tool_invocation, audit_policy_decision, audit_request_complete,
@@ -64,11 +64,33 @@ def _guardrail_config():
 FOUNDATION_MODEL = os.environ.get('FOUNDATION_MODEL', 'apac.amazon.nova-pro-v1:0')
 FOUNDATION_MODEL_LITE = os.environ.get('FOUNDATION_MODEL_LITE', 'global.amazon.nova-2-lite-v1:0')
 HYBRID_LOCALIZATION_ENABLED = os.environ.get('HYBRID_LOCALIZATION_ENABLED', 'false').lower() == 'true'
-STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'false').lower() == 'true'
+STRIP_LOCAL_MARKDOWN_SYMBOLS = os.environ.get('STRIP_LOCAL_MARKDOWN_SYMBOLS', 'true').lower() == 'true'
 LAMBDA_WEATHER = os.environ.get('LAMBDA_WEATHER', '')
 LAMBDA_CROP = os.environ.get('LAMBDA_CROP', '')
 LAMBDA_SCHEMES = os.environ.get('LAMBDA_SCHEMES', '')
 LAMBDA_PROFILE = os.environ.get('LAMBDA_PROFILE', '')
+
+REQUIRED_ENV_VARS = (
+    'LAMBDA_WEATHER',
+    'LAMBDA_CROP',
+    'LAMBDA_SCHEMES',
+    'LAMBDA_PROFILE',
+)
+
+
+def _validate_required_env_vars():
+    """Validate required runtime environment variables at startup."""
+    missing = [var for var in REQUIRED_ENV_VARS if not os.environ.get(var)]
+    if missing:
+        logger.error(
+            "Startup env validation failed. Missing required env vars: %s. "
+            "Set these Lambda environment variables before production traffic.",
+            ', '.join(missing),
+        )
+    return missing
+
+
+STARTUP_ENV_MISSING = _validate_required_env_vars()
 
 # Feature flag: Timeout protection (default: OFF)
 ENABLE_TIMEOUT_PROTECTION = os.environ.get('ENABLE_TIMEOUT_PROTECTION', 'false').lower() == 'true'
@@ -142,12 +164,7 @@ def _timeout_http_response(session_id, language='en'):
     fallback = _timeout_fallback_response(language)
     return {
         'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': os.environ.get('ALLOWED_ORIGIN', 'https://d80ytlzsrax1n.cloudfront.net'),
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        },
+        'headers': get_cors_headers(methods='GET,POST,OPTIONS'),
         'body': json.dumps({
             'reply': fallback['reply'],
             'reply_en': fallback['reply'],
@@ -563,7 +580,7 @@ def _apply_code_policy(user_query_en, intents, result_text, tools_used, original
 
     # If it's a runtime error/warm-up message, pass it through instead of masking
     if is_warmup_or_runtime_msg:
-        logger.warning(f"Runtime message detected (passing through): {text[:200]}")
+        logger.info(f"Runtime message detected (passing through): {text[:200]}")
         return text, cleaned_tools, policy_meta
 
     # Check if farmer_context provides enough grounding data already
@@ -800,7 +817,7 @@ def _validated_model_id(model_id):
         return model_id
     allowed = {FOUNDATION_MODEL, FOUNDATION_MODEL_LITE}
     if model_id not in allowed:
-        logger.warning(f"Invalid model_id override '{model_id}' rejected; using FOUNDATION_MODEL")
+        logger.info(f"Invalid model_id override '{model_id}' rejected; using FOUNDATION_MODEL")
         return FOUNDATION_MODEL
     return model_id
 
@@ -1188,14 +1205,121 @@ def _strip_local_markdown_symbols(text, language_code='en'):
         filtered.append(ch)
     s = ''.join(filtered)
 
+    def _normalize_local_units_and_artifacts(value, lang, is_indic):
+        out = value or ''
+
+        def _format_number_for_text(num_value):
+            if abs(num_value - round(num_value)) < 1e-9:
+                return str(int(round(num_value)))
+            return f"{num_value:.2f}".rstrip('0').rstrip('.')
+
+        def _to_quintal_rate(raw_number):
+            try:
+                base = float((raw_number or '').replace(',', ''))
+            except Exception:
+                return None
+            if base < 0:
+                return None
+            return _format_number_for_text(base * 100.0)
+
+        canonical_quintal = {
+            'ta': 'குவிண்டால்',
+            'hi': 'क्विंटल',
+            'te': 'క్వింటాల్',
+        }.get(lang, 'quintal')
+
+        currency_pat = r'(?:₹|Rs\.?|INR|ரூ\.?|रु\.?|రూ\.?)'
+        kg_pat = r'(?:kg|kilo(?:gram)?s?|கிலோ|किलो(?:ग्राम)?|కిలో(?:గ్రాము)?)'
+        per_sep = r'(?:/|\bper\b|\bप्रति\b|\bప్రతి\b|க்கு|\bko\b)'
+
+        def _replace_cur_num_per_kg(match):
+            cur = match.group('cur')
+            num = match.group('num')
+            quintal_rate = _to_quintal_rate(num)
+            if quintal_rate is None:
+                return match.group(0)
+            return f"{cur} {quintal_rate}/{canonical_quintal}"
+
+        out = re.sub(
+            rf'(?P<cur>{currency_pat})\s*(?P<num>\d{{1,3}}(?:,\d{{3}})*(?:\.\d+)?)\s*{per_sep}\s*{kg_pat}',
+            _replace_cur_num_per_kg,
+            out,
+            flags=re.IGNORECASE,
+        )
+
+        if lang == 'ta':
+            out = re.sub(r'கு[யவ]ி?ண?்டா?ல்|கு[யவ]ி?ண?்டல்|காயிண்டல்|காயின்டல்|கிண்டல்', 'குவிண்டால்', out)
+            out = re.sub(r'கிலோகிராம்|கிலோகிராம்கள்|கிலோ\s*கிராம்', 'கிலோ', out)
+        elif lang == 'hi':
+            out = re.sub(r'क्विन्टल|क्विंटल', 'क्विंटल', out)
+            out = re.sub(r'किलोग्राम|किलो\s*ग्राम', 'किलो', out)
+        elif lang == 'te':
+            out = re.sub(r'క్వింటల్|క్వింటాళ్|క్వింటా', 'క్వింటాల్', out)
+            out = re.sub(r'కిలోగ్రాము|కిలోగ్రాములు|కిలో\s*గ్రాము', 'కిలో', out)
+
+        if is_indic:
+            script_ranges = {
+                'ta': '\u0B80-\u0BFF',
+                'hi': '\u0900-\u097F',
+                'te': '\u0C00-\u0C7F',
+                'kn': '\u0C80-\u0CFF',
+                'ml': '\u0D00-\u0D7F',
+                'mr': '\u0900-\u097F',
+                'bn': '\u0980-\u09FF',
+                'as': '\u0980-\u09FF',
+                'gu': '\u0A80-\u0AFF',
+                'pa': '\u0A00-\u0A7F',
+                'or': '\u0B00-\u0B7F',
+                'ur': '\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF',
+            }
+            rg = script_ranges.get(lang)
+            if rg:
+                out = re.sub(fr'(?<![A-Za-z])[A-Za-z](?=[{rg}])', '', out)
+                out = re.sub(fr'(?<=[{rg}])[A-Za-z](?![A-Za-z])', '', out)
+                out = '\n'.join(
+                    re.match(r'^[\t ]*', line).group(0) + re.sub(r' {2,}', ' ', line[len(re.match(r'^[\t ]*', line).group(0)):])
+                    for line in out.split('\n')
+                )
+
+        return out
+
     if not STRIP_LOCAL_MARKDOWN_SYMBOLS:
+        s = _normalize_local_units_and_artifacts(s, _lang, _is_indic)
         s = re.sub(r'\n{3,}', '\n\n', s)
         return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
 
-    s = re.sub(r'^[\t ]*#{1,6}[\t ]*', '', s, flags=re.MULTILINE)
-    s = s.replace('**', '')
-    s = s.replace('*', '')
-    s = s.replace('#', '')
+    lines = s.split('\n')
+    heading_re = re.compile(r'^[\t ]*#{1,6}[\t ]*(.+?)\s*$')
+    should_number_headings = (sum(1 for line in lines if heading_re.match(line)) >= 3) and (not _is_indic)
+    heading_idx = 0
+    cleaned_lines = []
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        if not line.strip():
+            cleaned_lines.append('')
+            continue
+
+        heading_match = heading_re.match(line)
+        if heading_match:
+            heading_text = heading_match.group(1).strip()
+            heading_text = heading_text.replace('**', '').replace('*', '').replace('#', '')
+            if should_number_headings:
+                heading_idx += 1
+                cleaned_lines.append(f"{heading_idx}. {heading_text}")
+            else:
+                cleaned_lines.append(heading_text)
+            continue
+
+        line = re.sub(r'^([\t ]*)[•\-\*][\t ]+', r'\1- ', line)
+        line = re.sub(r'^([\t ]*)(\d{1,2})[\)\.][\t ]+', r'\1\2. ', line)
+        line = line.replace('**', '')
+        line = line.replace('*', '')
+        line = re.sub(r'^([\t ]*)#{1,6}[\t ]*', r'\1', line)
+        cleaned_lines.append(line.rstrip())
+
+    s = '\n'.join(cleaned_lines)
+    s = _normalize_local_units_and_artifacts(s, _lang, _is_indic)
     s = re.sub(r'\n{3,}', '\n\n', s)
     return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
 

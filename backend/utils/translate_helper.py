@@ -115,15 +115,23 @@ def detect_and_translate(text, target_language='en'):
 def _strip_html_artifacts(text):
     """Remove any <span translate="no">...</span> tags and other HTML artifacts from output."""
     import re
+    if text is None:
+        return ''
+
+    text = str(text)
     # Strip well-formed <span translate="no">...</span>
     text = re.sub(r'<span\s+translate\s*=\s*["\']?no["\']?\s*>(.*?)</span>', r'\1', text, flags=re.DOTALL | re.IGNORECASE)
     # Strip broken/partial span tags that translation may garble
     text = re.sub(r'</?span[^>]*>', '', text, flags=re.IGNORECASE)
-    # Strip stray HTML entities that might leak
+    # Decode basic HTML entities that might leak
     text = re.sub(r'&lt;', '<', text)
     text = re.sub(r'&gt;', '>', text)
     text = re.sub(r'&amp;', '&', text)
-    text = re.sub(r'&#\d+;', '', text)
+    text = re.sub(r'&#\d+;', ' ', text)
+    # Strip generic HTML tags after decoding entities (e.g., <div>, <b>, </i>)
+    text = re.sub(r'<[^>]+>', '', text)
+    # Normalize excessive whitespace introduced by tag removal
+    text = re.sub(r'[ \t]{2,}', ' ', text)
     return text.strip()
 
 

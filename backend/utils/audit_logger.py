@@ -64,7 +64,7 @@ def audit_log(category, action, farmer_id='anonymous', session_id=None,
     """
     entry = {
         'audit': True,  # marker for log filtering
-        'timestamp': datetime.now(UTC).replace(tzinfo=None).isoformat() + 'Z',
+        'timestamp': datetime.now(UTC).replace(tzinfo=None).isoformat(timespec='seconds') + 'Z',
         'epoch': time.time(),
         'category': category,
         'action': action,
