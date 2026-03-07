@@ -103,6 +103,13 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         }
 
         try {
+            if (!navigator?.mediaDevices?.getUserMedia) {
+                setError('Microphone is not supported in this browser. Please use Chrome or Safari.');
+                setIsListening(false);
+                setIsProcessing(false);
+                return false;
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
@@ -112,15 +119,29 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             });
             streamRef.current = stream;
 
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/webm')
-                    ? 'audio/webm'
-                    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-                        ? 'audio/ogg;codecs=opus'
-                        : 'audio/mp4';  // Safari fallback
+            if (typeof window === 'undefined' || !window.MediaRecorder) {
+                stream.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+                setError('Audio recording is not supported in this browser. Please use latest Chrome/Safari.');
+                setIsListening(false);
+                setIsProcessing(false);
+                return false;
+            }
 
-            const recorder = new MediaRecorder(stream, { mimeType });
+            const MR = window.MediaRecorder;
+            const mimeType = MR.isTypeSupported?.('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MR.isTypeSupported?.('audio/webm')
+                    ? 'audio/webm'
+                    : MR.isTypeSupported?.('audio/mp4')
+                        ? 'audio/mp4'
+                        : MR.isTypeSupported?.('audio/ogg;codecs=opus')
+                            ? 'audio/ogg;codecs=opus'
+                            : '';
+
+            const recorder = mimeType
+                ? new MR(stream, { mimeType })
+                : new MR(stream);
             mediaRecorderRef.current = recorder;
             chunksRef.current = [];
 
@@ -134,7 +155,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
 
                 setIsListening(false);
                 setIsProcessing(true);
-                _sendToTranscribe(chunksRef.current, mimeType);
+                _sendToTranscribe(chunksRef.current, mimeType || 'audio/webm');
             };
 
             recorder.start(250);

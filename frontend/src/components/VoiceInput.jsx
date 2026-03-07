@@ -37,7 +37,13 @@ function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const streaming = useStreamingSpeech(language, onTranscript);
     const aws = useSpeechRecognition(language, onTranscript);
 
-    const useStreaming = streaming.supported;
+    // Mobile browsers (especially iOS Safari/Android WebView) are less reliable
+    // with continuous streaming SpeechRecognition. Prefer stable recognition path.
+    const isMobileBrowser =
+        typeof navigator !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+    const useStreaming = streaming.supported && !isMobileBrowser;
     const fallbackRef = useRef(false);  // sticky: once streaming fails, stay on AWS
 
     // Forward live partial transcripts to parent (ChatPage shows them in input field)
