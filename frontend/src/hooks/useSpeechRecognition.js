@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import config from '../config';
 import { apiFetch } from '../utils/apiFetch';
 
-export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult) {
+export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResult, options = {}) {
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
@@ -19,6 +19,8 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     const autoStopTimerRef = useRef(null);
     const nativeGotResultRef = useRef(false);
     const nativeFallbackTriggeredRef = useRef(false);
+    const recorderAutoStopTimerRef = useRef(null);
+    const preferNative = options?.preferNative !== false;
 
     // Always keep the callback ref synced with the latest value
     useEffect(() => { onResultRef.current = onResult; }, [onResult]);
@@ -27,6 +29,7 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
     useEffect(() => {
         return () => {
             if (autoStopTimerRef.current) clearTimeout(autoStopTimerRef.current);
+            if (recorderAutoStopTimerRef.current) clearTimeout(recorderAutoStopTimerRef.current);
             if (recognitionRef.current) {
                 try { recognitionRef.current.stop(); } catch { /* */ }
             }
@@ -150,6 +153,10 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             };
 
             recorder.onstop = () => {
+                if (recorderAutoStopTimerRef.current) {
+                    clearTimeout(recorderAutoStopTimerRef.current);
+                    recorderAutoStopTimerRef.current = null;
+                }
                 stream.getTracks().forEach(t => t.stop());
                 streamRef.current = null;
 
@@ -159,6 +166,15 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
             };
 
             recorder.start(250);
+
+            // Mobile users often tap once and expect auto-finish.
+            // Auto-stop after a short window to ensure transcript gets submitted.
+            recorderAutoStopTimerRef.current = setTimeout(() => {
+                if (mediaRecorderRef.current?.state === 'recording') {
+                    try { mediaRecorderRef.current.stop(); } catch { /* */ }
+                }
+            }, 7000);
+
             setIsListening(true);
 
             return true;
@@ -261,18 +277,22 @@ export function useSpeechRecognition(language = config.DEFAULT_LANGUAGE, onResul
         manualStopRef.current = false;
 
         // Fast path: browser-native speech recognition (much lower latency)
-        if (_supportsNativeSpeech()) {
+        if (preferNative && _supportsNativeSpeech()) {
             const started = _startNativeSpeechRecognition();
             if (started) return;
         }
         await _startAwsRecorder();
-    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech]);
+    }, [_startAwsRecorder, _startNativeSpeechRecognition, _supportsNativeSpeech, preferNative]);
 
     const stopListening = useCallback(() => {
         manualStopRef.current = true;
         if (autoStopTimerRef.current) {
             clearTimeout(autoStopTimerRef.current);
             autoStopTimerRef.current = null;
+        }
+        if (recorderAutoStopTimerRef.current) {
+            clearTimeout(recorderAutoStopTimerRef.current);
+            recorderAutoStopTimerRef.current = null;
         }
 
         // Update UI immediately on user stop tap

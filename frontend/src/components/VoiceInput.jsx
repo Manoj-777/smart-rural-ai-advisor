@@ -35,13 +35,16 @@ const PROCESSING_TEXT = {
 function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const { t } = useLanguage();
     const streaming = useStreamingSpeech(language, onTranscript);
-    const aws = useSpeechRecognition(language, onTranscript);
 
     // Mobile browsers (especially iOS Safari/Android WebView) are less reliable
     // with continuous streaming SpeechRecognition. Prefer stable recognition path.
     const isMobileBrowser =
         typeof navigator !== 'undefined' &&
         /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+    const aws = useSpeechRecognition(language, onTranscript, {
+        preferNative: !isMobileBrowser,
+    });
 
     const useStreaming = streaming.supported && !isMobileBrowser;
     const fallbackRef = useRef(false);  // sticky: once streaming fails, stay on AWS
