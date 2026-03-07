@@ -5191,3 +5191,36 @@ input:focus-visible {
     padding: 12px 20px;
     font-size: 15px;
 }
+
+/* Final lock: mobile bottom features in one single line with drag */
+@media (max-width: 768px) {
+    .bottom-nav {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x;
+        scroll-snap-type: x proximity;
+        gap: 6px;
+    }
+
+    .bottom-nav-item {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+        display: inline-flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px;
+        padding: 8px 10px;
+        scroll-snap-align: start;
+    }
+
+    .bottom-nav-label {
+        margin-top: 0 !important;
+        white-space: nowrap !important;
+        line-height: 1 !important;
+    }
+}
