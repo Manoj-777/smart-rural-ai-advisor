@@ -5170,24 +5170,59 @@ input:focus-visible {
     }
 }
 
-/* Profile save button alignment */
-.profile-save-card {
-    margin-top: 8px;
-    padding-top: 14px;
-    padding-bottom: 14px;
-}
-
+/* Profile save button alignment (final override) */
 .profile-save-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    margin: 14px -24px -24px;
+    padding-top: 0;
+    border-top: none;
+    display: block;
     width: 100%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
 }
 
 .profile-save-btn {
-    width: min(340px, 100%);
+    width: 100%;
+    max-width: none;
+    display: flex;
+    align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    padding: 12px 20px;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    border: none;
+    background: transparent;
+    color: #fff;
+    border-radius: 0;
+    padding: 12px 16px;
     font-size: 15px;
+    font-weight: 600;
+    min-height: 50px;
+    box-shadow: none;
+    cursor: pointer;
+    background-clip: padding-box;
+    overflow: hidden;
+}
+
+.profile-save-btn:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.profile-save-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.profile-save-btn:focus,
+.profile-save-btn:focus-visible,
+.profile-save-btn:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+    .profile-save-row {
+        margin: 12px -16px -16px;
+    }
 }
