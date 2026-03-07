@@ -108,9 +108,8 @@ Resources:
   AgentOrchestratorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/bab7401b1168abd476133f36ca56abf2
+      CodeUri: s3://smart-rural-ai-948809294205/557ec3696c678d5178e24212cdcd0761
       Handler: handler.lambda_handler
-      Timeout: 120
       Environment:
         Variables:
           FOUNDATION_MODEL: apac.amazon.nova-pro-v1:0
@@ -203,7 +202,7 @@ Resources:
   CropAdvisoryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/53216135392be146298ca1e4b53c286a
+      CodeUri: s3://smart-rural-ai-948809294205/19af544c525e238b0c719e0e2c4b36c3
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -223,7 +222,7 @@ Resources:
   WeatherFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/af4a61486276d574a0d932650b9fe321
+      CodeUri: s3://smart-rural-ai-948809294205/259f582a08f680be6cb8414ea4111b75
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -263,11 +262,11 @@ Resources:
           Properties:
             Path: /health
             Method: get
-      CodeUri: s3://smart-rural-ai-948809294205/c7b69ed8bdabca5b1db1572e9ab847a3
+      CodeUri: s3://smart-rural-ai-948809294205/bed05daf7f2b8ed69197f7976cce8a39
   ImageAnalysisFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/5124aa8249f3043ad9c1129a46179654
+      CodeUri: s3://smart-rural-ai-948809294205/259f484d40027c7dab8cdbb69da35708
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
@@ -298,7 +297,7 @@ Resources:
   GovtSchemesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/abfe5359fe31870147ddae230a368006
+      CodeUri: s3://smart-rural-ai-948809294205/89a80dcd5fd15e78f37c0b84a8a14a0f
       Handler: handler.lambda_handler
       Events:
         SchemesApi:
@@ -316,7 +315,7 @@ Resources:
   FarmerProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/47ecbbdd79833f6c53e1064def48e621
+      CodeUri: s3://smart-rural-ai-948809294205/1703561efa409d2813692fc2d8881d64
       Handler: handler.lambda_handler
       Environment:
         Variables:
@@ -325,6 +324,7 @@ Resources:
           COGNITO_USER_POOL_ID:
             Ref: CognitoUserPoolId
           STAGE: prod
+          ENABLE_DEMO_OTP: 'true'
           ENABLE_FARMER_ID_VALIDATION: 'true'
       Policies:
       - Version: '2012-10-17'
@@ -340,23 +340,12 @@ Resources:
           - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/otp_codes
         - Effect: Allow
           Action:
-          - sns:Publish
-          - sns:GetSMSAttributes
-          - sns:CreateSMSSandboxPhoneNumber
-          - sns:VerifySMSSandboxPhoneNumber
-          - sns:DeleteSMSSandboxPhoneNumber
-          - sns:GetSMSSandboxAccountStatus
-          - sns:ListSMSSandboxPhoneNumbers
-          - sms-voice:DescribeAccountAttributes
-          - sms-voice:DescribeVerifiedDestinationNumbers
-          - sms-voice:CreateVerifiedDestinationNumber
-          - sms-voice:VerifyDestinationNumber
-          - sms-voice:DeleteVerifiedDestinationNumber
           - cloudwatch:GetMetricStatistics
           Resource: '*'
         - Effect: Allow
           Action:
           - cognito-idp:AdminDeleteUser
+          - cognito-idp:AdminSetUserPassword
           Resource:
             Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
       Events:
@@ -400,12 +389,22 @@ Resources:
           Properties:
             Path: /otp/verify
             Method: options
+        PinResetApi:
+          Type: Api
+          Properties:
+            Path: /pin/reset
+            Method: post
+        PinResetOptions:
+          Type: Api
+          Properties:
+            Path: /pin/reset
+            Method: options
     Metadata:
       SamResourceId: FarmerProfileFunction
   TranscribeSpeechFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://smart-rural-ai-948809294205/e75a3a89fd98bb8c9afa7bb298ebd5a4
+      CodeUri: s3://smart-rural-ai-948809294205/a49945f7368ad06adb407fb584ce9a3e
       Handler: handler.lambda_handler
       Timeout: 60
       Policies:

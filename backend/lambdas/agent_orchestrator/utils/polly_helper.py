@@ -357,7 +357,7 @@ def _gtts_tts_chunk(chunk_text, language_code, chunk_index=1, total_chunks=1):
     )
 
 
-def _gtts_tts(safe_text, language_code):
+def _gtts_tts(safe_text, language_code, time_budget_sec=None):
     """Free Google Translate TTS. No API key. Supports all major Indian languages."""
     chunks = _split_text_for_tts(safe_text, GTTS_CHUNK_MAX_CHARS)
     if not chunks:
@@ -368,14 +368,43 @@ def _gtts_tts(safe_text, language_code):
         logger.info(f'gTTS chunking enabled: total_chunks={total_chunks}, total_chars={len(safe_text)}')
 
     merged_audio = io.BytesIO()
+    start_time = time.time()
+    processed_chars = 0
+    completed_all_chunks = True
+
     for idx, chunk in enumerate(chunks, 1):
+        if idx > 1 and time_budget_sec and (time.time() - start_time) >= time_budget_sec:
+            completed_all_chunks = False
+            logger.warning(
+                f'gTTS partial cutoff reached before chunk {idx}/{total_chunks}: '
+                f'elapsed={time.time() - start_time:.2f}s budget={time_budget_sec}s'
+            )
+            break
+
         chunk_audio = _gtts_tts_chunk(chunk, language_code, chunk_index=idx, total_chunks=total_chunks)
         merged_audio.write(chunk_audio)
+        processed_chars += len(chunk)
 
-    return _upload_audio_bytes(merged_audio.getvalue())
+        if idx < total_chunks and time_budget_sec and (time.time() - start_time) >= time_budget_sec:
+            completed_all_chunks = False
+            logger.warning(
+                f'gTTS partial cutoff reached after chunk {idx}/{total_chunks}: '
+                f'elapsed={time.time() - start_time:.2f}s budget={time_budget_sec}s'
+            )
+            break
+
+    if processed_chars == 0:
+        return None
+
+    upload_result = _upload_audio_bytes(merged_audio.getvalue())
+    if isinstance(upload_result, dict):
+        upload_result['partial_audio'] = not completed_all_chunks
+        upload_result['processed_chars'] = processed_chars
+        upload_result['total_chars'] = len(safe_text)
+    return upload_result
 
 
-def text_to_speech(text, language_code='en', voice_id=None, return_metadata=False):
+def text_to_speech(text, language_code='en', voice_id=None, return_metadata=False, gtts_time_budget_sec=None):
     """
     Convert text to speech using Amazon Polly or gTTS.
 
@@ -407,7 +436,7 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
         elif language_code in GTTS_SUPPORTED_LANGS:
             if USE_GTTS:
                 try:
-                    result = _gtts_tts(safe_text, language_code)
+                    result = _gtts_tts(safe_text, language_code, time_budget_sec=gtts_time_budget_sec)
                 except Exception as gtts_err:
                     tts_error = f"gTTS error ({language_code}): {gtts_err}"
                     logger.warning(tts_error)
@@ -431,11 +460,17 @@ def text_to_speech(text, language_code='en', voice_id=None, return_metadata=Fals
             tts_error = f"TTS produced no audio for language={language_code}"
 
         if return_metadata:
+            partial_audio = bool(result.get('partial_audio', False)) if isinstance(result, dict) else False
+            processed_chars = result.get('processed_chars') if isinstance(result, dict) else None
+            total_chars = result.get('total_chars') if isinstance(result, dict) else None
             return {
                 'audio_url': audio_url,
                 'audio_key': audio_key,
                 'truncated': was_truncated,
                 'error': tts_error,
+                'partial_audio': partial_audio,
+                'processed_chars': processed_chars,
+                'total_chars': total_chars,
             }
         return audio_url
 

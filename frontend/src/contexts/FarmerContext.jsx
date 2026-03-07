@@ -12,6 +12,7 @@ const FarmerContext = createContext();
 const FARMER_ID_KEY = 'farmer_id';
 const FARMER_PHONE_KEY = 'farmer_phone';
 const FARMER_NAME_KEY = 'farmer_name';
+const APP_LANGUAGE_KEY = 'app_language';
 
 export function FarmerProvider({ children }) {
     const [farmerId, setFarmerIdState] = useState(() => localStorage.getItem(FARMER_ID_KEY) || null);
@@ -60,6 +61,7 @@ export function FarmerProvider({ children }) {
                     localStorage.removeItem(FARMER_ID_KEY);
                     localStorage.removeItem(FARMER_PHONE_KEY);
                     localStorage.removeItem(FARMER_NAME_KEY);
+                    localStorage.removeItem(APP_LANGUAGE_KEY);
                     setFarmerIdState(null);
                     setFarmerPhoneState('');
                     setFarmerNameState('');
@@ -188,6 +190,9 @@ export function FarmerProvider({ children }) {
             });
         } catch { /* will save later */ }
         setFarmerProfile(newProfile);
+        if (newProfile?.language) {
+            localStorage.setItem(APP_LANGUAGE_KEY, newProfile.language);
+        }
 
         return tokens;
     }, []);
@@ -220,6 +225,9 @@ export function FarmerProvider({ children }) {
                 setFarmerProfile(data.data);
                 setFarmerNameState(data.data.name);
                 localStorage.setItem(FARMER_NAME_KEY, data.data.name);
+                if (data.data.language) {
+                    localStorage.setItem(APP_LANGUAGE_KEY, data.data.language);
+                }
             }
         } catch { /* offline */ }
 
@@ -239,6 +247,7 @@ export function FarmerProvider({ children }) {
         localStorage.removeItem(FARMER_ID_KEY);
         localStorage.removeItem(FARMER_PHONE_KEY);
         localStorage.removeItem(FARMER_NAME_KEY);
+        localStorage.removeItem(APP_LANGUAGE_KEY);
         localStorage.removeItem('last_activity');
         setFarmerIdState(null);
         setFarmerPhoneState('');

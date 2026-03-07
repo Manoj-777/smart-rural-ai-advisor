@@ -200,9 +200,23 @@ function EmailVerifyScreen() {
 }
 
 function AppContent() {
-    const { isLoggedIn, authReady, needsEmailVerification } = useFarmer();
+    const { isLoggedIn, authReady, needsEmailVerification, farmerProfile } = useFarmer();
+    const { setLanguage } = useLanguage();
     const navigate = useNavigate();
     const prevLoggedIn = useRef(isLoggedIn);
+
+    // Enforce language lifecycle:
+    // 1) Logged out/login page starts in English.
+    // 2) Logged in users get their saved profile language.
+    useEffect(() => {
+        if (!isLoggedIn) {
+            setLanguage('en-IN', { persist: false });
+            return;
+        }
+
+        const profileLanguage = farmerProfile?.language || 'en-IN';
+        setLanguage(profileLanguage, { persist: true });
+    }, [isLoggedIn, farmerProfile?.language, setLanguage]);
 
     // Navigate to home when user logs in (prevents landing on stale route like /weather)
     useEffect(() => {

@@ -9,6 +9,8 @@ import os
 import logging
 import re
 import time
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Tuple
 from botocore.config import Config
 from utils.response_helper import success_response, error_response
 
@@ -24,6 +26,14 @@ KB_ID = os.environ.get('BEDROCK_KB_ID', '')
 ENABLE_KB_RETRY = os.environ.get('ENABLE_KB_RETRY', 'false').lower() == 'true'
 KB_RETRY_MAX_ATTEMPTS = int(os.environ.get('KB_RETRY_MAX_ATTEMPTS', '3'))
 KB_RETRY_BASE_DELAY = float(os.environ.get('KB_RETRY_BASE_DELAY', '1.0'))
+
+# Retrieval quality gates
+KB_RETRIEVAL_TOP_K = int(os.environ.get('KB_RETRIEVAL_TOP_K', '8'))
+KB_RETRIEVAL_MAX_CHUNKS = int(os.environ.get('KB_RETRIEVAL_MAX_CHUNKS', '5'))
+KB_MIN_SCORE = float(os.environ.get('KB_MIN_SCORE', '0.35'))
+KB_MIN_GOOD_CHUNKS = int(os.environ.get('KB_MIN_GOOD_CHUNKS', '2'))
+ENABLE_KB_QUERY_REWRITE = os.environ.get('ENABLE_KB_QUERY_REWRITE', 'true').lower() == 'true'
+FRESHNESS_STALE_AFTER_YEARS = int(os.environ.get('FRESHNESS_STALE_AFTER_YEARS', '1'))
 
 # ── Security: Input validation ──
 MAX_FIELD_LENGTH = 200
@@ -112,6 +122,121 @@ def _kb_retrieve_with_retry(bedrock_kb_client, **kwargs):
     raise RuntimeError("_kb_retrieve_with_retry: unreachable")
 
 
+def _sanitize_retrieval_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    content = str((item.get('content') or {}).get('text') or '')
+    content = re.sub(r'<[^>]+>', '', content)
+    score = float(item.get('score', 0) or 0)
+    source = ((item.get('location') or {}).get('s3Location') or {}).get('uri', '')
+    return {
+        'content': content[:2000],
+        'score': score,
+        'source': source,
+    }
+
+
+def _apply_retrieval_quality_gate(
+    retrieval_results: List[Dict[str, Any]],
+    min_score: float,
+    max_chunks: int,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    sanitized = [_sanitize_retrieval_item(item) for item in (retrieval_results or [])]
+    sorted_items = sorted(sanitized, key=lambda x: x.get('score', 0), reverse=True)
+    good = [item for item in sorted_items if item.get('score', 0) >= min_score]
+    selected = good[:max_chunks]
+    metrics = {
+        'raw_count': len(retrieval_results or []),
+        'sanitized_count': len(sanitized),
+        'good_count': len(good),
+        'selected_count': len(selected),
+        'min_score': min_score,
+        'max_score': (sorted_items[0].get('score', 0) if sorted_items else 0),
+    }
+    return selected, metrics
+
+
+def _rewrite_search_query_for_recall(search_query: str, query_type: str, crop: str) -> str:
+    base = (search_query or '').strip()
+    if not base:
+        base = 'crop advisory india farming'
+    qtype = (query_type or '').strip().lower()
+    crop_hint = f"{crop} " if crop else ''
+    if qtype == 'irrigation':
+        return f"{crop_hint}irrigation schedule water requirement india best practices"
+    if qtype == 'pest':
+        return f"{crop_hint}pest disease symptoms diagnosis treatment india"
+    return f"{crop_hint}crop advisory soil season recommendation india best practices"
+
+
+def _extract_year_tokens(text: str) -> List[int]:
+    years: List[int] = []
+    if not text:
+        return years
+
+    # Matches: 2025, 2025-26, 2025-2026
+    for match in re.finditer(r'\b(20\d{2})(?:\s*[-/]\s*(\d{2}|20\d{2}))?\b', text):
+        start = int(match.group(1))
+        years.append(start)
+        end_raw = match.group(2)
+        if end_raw:
+            if len(end_raw) == 2:
+                end = int(str(start)[:2] + end_raw)
+            else:
+                end = int(end_raw)
+            years.append(end)
+
+    return sorted(set(years))
+
+
+def _is_time_sensitive_query(search_query: str, query_type: str) -> bool:
+    text = f"{search_query or ''} {query_type or ''}".lower()
+    return bool(re.search(r'\b(msp|price|market|mandi|scheme|subsidy|deadline|last date|current|latest|season|today|this year)\b', text))
+
+
+def _build_freshness_metadata(search_query: str, query_type: str, advisory_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    current_year = datetime.now(UTC).year
+    corpus = '\n'.join(str(item.get('content') or '') for item in (advisory_data or []))
+    years = _extract_year_tokens(corpus)
+    latest_year = max(years) if years else None
+    time_sensitive = _is_time_sensitive_query(search_query, query_type)
+
+    stale = False
+    warning = ''
+    if time_sensitive and latest_year is not None:
+        stale = (current_year - latest_year) >= FRESHNESS_STALE_AFTER_YEARS
+        if stale:
+            warning = (
+                "Some retrieved references appear older than the current season/year. "
+                "Please verify latest MSP/scheme deadlines with official portals before final action."
+            )
+    elif time_sensitive and latest_year is None:
+        warning = (
+            "Time-sensitive guidance requested, but retrieved chunks did not include clear year markers. "
+            "Please verify latest official rates and deadlines."
+        )
+
+    return {
+        'current_year': current_year,
+        'time_sensitive_query': time_sensitive,
+        'detected_years': years,
+        'latest_detected_year': latest_year,
+        'stale_reference_detected': stale,
+        'staleness_warning': warning,
+    }
+
+
+def _is_scheme_intent_query(text: str) -> bool:
+    normalized = str(text or '').lower()
+    # Keep MSP/market queries in crop tool path; redirect only true scheme intents.
+    if re.search(r'\b(msp|market price|mandi|procurement price)\b', normalized):
+        return False
+    return bool(
+        re.search(
+            r'\b(scheme|subsidy|loan|insurance|eligibility|pm[- ]?kisan|pmfby|kcc|rythu|kalia|aif|pmksy|soil health card)\b',
+            normalized,
+        )
+    )
+
+
 def lambda_handler(event, context):
     """
     Retrieves crop advisory from Bedrock Knowledge Base.
@@ -143,6 +268,22 @@ def lambda_handler(event, context):
         combined_input = f"{query} {crop} {state} {symptoms} {location}"
         if _check_injection(combined_input):
             return error_response("I can only help with agriculture-related queries. Please rephrase your question.", 400)
+
+        # Source authority guard: scheme details should come from govt_schemes/search_schemes.
+        scheme_text = " ".join([query, crop, state, location, query_type])
+        if _is_scheme_intent_query(scheme_text):
+            return success_response(
+                {
+                    'query': query,
+                    'advisory_data': [],
+                    'source_authority': 'govt_schemes',
+                    'redirect_tool': 'search_schemes',
+                    'message': (
+                        'Government scheme details are served from the dedicated schemes service to keep data consistent. '
+                        'Use search_schemes for eligibility, benefits, deadlines, and application steps.'
+                    ),
+                }
+            )
 
         # Build a natural language search query for better KB vector retrieval
         # Natural language queries work much better than pipe-separated keywords
@@ -202,30 +343,80 @@ def lambda_handler(event, context):
             retrievalQuery={'text': search_query},
             retrievalConfiguration={
                 'vectorSearchConfiguration': {
-                    'numberOfResults': 8
+                    'numberOfResults': KB_RETRIEVAL_TOP_K
                 }
             }
         )
 
-        # Extract relevant chunks — sanitize content
-        results = []
-        for item in response.get('retrievalResults', []):
-            content = item['content']['text']
-            # Security: strip any HTML/script from KB content
-            content = re.sub(r'<[^>]+>', '', content)
-            results.append({
-                'content': content[:2000],  # Cap individual chunk size
-                'score': item.get('score', 0),
-                'source': item.get('location', {}).get('s3Location', {}).get('uri', '')
-            })
+        raw_results = response.get('retrievalResults', [])
+        results, quality = _apply_retrieval_quality_gate(
+            raw_results,
+            min_score=KB_MIN_SCORE,
+            max_chunks=KB_RETRIEVAL_MAX_CHUNKS,
+        )
+
+        used_fallback_query = False
+        fallback_query = ''
+
+        # If quality is weak, retry with a broader recall-oriented query.
+        if ENABLE_KB_QUERY_REWRITE and quality['good_count'] < KB_MIN_GOOD_CHUNKS:
+            used_fallback_query = True
+            fallback_query = _rewrite_search_query_for_recall(search_query, query_type, crop)
+            logger.info(
+                "KB quality gate retry: good_count=%s < min_good=%s; fallback query=%s",
+                quality['good_count'],
+                KB_MIN_GOOD_CHUNKS,
+                fallback_query,
+            )
+            fallback_response = _kb_retrieve_with_retry(
+                bedrock_kb,
+                knowledgeBaseId=KB_ID,
+                retrievalQuery={'text': fallback_query},
+                retrievalConfiguration={
+                    'vectorSearchConfiguration': {
+                        'numberOfResults': KB_RETRIEVAL_TOP_K
+                    }
+                }
+            )
+            fallback_results, fallback_quality = _apply_retrieval_quality_gate(
+                fallback_response.get('retrievalResults', []),
+                min_score=KB_MIN_SCORE,
+                max_chunks=KB_RETRIEVAL_MAX_CHUNKS,
+            )
+            # Keep the better set by good_count then max_score.
+            if (
+                fallback_quality['good_count'] > quality['good_count']
+                or (
+                    fallback_quality['good_count'] == quality['good_count']
+                    and fallback_quality['max_score'] > quality['max_score']
+                )
+            ):
+                results = fallback_results
+                quality = fallback_quality
 
         result_data = {
             'query': search_query,
             'crop': crop,
             'state': state,
             'season': season,
-            'advisory_data': results
+            'advisory_data': results,
+            'retrieval_quality': {
+                'used_fallback_query': used_fallback_query,
+                'fallback_query': fallback_query,
+                **quality,
+            },
         }
+
+        result_data['freshness'] = _build_freshness_metadata(search_query, query_type, results)
+
+        if quality['good_count'] < KB_MIN_GOOD_CHUNKS:
+            # Deterministic signal to orchestrator/model to avoid over-confident responses.
+            result_data['insufficient_evidence'] = True
+            result_data['evidence_message'] = (
+                "Retrieved knowledge confidence is low for this query. "
+                "Provide only cautious high-level guidance and ask for missing specifics "
+                "(crop, location, soil type, season, or symptom details) before giving precise recommendations."
+            )
 
         return success_response(result_data)
 

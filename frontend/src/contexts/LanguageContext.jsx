@@ -1,32 +1,27 @@
 // src/contexts/LanguageContext.jsx
-// Global language state — persisted to localStorage, accessible everywhere
+// Global language state with explicit persistence control.
+// Login screen should default to English unless the user is already authenticated.
 
 import { createContext, useContext, useState, useCallback } from 'react';
 import translations from '../i18n/translations';
 import config from '../config';
-import { apiFetch } from '../utils/apiFetch';
 
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
     const [language, setLanguageState] = useState(() => {
+        const hasActiveLogin = !!localStorage.getItem('farmer_id');
+        if (!hasActiveLogin) return config.DEFAULT_LANGUAGE;
         const stored = localStorage.getItem('app_language');
         return stored && translations[stored] ? stored : config.DEFAULT_LANGUAGE;
     });
 
-    const setLanguage = useCallback((lang) => {
+    const setLanguage = useCallback((lang, options = {}) => {
+        const { persist = true } = options;
         if (translations[lang]) {
             setLanguageState(lang);
-            localStorage.setItem('app_language', lang);
-
-            // Sync language preference to DynamoDB profile (fire-and-forget)
-            const farmerId = localStorage.getItem('farmer_id');
-            if (farmerId) {
-                apiFetch(`/profile/${farmerId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ language: lang })
-                }).catch(() => {}); // background sync — don't block UI
+            if (persist) {
+                localStorage.setItem('app_language', lang);
             }
         }
     }, []);

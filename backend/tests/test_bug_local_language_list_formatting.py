@@ -74,3 +74,39 @@ def test_tts_english_still_uses_ordinals_when_enabled():
         output = polly_helper._strip_markdown_for_tts("1. First step\n2. Second step")
 
     assert output.split('\n') == ['First, First step', 'Second, Second step']
+
+
+def test_hindi_danda_numbering_is_normalized_to_markdown_points():
+    orchestrator_handler = _load_orchestrator_handler_with_stubbed_chat_history()
+
+    text = "1। कपास\n2। सूरजमुखी\n3। तिल"
+    output = orchestrator_handler._strip_local_markdown_symbols(text, 'hi')
+
+    assert output.split('\n') == ['1. कपास', '2. सूरजमुखी', '3. तिल']
+
+
+def test_urdu_fullstop_numbering_is_normalized_to_markdown_points():
+    orchestrator_handler = _load_orchestrator_handler_with_stubbed_chat_history()
+
+    text = "1۔ کپاس\n2۔ گندم"
+    output = orchestrator_handler._strip_local_markdown_symbols(text, 'ur')
+
+    assert output.split('\n') == ['1. کپاس', '2. گندم']
+
+
+def test_repeated_hindi_number_marker_is_renumbered_sequentially():
+    orchestrator_handler = _load_orchestrator_handler_with_stubbed_chat_history()
+
+    text = "1। कपास\n1। सूरजमुखी\n1। तिल"
+    output = orchestrator_handler._strip_local_markdown_symbols(text, 'hi')
+
+    assert output.split('\n') == ['1. कपास', '2. सूरजमुखी', '3. तिल']
+
+
+def test_repeated_english_number_marker_is_renumbered_sequentially():
+    orchestrator_handler = _load_orchestrator_handler_with_stubbed_chat_history()
+
+    text = "1. Cotton\n1. Sunflower\n1. Sesame"
+    output = orchestrator_handler._strip_local_markdown_symbols(text, 'en')
+
+    assert output.split('\n') == ['1. Cotton', '2. Sunflower', '3. Sesame']

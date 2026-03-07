@@ -24,6 +24,7 @@ logger.setLevel(logging.INFO)
 # API Gateway hard timeout is 29s. We must return before that.
 API_GW_TIMEOUT_SEC = 29
 TTS_TIME_BUDGET_SEC = 18  # skip Polly TTS if elapsed > this
+ASYNC_GTTS_TIME_BUDGET_SEC = float(os.environ.get('ASYNC_GTTS_TIME_BUDGET_SEC', '24'))
 
 # Feature-page session prefixes: pre-structured prompts that
 # use a single direct Bedrock call (fast path).
@@ -350,6 +351,50 @@ def _sanitize_user_message(text):
     return cleaned.strip()
 
 
+def _normalize_translated_agri_terms(text):
+    """Fix common translation artifacts for key agriculture season terms."""
+    normalized = str(text or '')
+    if not normalized:
+        return normalized
+
+    replacements = [
+        (r'\bcardiff\b', 'kharif'),
+        (r'\bharif\b', 'kharif'),
+        (r'\bkhariff\b', 'kharif'),
+        (r'\brabby\b', 'rabi'),
+        (r'\brabbi\b', 'rabi'),
+        (r'\bzaad\b', 'zaid'),
+        (r'\bzaidh\b', 'zaid'),
+    ]
+    for pattern, repl in replacements:
+        normalized = re.sub(pattern, repl, normalized, flags=re.IGNORECASE)
+    return normalized
+
+
+def _resolve_reply_language(preferred_language, detected_language, raw_user_message, enforce_preferred=False):
+    """Resolve reply language for this turn, handling mixed-language chat gracefully."""
+    preferred = normalize_language_code(preferred_language, default='en') if preferred_language else None
+    detected = normalize_language_code(detected_language, default='en')
+
+    if enforce_preferred and preferred:
+        return preferred
+
+    # No preferred language from client: rely on detection.
+    if not preferred:
+        return detected
+
+    # If both agree, use it directly.
+    if preferred == detected:
+        return preferred
+
+    # If user typed Indic script, honor detected script language over stale UI setting.
+    if _contains_indic_chars(raw_user_message):
+        return detected
+
+    # Otherwise, default to detected language to support intentional language switching.
+    return detected
+
+
 def _contains_indic_chars(text):
     if not text:
         return False
@@ -635,21 +680,23 @@ CRITICAL RULES:
 8. When farmer context is provided, ALWAYS use it to fill missing parameters (name, state, crop, soil_type) for tool calls — DO NOT ask the farmer for information already in their profile context. NEVER ask for the farmer's name — it is already provided. Address them by name directly.
 9. Provide specific numbers: kg/hectare, mm of water, litres/day, days to harvest, etc.
 10. CRITICAL: If the farmer's query mentions crops/season/weather but doesn't specify location, and farmer context has state/district — use that location for the tool call. NEVER refuse to answer or ask for location if it's available in the farmer context. If gps_location is in the context, use it as the PRIMARY fallback location. If the farmer explicitly mentions a different location in the current query, ALWAYS use the farmer-mentioned location instead of gps_location/profile location.
-11. ANSWER WHAT THE FARMER ASKED with COMPREHENSIVE DETAIL. Provide thorough, expert-level advice with specific numbers (kg/hectare, litres/day, Rs/quintal, mm of water, days to harvest), step-by-step instructions, timelines, and actionable guidance. Include at least 400-800 words for substantive queries. Do NOT add unrelated topics, but DO give comprehensive depth on what they asked. If the farmer asks 'what crop to grow', answer with JUST the crop recommendation — do NOT add pest management, irrigation, fertilizer, or scheme info unless specifically asked. 
+11. ANSWER WHAT THE FARMER ASKED with intent-matched depth. Keep most operational replies concise and actionable (typically 120-250 words). Expand only when the user asks for detailed explanation or a full plan. Always include concrete numbers when available (kg/hectare, litres/day, Rs/quintal, mm water, days to harvest). Do NOT add unrelated topics. If the farmer asks 'what crop to grow', answer only crop recommendation unless they explicitly ask for pest/irrigation/fertilizer/schemes.
 12. If conversation history is provided, use it for context in follow-up questions. If the farmer asks 'what about pest control?' after a crop recommendation, use the prior crop as context.
 13. Write in a warm, human tone — use short sentences, everyday words, and a conversational style. Avoid bullet-point lists unless summarizing multiple items. Sound like a knowledgeable friend, not a textbook.
-14. CRITICAL: You have knowledge about ALL major Indian crops — not just rice and wheat. The tool database covers 35+ crops including cotton, sugarcane, maize, groundnut, soybean, banana, coconut, tomato, onion, potato, millets (ragi/bajra/jowar), chilli, mango, brinjal, turmeric, black gram, mustard, sunflower, sesame, jute, lentil, barley, okra, pomegranate, guava, papaya, castor, safflower, chickpea, green gram, toor dal, and more. If the tool returns partial data (e.g., only 2 crops), STILL provide helpful advice about the farmer's requested crop using your general agricultural knowledge PLUS whatever the tool returned. NEVER say "I only have data for rice and wheat" or "the tool only returned data for X and Y" — that is misleading and unhelpful. Instead, combine tool data with your deep knowledge of Indian agriculture to give the best advice possible.
-15. For topics outside the tool database (e.g., livestock, dairy, sericulture, food processing, biogas), provide practical general advice and recommend the farmer contact their local KVK (Krishi Vigyan Kendra) or agricultural extension service for specialized guidance.
-16. RESPONSE FORMAT CONTRACT (STRICT): Return plain Markdown only (no HTML/JSON/code fences unless asked). For multi-item answers (e.g., schemes), use this exact structure:
+14. CRITICAL: You have knowledge about ALL major Indian crops — not just rice and wheat. The tool database covers 35+ crops including cotton, sugarcane, maize, groundnut, soybean, banana, coconut, tomato, onion, potato, millets (ragi/bajra/jowar), chilli, mango, brinjal, turmeric, black gram, mustard, sunflower, sesame, jute, lentil, barley, okra, pomegranate, guava, papaya, castor, safflower, chickpea, green gram, toor dal, and more. If the tool returns partial data (e.g., only 2 crops), provide helpful advice for the farmer's requested crop using tool evidence first and general agronomic knowledge second. NEVER say "I only have data for rice and wheat" or "the tool only returned data for X and Y".
+15. STRICT SOIL RULE: For soil-type crop recommendation queries (e.g., black soil/red soil), ONLY recommend crops that are explicitly supported by retrieved tool evidence for that soil. Do NOT add extra crops from generic knowledge when soil fit is not evidenced. If evidence is insufficient, say so clearly and ask for soil test details/pH/drainage.
+16. STRICT SCHEME SCOPE RULE: For government scheme answers, include only Central schemes plus the farmer's profile state schemes. Never list schemes from other states unless the farmer explicitly asks for cross-state comparison.
+17. For topics outside the tool database (e.g., livestock, dairy, sericulture, food processing, biogas), provide practical general advice and recommend the farmer contact their local KVK (Krishi Vigyan Kendra) or agricultural extension service for specialized guidance.
+18. RESPONSE FORMAT CONTRACT (STRICT): Return plain Markdown only (no HTML/JSON/code fences unless asked). For multi-item answers (e.g., schemes), use this exact structure:
     ### <Item Name>
     - **Eligibility:** ...
     - **Deadline:** ...
     - **Benefit:** ...
     - **How to apply:** ...
    Keep spacing compact: one blank line between sections, no extra blank lines between bullets. Never output raw placeholders like [object Object].
-17. For pest/disease queries based only on text symptoms, NEVER present a single diagnosis as certain. Use cautious wording: "likely" / "possibly", include 2-3 differential possibilities, and list quick confirmation cues (what to check on leaf/stem/fruit).
-18. Give exact pesticide/fungicide dose only when tool evidence strongly matches a specific disease/pest; otherwise provide safe immediate steps first (remove infected parts, moisture control, field hygiene) and ask for a photo or additional symptoms to confirm.
-19. Do NOT use definitive labels/headings like "This is X disease" or a standalone disease name as the final diagnosis unless there is explicit confirmation evidence (clear photo/lab/field confirmation). For symptom-only cases, format as "Most likely possibilities" and "How to confirm first" before any treatment details.
+19. For pest/disease queries based only on text symptoms, NEVER present a single diagnosis as certain. Use cautious wording: "likely" / "possibly", include 2-3 differential possibilities, and list quick confirmation cues (what to check on leaf/stem/fruit).
+20. Give exact pesticide/fungicide dose only when tool evidence strongly matches a specific disease/pest; otherwise provide safe immediate steps first (remove infected parts, moisture control, field hygiene) and ask for a photo or additional symptoms to confirm.
+21. Do NOT use definitive labels/headings like "This is X disease" or a standalone disease name as the final diagnosis unless there is explicit confirmation evidence (clear photo/lab/field confirmation). For symptom-only cases, format as "Most likely possibilities" and "How to confirm first" before any treatment details.
 
 CROP REFERENCE (key data for quick lookup — use alongside tool results):
 Rice: Kharif, 120-150d, clay loam pH5.5-6.5, NPK 120:60:40, yield 3.5-5.0t/ha, MSP ₹2300/q
@@ -874,6 +921,314 @@ def _execute_tool(tool_name, tool_input):
         return {"error": "Tool invocation failed"}
 
 
+def _is_soil_specific_recommendation_query(user_prompt, tool_input=None):
+    """Return True when the request is soil-focused and asks for crop recommendations."""
+    ti = tool_input or {}
+    text = " ".join([
+        str(user_prompt or ''),
+        str(ti.get('query') or ''),
+        str(ti.get('soil_type') or ''),
+    ]).lower()
+
+    soil_terms = (
+        'soil', 'black soil', 'red soil', 'alluvial', 'laterite', 'clay', 'loam', 'sandy'
+    )
+    recommendation_terms = (
+        'recommend', 'best crop', 'which crop', 'suitable crop', 'what crop', 'grow'
+    )
+
+    has_soil_signal = any(term in text for term in soil_terms) or bool((ti.get('soil_type') or '').strip())
+    has_recommend_signal = any(term in text for term in recommendation_terms)
+    return has_soil_signal and has_recommend_signal
+
+
+_INDIA_STATE_UT_NAMES = {
+    'andhra pradesh', 'arunachal pradesh', 'assam', 'bihar', 'chhattisgarh', 'goa',
+    'gujarat', 'haryana', 'himachal pradesh', 'jharkhand', 'karnataka', 'kerala',
+    'madhya pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram', 'nagaland',
+    'odisha', 'orissa', 'punjab', 'rajasthan', 'sikkim', 'tamil nadu', 'telangana',
+    'tripura', 'uttar pradesh', 'uttarakhand', 'west bengal', 'jammu and kashmir',
+    'ladakh', 'delhi', 'nct of delhi', 'chandigarh', 'puducherry', 'pondicherry',
+    'andaman and nicobar islands', 'daman and diu', 'dadra and nagar haveli',
+    'dadra and nagar haveli and daman and diu', 'lakshadweep'
+}
+
+
+def _is_cross_state_scheme_request(user_prompt, farmer_context=None):
+    """Return True when query explicitly asks for schemes beyond profile state."""
+    text = str(user_prompt or '').lower()
+    fc_state = str((farmer_context or {}).get('state') or '').strip().lower()
+
+    explicit_cross_state_phrases = (
+        'other state', 'another state', 'across states', 'all states', 'outside my state',
+        'compare state', 'state comparison', 'compare schemes'
+    )
+    if any(p in text for p in explicit_cross_state_phrases):
+        return True
+
+    mentioned_states = []
+    for state_name in _INDIA_STATE_UT_NAMES:
+        if re.search(r'\b' + re.escape(state_name) + r'\b', text):
+            mentioned_states.append(state_name)
+
+    if not mentioned_states:
+        return False
+
+    # If user names a different state than profile state, treat as explicit cross-state intent.
+    if fc_state:
+        for state_name in mentioned_states:
+            if state_name != fc_state:
+                return True
+
+    return False
+
+
+def _apply_tool_input_policy(tool_name, tool_input, farmer_context=None, user_prompt=''):
+    """Apply deterministic constraints to model-generated tool inputs."""
+    adjusted = dict(tool_input or {})
+    fc = farmer_context or {}
+
+    if tool_name == 'search_schemes':
+        farmer_state = str(fc.get('state') or '').strip()
+        if farmer_state and not _is_cross_state_scheme_request(user_prompt, fc):
+            adjusted['state'] = farmer_state
+        if not str(adjusted.get('query') or '').strip():
+            adjusted['query'] = 'all'
+
+    if tool_name == 'get_crop_advisory':
+        if not str(adjusted.get('soil_type') or '').strip() and str(fc.get('soil_type') or '').strip():
+            adjusted['soil_type'] = fc.get('soil_type')
+
+        if not str(adjusted.get('location') or '').strip():
+            profile_location = str(fc.get('district') or fc.get('state') or '').strip()
+            if profile_location:
+                adjusted['location'] = profile_location
+
+        if _is_soil_specific_recommendation_query(user_prompt, adjusted) and not str(adjusted.get('query_type') or '').strip():
+            adjusted['query_type'] = 'recommendation'
+
+    return adjusted
+
+
+def _enforce_tool_result_policy(tool_name, result, farmer_context=None, user_prompt=''):
+    """Apply deterministic constraints to tool outputs before model synthesis."""
+    if tool_name != 'search_schemes' or not isinstance(result, dict):
+        return result
+
+    farmer_state = str((farmer_context or {}).get('state') or '').strip()
+    if not farmer_state:
+        return result
+
+    if _is_cross_state_scheme_request(user_prompt, farmer_context):
+        return result
+
+    payload = result.get('data') if isinstance(result.get('data'), dict) else result
+    state_schemes = payload.get('state_schemes')
+    if not isinstance(state_schemes, dict):
+        return result
+
+    filtered = {
+        state_name: schemes
+        for state_name, schemes in state_schemes.items()
+        if str(state_name).strip().lower() == farmer_state.lower()
+    }
+    payload['state_schemes'] = filtered
+    payload['state_scope_applied'] = farmer_state
+
+    if isinstance(result.get('data'), dict):
+        result['data'] = payload
+    else:
+        result = payload
+
+    return result
+
+
+_SOIL_GUARD_CROP_ALIASES = {
+    'rice': ('rice', 'paddy'),
+    'wheat': ('wheat',),
+    'cotton': ('cotton',),
+    'sugarcane': ('sugarcane',),
+    'maize': ('maize', 'corn'),
+    'groundnut': ('groundnut', 'peanut'),
+    'soybean': ('soybean', 'soya'),
+    'banana': ('banana',),
+    'coconut': ('coconut',),
+    'tomato': ('tomato',),
+    'onion': ('onion',),
+    'potato': ('potato',),
+    'ragi': ('ragi', 'finger millet'),
+    'toor': ('toor', 'arhar', 'pigeon pea'),
+    'chilli': ('chilli', 'chili'),
+    'turmeric': ('turmeric',),
+    'mustard': ('mustard',),
+    'jowar': ('jowar', 'sorghum'),
+    'bajra': ('bajra', 'pearl millet'),
+    'black gram': ('black gram', 'urad'),
+    'green gram': ('green gram', 'moong'),
+    'chickpea': ('chickpea', 'chana'),
+    'safflower': ('safflower',),
+    'sesame': ('sesame', 'til'),
+    'sunflower': ('sunflower',),
+    'lentil': ('lentil', 'masoor'),
+    'barley': ('barley',),
+    'okra': ('okra', 'bhindi'),
+    'brinjal': ('brinjal', 'eggplant'),
+}
+
+
+def _extract_soil_evidence_crops(tool_data_log):
+    """Extract crop names explicitly present in retrieved advisory_data chunks."""
+    logs = tool_data_log or []
+    corpus_parts = []
+    for entry in logs:
+        if entry.get('tool') != 'get_crop_advisory':
+            continue
+        output = entry.get('output')
+        if not isinstance(output, dict):
+            continue
+        payload = output.get('data') if isinstance(output.get('data'), dict) else output
+        advisory_data = payload.get('advisory_data') if isinstance(payload, dict) else None
+        if not isinstance(advisory_data, list):
+            continue
+        for chunk in advisory_data:
+            if isinstance(chunk, dict):
+                corpus_parts.append(str(chunk.get('content') or ''))
+
+    corpus = ' '.join(corpus_parts).lower()
+    allowed = set()
+    for canonical, aliases in _SOIL_GUARD_CROP_ALIASES.items():
+        for alias in aliases:
+            if re.search(r'\b' + re.escape(alias) + r'\b', corpus):
+                allowed.add(canonical)
+                break
+    return sorted(allowed)
+
+
+def _mentioned_crops_in_text(text):
+    lowered = str(text or '').lower()
+    mentioned = set()
+    for canonical, aliases in _SOIL_GUARD_CROP_ALIASES.items():
+        for alias in aliases:
+            if re.search(r'\b' + re.escape(alias) + r'\b', lowered):
+                mentioned.add(canonical)
+                break
+    return mentioned
+
+
+def _apply_strict_soil_response_guard(result_text, user_query_en, farmer_context=None, tool_data_log=None):
+    """Deterministically constrain soil recommendation outputs to evidenced crops only."""
+    if not _is_soil_specific_recommendation_query(user_query_en, {}):
+        return result_text
+
+    allowed = _extract_soil_evidence_crops(tool_data_log)
+    if not allowed:
+        location_hint = str((farmer_context or {}).get('district') or (farmer_context or {}).get('state') or '').strip()
+        if location_hint:
+            return (
+                f"I could not find strong soil-specific crop evidence for {location_hint} in the retrieved data. "
+                "Please share soil pH, drainage, and season (Kharif/Rabi) or run a soil test so I can give a precise recommendation."
+            )
+        return (
+            "I could not find strong soil-specific crop evidence in the retrieved data. "
+            "Please share soil pH, drainage, and season (Kharif/Rabi) so I can give a precise recommendation."
+        )
+
+    mentioned = _mentioned_crops_in_text(result_text)
+    disallowed = sorted(mentioned - set(allowed))
+    if not disallowed:
+        return result_text
+
+    allowed_str = ', '.join(sorted(allowed))
+    return (
+        "Based on currently retrieved soil and location evidence, I can recommend only these crops: "
+        f"{allowed_str}.\n\n"
+        "I am intentionally not recommending other crops here because their soil-fit evidence was not found in the current data."
+    )
+
+
+def _collect_crop_tool_signals(tool_data_log):
+    """Collect deterministic guard signals emitted by crop_advisory tool payloads."""
+    signals = {
+        'insufficient_evidence': False,
+        'evidence_message': '',
+        'staleness_warnings': [],
+        'scheme_redirect': False,
+        'scheme_redirect_message': '',
+    }
+
+    for entry in (tool_data_log or []):
+        if entry.get('tool') != 'get_crop_advisory':
+            continue
+        output = entry.get('output')
+        if not isinstance(output, dict):
+            continue
+
+        payload = output.get('data') if isinstance(output.get('data'), dict) else output
+        if not isinstance(payload, dict):
+            continue
+
+        if payload.get('insufficient_evidence'):
+            signals['insufficient_evidence'] = True
+            if not signals['evidence_message']:
+                signals['evidence_message'] = str(payload.get('evidence_message') or '').strip()
+
+        freshness = payload.get('freshness') if isinstance(payload.get('freshness'), dict) else {}
+        warning = str(freshness.get('staleness_warning') or '').strip()
+        if warning:
+            signals['staleness_warnings'].append(warning)
+
+        if str(payload.get('source_authority') or '').strip().lower() == 'govt_schemes':
+            signals['scheme_redirect'] = True
+            if not signals['scheme_redirect_message']:
+                signals['scheme_redirect_message'] = str(payload.get('message') or '').strip()
+
+    # Deduplicate warnings while preserving order
+    unique = []
+    seen = set()
+    for warning in signals['staleness_warnings']:
+        if warning and warning not in seen:
+            unique.append(warning)
+            seen.add(warning)
+    signals['staleness_warnings'] = unique
+
+    return signals
+
+
+def _apply_tool_signal_response_guard(result_text, user_query_en, tools_used=None, tool_data_log=None):
+    """Apply deterministic final-response guardrails from tool metadata signals."""
+    text = str(result_text or '').strip()
+    signals = _collect_crop_tool_signals(tool_data_log)
+
+    # If crop tool indicates scheme authority hand-off but scheme tool wasn't used,
+    # return deterministic hand-off instead of potentially inconsistent answer.
+    if signals['scheme_redirect'] and 'search_schemes' not in set(tools_used or []):
+        return (
+            signals['scheme_redirect_message']
+            or "Please ask your scheme query and I will fetch it from the dedicated government schemes service for accurate eligibility and deadlines."
+        )
+
+    if signals['insufficient_evidence']:
+        low_confidence_markers = (
+            'likely', 'possibly', 'could', 'may', 'insufficient evidence',
+            'please share', 'need more details'
+        )
+        lower_text = text.lower()
+        if not any(marker in lower_text for marker in low_confidence_markers):
+            prefix = signals['evidence_message'] or (
+                "Retrieved evidence confidence is limited for this query. "
+                "I will share cautious guidance and you should confirm key details first."
+            )
+            text = f"{prefix}\n\n{text}" if text else prefix
+
+    if signals['staleness_warnings'] and _is_open_crop_recommendation_query(user_query_en) is False:
+        # Append one warning only for potentially time-sensitive replies.
+        warning = signals['staleness_warnings'][0]
+        if warning.lower() not in text.lower():
+            text = f"{text}\n\nNote: {warning}".strip()
+
+    return text
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  BEDROCK RETRY WITH EXPONENTIAL BACKOFF + MODEL FALLBACK
 #  Handles ThrottlingException, ModelTimeoutException gracefully.
@@ -1028,6 +1383,53 @@ _CROP_REF = {
 }
 
 
+def _canonicalize_alias(value):
+    normalized = re.sub(r'\s+', ' ', str(value or '').strip().lower())
+    normalized = normalized.replace('_', ' ')
+    return normalized.strip()
+
+
+def _crop_key_aliases(crop_key):
+    """Generate stable aliases from crop reference keys to improve soil guard coverage."""
+    key = _canonicalize_alias(crop_key)
+    if not key:
+        return set()
+
+    aliases = {key}
+    aliases.add(key.replace('-', ' '))
+    aliases.add(key.replace(' ', ''))
+
+    # Handle bracket variants: e.g., "mango (table)" -> "mango"
+    aliases.add(re.sub(r'\s*\([^)]*\)', '', key).strip())
+
+    # Support common plural forms conservatively
+    if not key.endswith('s'):
+        aliases.add(f"{key}s")
+
+    return {a for a in aliases if a}
+
+
+def _expand_soil_aliases_with_crop_ref(base_aliases, crop_ref):
+    expanded = {
+        canonical: tuple(sorted({_canonicalize_alias(a) for a in aliases if _canonicalize_alias(a)}))
+        for canonical, aliases in (base_aliases or {}).items()
+    }
+
+    for crop_key in (crop_ref or {}).keys():
+        canonical = _canonicalize_alias(crop_key)
+        generated = _crop_key_aliases(crop_key)
+        if not canonical:
+            continue
+        existing = set(expanded.get(canonical, tuple()))
+        expanded[canonical] = tuple(sorted(existing | generated))
+
+    return expanded
+
+
+# Ensure strict soil evidence recognises all crops represented in _CROP_REF.
+_SOIL_GUARD_CROP_ALIASES = _expand_soil_aliases_with_crop_ref(_SOIL_GUARD_CROP_ALIASES, _CROP_REF)
+
+
 def _enrich_tool_result(result, tool_name, tool_input, user_prompt):
     """
     When KB tools return data for crops the farmer didn't ask about,
@@ -1035,6 +1437,16 @@ def _enrich_tool_result(result, tool_name, tool_input, user_prompt):
     model doesn't say 'I only have data for rice and wheat.'
     """
     if tool_name not in ('get_crop_advisory', 'get_pest_alert'):
+        return result
+
+    # Soil recommendation policy: avoid injecting generic crop-reference data,
+    # because it can introduce crops without explicit soil-fit evidence.
+    if tool_name == 'get_crop_advisory' and _is_soil_specific_recommendation_query(user_prompt, tool_input):
+        if isinstance(result, dict):
+            result['_soil_evidence_policy'] = (
+                "STRICT_SOIL_EVIDENCE: Recommend only crops explicitly supported in advisory_data for the requested soil. "
+                "If evidence is weak or missing, state that and ask for soil test details instead of suggesting unsupported crops."
+            )
         return result
 
     # Determine what crop the farmer asked about
@@ -1082,6 +1494,9 @@ def _post_process_response(text):
     """
     if not text:
         return text
+
+    # Normalize known agri-term translation artifacts at final output stage.
+    text = _normalize_translated_agri_terms(text)
 
     # Patterns that indicate the model is telling the farmer about tool limitations
     bad_patterns = [
@@ -1289,6 +1704,35 @@ def _strip_local_markdown_symbols(text, language_code='en'):
         return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
 
     lines = s.split('\n')
+    numbered_line_re = re.compile(r'^(?P<indent>[\t ]*)(?P<num>\d{1,2})\.\s+(?P<body>.+)$')
+
+    def _renumber_numbered_runs(line_list):
+        """Normalize contiguous numbered lists to 1..N so repeated '1.' markers become stable points."""
+        output = []
+        run_counters = {}
+
+        for raw in line_list:
+            m = numbered_line_re.match(raw)
+            if not m:
+                # Break numbering runs on blank/non-numbered lines.
+                if not raw.strip():
+                    run_counters.clear()
+                output.append(raw)
+                continue
+
+            indent = m.group('indent')
+            body = m.group('body')
+            next_num = run_counters.get(indent, 0) + 1
+            run_counters[indent] = next_num
+            output.append(f"{indent}{next_num}. {body}")
+
+            # Child indentation should not leak stale counters if parent advances.
+            for key in list(run_counters.keys()):
+                if len(key) > len(indent) and key.startswith(indent):
+                    del run_counters[key]
+
+        return output
+
     heading_re = re.compile(r'^[\t ]*#{1,6}[\t ]*(.+?)\s*$')
     should_number_headings = (sum(1 for line in lines if heading_re.match(line)) >= 3) and (not _is_indic)
     heading_idx = 0
@@ -1312,13 +1756,15 @@ def _strip_local_markdown_symbols(text, language_code='en'):
             continue
 
         line = re.sub(r'^([\t ]*)[•\-\*][\t ]+', r'\1- ', line)
-        line = re.sub(r'^([\t ]*)(\d{1,2})[\)\.][\t ]+', r'\1\2. ', line)
+        # Normalize list markers across locales (e.g., 1), 1., 1।, 1۔) to a stable "1. " format.
+        line = re.sub(r'^([\t ]*)(\d{1,2})[\)\.\u0964\u0965\u06D4][\t ]+', r'\1\2. ', line)
         line = line.replace('**', '')
         line = line.replace('*', '')
         line = re.sub(r'^([\t ]*)#{1,6}[\t ]*', r'\1', line)
         cleaned_lines.append(line.rstrip())
 
     s = '\n'.join(cleaned_lines)
+    s = '\n'.join(_renumber_numbered_runs(s.split('\n')))
     s = _normalize_local_units_and_artifacts(s, _lang, _is_indic)
     s = re.sub(r'\n{3,}', '\n\n', s)
     return '\n'.join(line.rstrip() for line in s.split('\n')).strip()
@@ -1429,7 +1875,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                 "messages": messages,
                 "system": [{"text": system_prompt}],
                 "toolConfig": {"tools": DIRECT_TOOLS},
-                "inferenceConfig": {"maxTokens": 4096, "temperature": 0.7},
+                "inferenceConfig": {"maxTokens": 4096, "temperature": 0.3},
             }
             # Gap #5: Attach Bedrock native guardrail if configured
             # (skipped for feature-page fast paths — their prompts are
@@ -1458,6 +1904,15 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                             "input": tool_use.get("input", {}),
                             "id": tool_use["toolUseId"],
                         })
+
+                # Enforce deterministic input policy before any tool calls.
+                for t in pending_tools:
+                    t["input"] = _apply_tool_input_policy(
+                        t["name"],
+                        t.get("input", {}),
+                        farmer_context=farmer_context,
+                        user_prompt=prompt,
+                    )
 
                 # ── PARALLEL TOOL EXECUTION ──
                 # When 2+ tools are requested, run them concurrently (~2x speedup)
@@ -1503,6 +1958,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                                 try:
                                     result = future.result()
                                     result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                                    result = _enforce_tool_result_policy(tool_name, result, farmer_context, user_prompt=prompt)
                                     _safe_append_log({"tool": tool_name, "input": tool_input, "output": result})
                                     tool_results.append({
                                         "toolResult": {
@@ -1548,6 +2004,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                                 _safe_append_tool(tool_name)
                                 result = future.result()
                                 result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                                result = _enforce_tool_result_policy(tool_name, result, farmer_context, user_prompt=prompt)
                                 _safe_append_log({"tool": tool_name, "input": tool_input, "output": result})
                                 tool_results.append({
                                     "toolResult": {
@@ -1570,6 +2027,7 @@ def _invoke_bedrock_direct(prompt, farmer_context=None, skip_native_guardrail=Fa
                         tools_used.append(tool_name)
                         result = _execute_tool(tool_name, tool_input)
                         result = _enrich_tool_result(result, tool_name, tool_input, prompt)
+                        result = _enforce_tool_result_policy(tool_name, result, farmer_context, user_prompt=prompt)
                         tool_data_log.append({"tool": tool_name, "input": tool_input, "output": result})
                         tool_results.append({
                             "toolResult": {
@@ -1803,10 +2261,22 @@ def lambda_handler(event, context):
         if generate_tts:
             tts_text = body.get('tts_text', '')
             tts_lang = body.get('tts_language', 'en')
+            tts_farmer_id = body.get('farmer_id', 'anonymous')
+            if tts_farmer_id and tts_farmer_id != 'anonymous':
+                tts_profile = get_farmer_profile(tts_farmer_id)
+                if tts_profile and tts_profile.get('language'):
+                    tts_lang = tts_profile.get('language')
             if not tts_text:
                 return error_response('tts_text is required', 400)
             try:
-                polly_result = text_to_speech(tts_text, tts_lang, return_metadata=True)
+                tts_lang_norm = normalize_language_code(tts_lang, default='en')
+                gtts_budget = ASYNC_GTTS_TIME_BUDGET_SEC if tts_lang_norm not in ('en', 'hi') else None
+                polly_result = text_to_speech(
+                    tts_text,
+                    tts_lang,
+                    return_metadata=True,
+                    gtts_time_budget_sec=gtts_budget,
+                )
                 if isinstance(polly_result, dict):
                     if not polly_result.get('audio_url'):
                         _tts_err = polly_result.get('error') or f'No audio generated for language={tts_lang}'
@@ -1816,6 +2286,9 @@ def lambda_handler(event, context):
                         'audio_url': polly_result.get('audio_url'),
                         'audio_key': polly_result.get('audio_key'),
                         'truncated': polly_result.get('truncated', False),
+                        'partial_audio': polly_result.get('partial_audio', False),
+                        'processed_chars': polly_result.get('processed_chars'),
+                        'total_chars': polly_result.get('total_chars'),
                     }, message='TTS generated')
                 if not polly_result:
                     _tts_err = f'No audio generated for language={tts_lang}'
@@ -1830,7 +2303,18 @@ def lambda_handler(event, context):
         session_id = body.get('session_id', str(uuid.uuid4()))
         farmer_id = body.get('farmer_id', 'anonymous')
         idempotency_token = body.get('idempotency_token')
-        language = body.get('language', None)  # Auto-detect if not provided
+        language = body.get('language', None)
+        profile = get_farmer_profile(farmer_id) if farmer_id != 'anonymous' else None
+        profile_language = None
+        if profile and profile.get('language'):
+            profile_language = normalize_language_code(profile.get('language'), default='en')
+        effective_preferred_language = profile_language or language
+        if profile_language and language:
+            requested_language = normalize_language_code(language, default='en')
+            if requested_language != profile_language:
+                logger.info(
+                    f"Language override for farmer {farmer_id}: requested={requested_language}, profile={profile_language}"
+                )
         # GPS location sent from frontend (browser Geolocation API)
         gps_location = body.get('gps_location', None)  # e.g. "Coimbatore"
         gps_coords = body.get('gps_coords', None)      # e.g. {"lat": 11.01, "lng": 76.95}
@@ -1850,7 +2334,7 @@ def lambda_handler(event, context):
         is_approaching, remaining_ms = _check_timeout_approaching(context)
         if is_approaching:
             logger.warning(f"Timeout approaching early in request: {remaining_ms}ms remaining, returning fallback")
-            requested_lang = normalize_language_code(language or 'en', default='en')
+            requested_lang = normalize_language_code(effective_preferred_language or 'en', default='en')
             return _timeout_http_response(session_id, requested_lang)
 
         # ── Chat session message limit ──
@@ -1963,11 +2447,15 @@ def lambda_handler(event, context):
 
         # --- Step 1: Detect language & translate to English ---
         detection = detect_and_translate(user_message, target_language='en')
-        detected_lang = normalize_language_code(
-            language or detection.get('detected_language', 'en'),
-            default='en'
+        detected_lang = _resolve_reply_language(
+            effective_preferred_language,
+            detection.get('detected_language', 'en'),
+            user_message,
+            enforce_preferred=bool(profile_language),
         )
-        english_message = detection.get('translated_text', user_message)
+        english_message = _normalize_translated_agri_terms(
+            detection.get('translated_text', user_message)
+        )
         # Keep a clean copy of the English translation (before farmer context prefix)
         # for storing in chat history and cache key building
         _clean_english_msg = english_message
@@ -2053,7 +2541,6 @@ def lambda_handler(event, context):
 
         # --- Step 2: Enrich with farmer profile (optional) ---
         farmer_context = None
-        profile = get_farmer_profile(farmer_id) if farmer_id != 'anonymous' else None
         if profile:
             farmer_context = {
                 'name': profile.get('name', ''),
@@ -2326,7 +2813,7 @@ def lambda_handler(event, context):
                 return _timeout_http_response(session_id, detected_lang)
             
             routed_prompt = _build_tool_first_prompt(english_message, intents, farmer_context)
-            result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
+            result_text, tools_used, tool_data_log, _gr_intervened = _invoke_bedrock_direct(
                 routed_prompt, model_farmer_context, skip_native_guardrail=True, lambda_context=context
             )
 
@@ -2345,7 +2832,7 @@ def lambda_handler(event, context):
                 intents,
                 model_farmer_context,
             )
-            result_text, tools_used, _, _gr_intervened = _invoke_bedrock_direct(
+            result_text, tools_used, tool_data_log, _gr_intervened = _invoke_bedrock_direct(
                 routed_prompt, model_farmer_context, chat_history=chat_history, lambda_context=context
             )
 
@@ -2395,6 +2882,18 @@ def lambda_handler(event, context):
 
         # Post-process: remove any "only rice and wheat" limitation language
         result_text = _post_process_response(result_text)
+        result_text = _apply_strict_soil_response_guard(
+            result_text,
+            english_message,
+            farmer_context=farmer_context,
+            tool_data_log=tool_data_log,
+        )
+        result_text = _apply_tool_signal_response_guard(
+            result_text,
+            english_message,
+            tools_used=tools_used,
+            tool_data_log=tool_data_log,
+        )
         result_text = _normalize_output_markdown(result_text)
         result_text = _ensure_cautious_pest_response(result_text, tools_used, _raw_en_for_cache)
 

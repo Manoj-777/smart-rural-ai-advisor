@@ -181,7 +181,7 @@ function LoginPage() {
             await signUpAndLogin(cleanPhone, pin, name.trim(), profileData);
             clearRegForm();
             if (regLanguage !== language) {
-                setLanguage(regLanguage);
+                setLanguage(regLanguage, { persist: true });
             }
         } catch (err) {
             setError(err?.message || t('loginError'));
@@ -268,6 +268,10 @@ function LoginPage() {
         setError('');
         try {
             await signInWithPin(phone, pin);
+            const savedLanguage = localStorage.getItem('app_language');
+            if (savedLanguage) {
+                setLanguage(savedLanguage, { persist: true });
+            }
         } catch (err) {
             const msg = err?.message || '';
             if (msg.includes('UserNotFoundException') || msg.includes('does not exist')) {
@@ -289,7 +293,7 @@ function LoginPage() {
                 {mode === 'welcome' && (
                     <div className="login-lang">
                         <span>🌐</span>
-                        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                        <select value={language} onChange={(e) => setLanguage(e.target.value, { persist: false })}>
                             {Object.entries(config.LANGUAGES).map(([code, lang]) => (
                                 <option key={code} value={code}>{lang.name}</option>
                             ))}

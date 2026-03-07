@@ -73,9 +73,7 @@ function ProfilePage() {
     });
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
-    const debounceRef = useRef(null);
     const scrollRef = useRef(null);
-    const hasLoadedRef = useRef(false);
 
     // Change PIN state
     const [oldPin, setOldPin] = useState('');
@@ -103,7 +101,6 @@ function ProfilePage() {
                 const data = await res.json();
                 if (data.data) setProfile(prev => ({ ...prev, ...normalizeProfileData(data.data) }));
             } catch { /* New user — use defaults */ }
-            hasLoadedRef.current = true;
         };
         loadProfile();
     }, [farmerId]);
@@ -117,38 +114,7 @@ function ProfilePage() {
         }));
     };
 
-    // Auto-save with debounce (2s after last edit)
-    const autoSave = useCallback((updatedProfile) => {
-        if (!hasLoadedRef.current) return; // don't auto-save before initial load
-        const locationValidationError = getLocationValidationError(updatedProfile);
-        if (locationValidationError) {
-            setMessage({ type: 'error', text: `❌ ${locationValidationError}` });
-            return;
-        }
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(async () => {
-            try {
-                await apiFetch(`/profile/${farmerId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedProfile)
-                });
-                updateProfile(updatedProfile);
-                setMessage({ type: 'success', text: '✅ ' + t('profileAutoSaved') });
-                setTimeout(() => setMessage(null), 2000);
-            } catch {
-                setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
-            }
-        }, 2000);
-    }, [farmerId, t, updateProfile, getLocationValidationError]);
-
-    // Trigger auto-save when profile changes
-    useEffect(() => {
-        if (hasLoadedRef.current) autoSave(profile);
-    }, [profile, autoSave]);
-
     const handleSave = async () => {
-        if (debounceRef.current) clearTimeout(debounceRef.current); // cancel pending auto-save
         const locationValidationError = getLocationValidationError(profile);
         if (locationValidationError) {
             setMessage({ type: 'error', text: `❌ ${locationValidationError}` });
@@ -163,6 +129,7 @@ function ProfilePage() {
                 body: JSON.stringify(profile)
             });
             updateProfile(profile);
+            setLanguage(profile.language, { persist: true });
             setMessage({ type: 'success', text: '✅ ' + t('profileSaved') });
         } catch {
             setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
@@ -266,7 +233,6 @@ function ProfilePage() {
                             onChange={e => {
                                 const lang = e.target.value;
                                 setProfile(p => ({ ...p, language: lang }));
-                                setLanguage(lang); // instantly switch the app UI language
                             }}>
                             {Object.entries(LANGUAGES).map(([code, lang]) =>
                                 <option key={code} value={code}>{lang.name}</option>
