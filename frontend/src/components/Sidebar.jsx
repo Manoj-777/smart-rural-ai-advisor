@@ -26,7 +26,20 @@ function Sidebar() {
         <>
             {/* ── Top navbar: brand + desktop links + location + lang + user ── */}
             <nav className="top-navbar">
-                <div className="navbar-brand">
+                <div
+                    className="navbar-brand"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t('navDashboard')}
+                    onClick={() => navigate('/')}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate('/');
+                        }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                >
                     <span className="brand-icon">{'\u{1F33E}'}</span>
                     <span className="brand-text">{t('appName')}</span>
                 </div>
