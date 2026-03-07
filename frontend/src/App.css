@@ -5224,3 +5224,33 @@ input:focus-visible {
         line-height: 1 !important;
     }
 }
+
+/* Final lock: show app name near icon on mobile top navbar */
+@media (max-width: 768px) {
+    .navbar-brand .brand-text {
+        display: inline-block !important;
+        color: #ffffff !important;
+        background: none !important;
+        -webkit-text-fill-color: #ffffff !important;
+        -webkit-background-clip: border-box !important;
+        background-clip: border-box !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        max-width: 140px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .navbar-brand {
+        min-width: 0;
+    }
+
+    .navbar-location-badge {
+        max-width: 90px;
+    }
+
+    .navbar-loc-name {
+        display: none;
+    }
+}
