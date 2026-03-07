@@ -151,6 +151,7 @@ function ChatPage() {
     const [liveTranscript, setLiveTranscript] = useState('');  // streaming partial text
     const [loading, setLoading] = useState(false);
     const [sessionFull, setSessionFull] = useState(false);  // true when session hits message limit
+    const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
     const [renamingSessionId, setRenamingSessionId] = useState(null);  // session being renamed
     const [renameValue, setRenameValue] = useState('');  // current rename input value
     const chatEndRef = useRef(null);
@@ -234,6 +235,14 @@ function ChatPage() {
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Track mobile width for chat history visibility
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth <= 768);
+        onResize();
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     const startNewChat = useCallback(() => {
         switchingRef.current = true;
@@ -495,7 +504,7 @@ function ChatPage() {
     return (
         <div className="chat-page">
             {/* History Side Panel */}
-            <div className="chat-history-panel">
+            <div className="chat-history-panel" style={isMobile ? { display: 'none' } : undefined}>
                 <div className="chat-history-header">
                     <h3>💬 {t('yourChats') || 'Your Chats'}</h3>
                 </div>
@@ -568,6 +577,55 @@ function ChatPage() {
                     </div>
                     <p>{t('chatSubtitle')}</p>
                 </div>
+
+                {isMobile && (
+                    <div style={{
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '10px',
+                        marginBottom: '8px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '13px' }}>💬 {t('yourChats') || 'Your Chats'}</strong>
+                            <button
+                                className="chat-history-new"
+                                style={{ margin: 0, padding: '6px 10px', fontSize: '12px' }}
+                                onClick={startNewChat}
+                            >
+                                ＋ {t('newChat') || 'New Chat'}
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                            {sessions.length === 0 && (
+                                <span className="chat-history-empty" style={{ padding: '8px 0' }}>{t('noPreviousChats') || 'No previous chats'}</span>
+                            )}
+                            {sessions
+                                .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+                                .map(session => (
+                                    <div
+                                        key={session.id}
+                                        onClick={() => switchToSession(session.id)}
+                                        style={{
+                                            minWidth: '190px',
+                                            border: session.id === activeSessionId ? '2px solid var(--primary)' : '1px solid var(--border)',
+                                            borderRadius: '10px',
+                                            padding: '8px 10px',
+                                            background: session.id === activeSessionId ? 'var(--primary-50)' : 'transparent',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {session.preview}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-light)', marginTop: '3px' }}>
+                                            {formatSessionDate(session.lastTimestamp, t)}
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                )}
 
             <div className="chat-container">
                 {messages.length === 0 && (

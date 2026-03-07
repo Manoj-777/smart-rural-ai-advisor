@@ -15,7 +15,12 @@ function formatTimestamp(ts) {
     if (!ts) return '';
     const d = new Date(ts);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString([], {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 function ChatMessage({ message, onUpdateAudioUrl }) {
