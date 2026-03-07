@@ -1,14 +1,12 @@
 // src/components/Sidebar.jsx
 
-import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFarmer } from '../contexts/FarmerContext';
-import config from '../config';
 import { getDistrictName } from '../i18n/districtTranslations';
 
 function Sidebar() {
-    const { t, language, setLanguage } = useLanguage();
+    const { t, language } = useLanguage();
     const { farmerName, farmerPhone, logout, resolvedLocation } = useFarmer();
     const navigate = useNavigate();
 
@@ -58,19 +56,6 @@ function Sidebar() {
                         <span className="navbar-loc-name">{getDistrictName(resolvedLocation, language)}</span>
                     </button>
                 )}
-
-                <div className="navbar-lang">
-                    <span className="navbar-lang-icon">{'\u{1F310}'}</span>
-                    <select
-                        className="navbar-lang-select"
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                    >
-                        {Object.entries(config.LANGUAGES).map(([code, lang]) => (
-                            <option key={code} value={code}>{lang.name}</option>
-                        ))}
-                    </select>
-                </div>
 
                 {/* User info + logout */}
                 <div className="navbar-user">
