@@ -36,13 +36,18 @@ function VoiceInput({ language, onTranscript, onPartialTranscript }) {
     const { t } = useLanguage();
     const streaming = useStreamingSpeech(language, onTranscript);
 
+    // Reliability-first on mobile: streaming web speech is inconsistent across devices.
+    const isMobileBrowser =
+        typeof navigator !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
     const aws = useSpeechRecognition(language, onTranscript, {
-        preferNative: true,
+        preferNative: !isMobileBrowser,
     });
 
-    // Keep live streaming enabled on mobile for real-time typing experience.
-    // If it fails, sticky fallback switches to AWS Transcribe path.
-    const useStreaming = streaming.supported;
+    // Use streaming only on desktop-class browsers.
+    // Mobile uses recorder/transcribe path for consistent behavior.
+    const useStreaming = streaming.supported && !isMobileBrowser;
     const fallbackRef = useRef(false);  // sticky: once streaming fails, stay on AWS
 
     // Forward live partial transcripts to parent (ChatPage shows them in input field)
