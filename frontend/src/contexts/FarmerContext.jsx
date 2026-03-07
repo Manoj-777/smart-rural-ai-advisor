@@ -81,8 +81,10 @@ export function FarmerProvider({ children }) {
             try {
                 const res = await apiFetch(`/profile/${farmerId}`);
                 const data = await res.json();
-                if (data.data && data.data.name) {
+                if (data.data) {
                     setFarmerProfile(data.data);
+                }
+                if (data.data && data.data.name) {
                     setFarmerNameState(data.data.name);
                     localStorage.setItem(FARMER_NAME_KEY, data.data.name);
                 }
@@ -221,13 +223,15 @@ export function FarmerProvider({ children }) {
         try {
             const res = await apiFetch(`/profile/${id}`);
             const data = await res.json();
-            if (data.data && data.data.name) {
+            if (data.data) {
                 setFarmerProfile(data.data);
+            }
+            if (data.data && data.data.name) {
                 setFarmerNameState(data.data.name);
                 localStorage.setItem(FARMER_NAME_KEY, data.data.name);
-                if (data.data.language) {
-                    localStorage.setItem(APP_LANGUAGE_KEY, data.data.language);
-                }
+            }
+            if (data.data?.language) {
+                localStorage.setItem(APP_LANGUAGE_KEY, data.data.language);
             }
         } catch { /* offline */ }
 

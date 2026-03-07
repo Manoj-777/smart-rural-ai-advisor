@@ -346,6 +346,10 @@ function ChatPage() {
     const sendMessage = useCallback(async (text) => {
         if (!text.trim()) return;
         const userMsg = { role: 'user', content: text, timestamp: Date.now() };
+        // Use persisted language for backend translation decisions.
+        // This guarantees unsaved profile language drafts never affect API language.
+        const persistedLanguage = localStorage.getItem('app_language');
+        const requestLanguage = persistedLanguage || language;
         // Capture which session this message belongs to
         const targetSessionId = activeIdRef.current;
 
@@ -363,7 +367,7 @@ function ChatPage() {
         try {
             let data;
             if (config.MOCK_AI) {
-                data = await mockChat(text, targetSessionId, language);
+                data = await mockChat(text, targetSessionId, requestLanguage);
             } else {
                 let lastError;
                 for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -377,7 +381,7 @@ function ChatPage() {
                                 message: text,
                                 session_id: targetSessionId,
                                 farmer_id: farmerId || 'anonymous',
-                                language: language,
+                                language: requestLanguage,
                             }),
                             signal: controller.signal
                         });

@@ -372,27 +372,15 @@ def _normalize_translated_agri_terms(text):
 
 
 def _resolve_reply_language(preferred_language, detected_language, raw_user_message, enforce_preferred=False):
-    """Resolve reply language for this turn, handling mixed-language chat gracefully."""
+    """Resolve reply language with a single source of truth.
+
+    If the client provides/stores a preferred language, always honor it.
+    This avoids per-turn drift where detected input language overrides user settings.
+    """
     preferred = normalize_language_code(preferred_language, default='en') if preferred_language else None
-    detected = normalize_language_code(detected_language, default='en')
-
-    if enforce_preferred and preferred:
+    if preferred:
         return preferred
-
-    # No preferred language from client: rely on detection.
-    if not preferred:
-        return detected
-
-    # If both agree, use it directly.
-    if preferred == detected:
-        return preferred
-
-    # If user typed Indic script, honor detected script language over stale UI setting.
-    if _contains_indic_chars(raw_user_message):
-        return detected
-
-    # Otherwise, default to detected language to support intentional language switching.
-    return detected
+    return normalize_language_code(detected_language, default='en')
 
 
 def _contains_indic_chars(text):
@@ -2308,7 +2296,9 @@ def lambda_handler(event, context):
         profile_language = None
         if profile and profile.get('language'):
             profile_language = normalize_language_code(profile.get('language'), default='en')
-        effective_preferred_language = profile_language or language
+        # Client language is authoritative (frontend now sends persisted app_language).
+        # Profile language is a fallback when client language is not present.
+        effective_preferred_language = language or profile_language
         if profile_language and language:
             requested_language = normalize_language_code(language, default='en')
             if requested_language != profile_language:
@@ -2451,7 +2441,6 @@ def lambda_handler(event, context):
             effective_preferred_language,
             detection.get('detected_language', 'en'),
             user_message,
-            enforce_preferred=bool(profile_language),
         )
         english_message = _normalize_translated_agri_terms(
             detection.get('translated_text', user_message)
