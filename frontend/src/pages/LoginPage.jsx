@@ -107,7 +107,7 @@ function LoginPage() {
 
     const getRegistrationProfileData = () => ({
         name: name.trim(),
-        state: regState,
+        state: regState.trim(),
         district: regDistrict.trim(),
         crops: regCrops,
         soil_type: regSoilType,

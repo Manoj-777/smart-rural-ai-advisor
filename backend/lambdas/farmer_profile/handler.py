@@ -357,6 +357,20 @@ def put_profile(farmer_id, body):
     soil_type = _sanitize_text(body.get('soil_type', ''))
     language = _sanitize_text(body.get('language', 'ta-IN'), 10)
 
+    # Mandatory profile location fields
+    if not state:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps(_error_body('State is required'))
+        }
+    if not district:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps(_error_body('District is required'))
+        }
+
     # Validate crops (must be a list of strings, capped)
     raw_crops = body.get('crops', [])
     if not isinstance(raw_crops, list):

@@ -90,6 +90,12 @@ function ProfilePage() {
 
     const safeCrops = Array.isArray(profile.crops) ? profile.crops : [];
 
+    const getLocationValidationError = useCallback((p) => {
+        if (!String(p?.state || '').trim()) return t('loginSelectState') || 'Please select state.';
+        if (!String(p?.district || '').trim()) return t('loginSelectDistrict') || 'Please select district.';
+        return null;
+    }, [t]);
+
     useEffect(() => {
         const loadProfile = async () => {
             try {
@@ -114,6 +120,11 @@ function ProfilePage() {
     // Auto-save with debounce (2s after last edit)
     const autoSave = useCallback((updatedProfile) => {
         if (!hasLoadedRef.current) return; // don't auto-save before initial load
+        const locationValidationError = getLocationValidationError(updatedProfile);
+        if (locationValidationError) {
+            setMessage({ type: 'error', text: `❌ ${locationValidationError}` });
+            return;
+        }
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             try {
@@ -129,7 +140,7 @@ function ProfilePage() {
                 setMessage({ type: 'error', text: '❌ ' + t('profileSaveFailed') });
             }
         }, 2000);
-    }, [farmerId, t, updateProfile]);
+    }, [farmerId, t, updateProfile, getLocationValidationError]);
 
     // Trigger auto-save when profile changes
     useEffect(() => {
@@ -138,6 +149,11 @@ function ProfilePage() {
 
     const handleSave = async () => {
         if (debounceRef.current) clearTimeout(debounceRef.current); // cancel pending auto-save
+        const locationValidationError = getLocationValidationError(profile);
+        if (locationValidationError) {
+            setMessage({ type: 'error', text: `❌ ${locationValidationError}` });
+            return;
+        }
         setSaving(true);
         setMessage(null);
         try {

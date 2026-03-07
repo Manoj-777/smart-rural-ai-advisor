@@ -4,7 +4,6 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import config from '../config';
-import { useGeolocation } from '../hooks/useGeolocation';
 import * as cognitoAuth from '../services/cognitoAuth';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -22,13 +21,14 @@ export function FarmerProvider({ children }) {
     const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem(FARMER_ID_KEY));
     const [authReady, setAuthReady] = useState(false); // true once Cognito session checked
     const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
-    const wasLoggedInRef = useRef(false);
 
-    // GPS geolocation
-    const {
-        gpsLocation, gpsCoords, gpsStatus, gpsError,
-        requestGps, refreshGps, clearGps,
-    } = useGeolocation();
+    // Geolocation is intentionally disabled: location is sourced from profile only.
+    const gpsLocation = null;
+    const gpsCoords = null;
+    const gpsStatus = 'disabled';
+    const gpsError = null;
+    const requestGps = useCallback(() => {}, []);
+    const refreshGps = useCallback(() => {}, []);
 
     // On mount: restore Cognito session if it exists
     useEffect(() => {
@@ -159,7 +159,6 @@ export function FarmerProvider({ children }) {
         setFarmerPhoneState(cleanPhone);
         setFarmerNameState(name);
         setIsLoggedIn(true);
-        requestGps();
 
         // 3.5 If email was provided, trigger email verification
         if (email && email.trim()) {
@@ -175,6 +174,12 @@ export function FarmerProvider({ children }) {
             crops: [], soil_type: '', land_size_acres: 0
         };
         if (!newProfile.name) newProfile.name = name;
+        if (!String(newProfile.state || '').trim()) {
+            throw new Error('State is required');
+        }
+        if (!String(newProfile.district || '').trim()) {
+            throw new Error('District is required');
+        }
         try {
             await apiFetch(`/profile/${id}`, {
                 method: 'PUT',
@@ -206,7 +211,6 @@ export function FarmerProvider({ children }) {
         setFarmerIdState(id);
         setFarmerPhoneState(cleanPhone);
         setIsLoggedIn(true);
-        requestGps();
 
         // 3. Load profile from DynamoDB
         try {
@@ -222,13 +226,12 @@ export function FarmerProvider({ children }) {
         return tokens;
     }, []);
 
-    // Resolved location: GPS (primary) → Profile district/state (secondary)
-    const resolvedLocation = gpsLocation
-        || farmerProfile?.district
+    // Resolved location: profile district/state only
+    const resolvedLocation = farmerProfile?.district
         || farmerProfile?.state
         || null;
 
-    const resolvedCoords = gpsCoords || null;
+    const resolvedCoords = null;
 
     // ── Logout ──
     const logout = useCallback(() => {
@@ -242,8 +245,7 @@ export function FarmerProvider({ children }) {
         setFarmerNameState('');
         setFarmerProfile(null);
         setIsLoggedIn(false);
-        clearGps();
-    }, [clearGps]);
+    }, []);
 
     /**
      * Permanently delete this farmer's account:
@@ -266,14 +268,6 @@ export function FarmerProvider({ children }) {
         // 3. Clear local state
         logout();
     }, [farmerId, logout]);
-
-    // Auto-request GPS on each login transition (including session restore)
-    useEffect(() => {
-        if (isLoggedIn && !wasLoggedInRef.current) {
-            requestGps();
-        }
-        wasLoggedInRef.current = isLoggedIn;
-    }, [isLoggedIn, requestGps]);
 
     // ── Idle timeout: auto-logout after 30 minutes of inactivity ──
     // Tracks mouse, keyboard, touch, and scroll events to detect user activity.

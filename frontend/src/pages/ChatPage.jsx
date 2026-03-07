@@ -134,7 +134,7 @@ async function dbRenameSession(farmerId, sessionId, title) {
 
 function ChatPage() {
     const { language, t } = useLanguage();
-    const { farmerId, resolvedLocation, resolvedCoords } = useFarmer();
+    const { farmerId } = useFarmer();
     const [sessions, setSessions] = useState(loadSessions);
 
     // Active session
@@ -375,8 +375,6 @@ function ChatPage() {
                                 session_id: targetSessionId,
                                 farmer_id: farmerId || 'anonymous',
                                 language: language,
-                                ...(resolvedLocation && { gps_location: resolvedLocation }),
-                                ...(resolvedCoords && { gps_coords: resolvedCoords }),
                             }),
                             signal: controller.signal
                         });

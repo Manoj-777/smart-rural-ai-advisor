@@ -9,7 +9,7 @@ import { getDistrictName } from '../i18n/districtTranslations';
 
 function Sidebar() {
     const { t, language, setLanguage } = useLanguage();
-    const { farmerName, farmerPhone, logout, resolvedLocation, gpsStatus, requestGps } = useFarmer();
+    const { farmerName, farmerPhone, logout, resolvedLocation } = useFarmer();
     const navigate = useNavigate();
 
     const navItems = [
@@ -52,21 +52,10 @@ function Sidebar() {
                 {resolvedLocation && (
                     <button
                         className="navbar-location-badge"
-                        onClick={() => { if (gpsStatus !== 'granted') requestGps(); }}
-                        title={gpsStatus === 'granted' ? `GPS: ${getDistrictName(resolvedLocation, language)}` : getDistrictName(resolvedLocation, language)}
+                        title={getDistrictName(resolvedLocation, language)}
                     >
-                        <span className="navbar-loc-icon">{gpsStatus === 'granted' ? '\u{1F4CD}' : '\u{1F4CC}'}</span>
+                        <span className="navbar-loc-icon">{'\u{1F4CC}'}</span>
                         <span className="navbar-loc-name">{getDistrictName(resolvedLocation, language)}</span>
-                    </button>
-                )}
-                {!resolvedLocation && gpsStatus !== 'denied' && (
-                    <button
-                        className="navbar-location-badge navbar-location-badge--request"
-                        onClick={requestGps}
-                        title={t('enableLocation') || 'Enable GPS location'}
-                    >
-                        <span className="navbar-loc-icon">{'\u{1F4CD}'}</span>
-                        <span className="navbar-loc-name">{t('enableLocation') || 'Set location'}</span>
                     </button>
                 )}
 

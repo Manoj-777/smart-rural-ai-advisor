@@ -106,19 +106,15 @@ function WeatherPage() {
     const { language, t } = useLanguage();
     const {
         farmerProfile,
-        gpsLocation,
-        gpsCoords,
-        gpsStatus,
         authReady,
         resolvedLocation,
-        resolvedCoords,
     } = useFarmer();
 
-    // Avoid premature Chennai fallback before profile/GPS finishes restoring.
+    // Avoid premature Chennai fallback before profile finishes restoring.
     const hasProfileLocation = !!(farmerProfile?.district || farmerProfile?.state);
-    const canUseFallback = authReady && gpsStatus !== 'requesting' && !gpsLocation && !hasProfileLocation;
+    const canUseFallback = authReady && !hasProfileLocation;
     const profileLocation = resolvedLocation || (canUseFallback ? 'Chennai' : '');
-    const initialCoords = resolvedCoords || { lat: 22.5, lng: 82.0 };
+    const initialCoords = { lat: 22.5, lng: 82.0 };
 
     const [locationEn, setLocationEn] = useState(profileLocation || ''); // English name for API
     const [locationDisplay, setLocationDisplay] = useState(getDistrictName(profileLocation || '', language)); // translated for UI
@@ -150,9 +146,9 @@ function WeatherPage() {
         try {
             // Normalize district name to API-friendly name (e.g. Kancheepuram → Kanchipuram)
             const apiLoc = toApiName(loc);
-            // Pass lat/lon only when explicitly known (GPS/map click/city pick)
-            // Avoid sending default map-center coordinates for profile-based lookups.
-            const latlon = coords || gpsCoords || null;
+            // Pass lat/lon only when explicitly known (map click/city pick).
+            // For profile-based lookups, location name is sufficient.
+            const latlon = coords || null;
             const qs = latlon ? `?lat=${latlon.lat}&lon=${latlon.lng || latlon.lon}` : '';
             const res = await apiFetch(`/weather/${encodeURIComponent(apiLoc)}${qs}`);
             const data = await res.json();
