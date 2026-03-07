@@ -314,11 +314,12 @@ function ProfilePage() {
             </div>
 
             {/* Save */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
-                <button onClick={handleSave} disabled={saving} className="send-btn"
-                    style={{ padding: '12px 48px', fontSize: '15px', borderRadius: '12px' }}>
-                    {saving ? `⏳ ${t('saving')}` : `💾 ${t('profileSaveBtn')}`}
-                </button>
+            <div className="card profile-save-card">
+                <div className="profile-save-row">
+                    <button onClick={handleSave} disabled={saving} className="send-btn profile-save-btn">
+                        {saving ? t('saving') : t('profileSaveBtn')}
+                    </button>
+                </div>
             </div>
 
             {/* Change PIN */}
@@ -457,3 +458,4 @@ function ProfilePage() {
 }
 
 export default ProfilePage;
+
