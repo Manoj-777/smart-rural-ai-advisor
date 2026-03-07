@@ -118,6 +118,14 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
                     return;
                 }
 
+                // Mobile browsers often block programmatic restart without fresh user gesture.
+                // Finalize what we captured instead of entering a restart-fail loop.
+                if (IS_MOBILE_BROWSER) {
+                    const text = (finalTextRef.current || partialRef.current).trim();
+                    _deliver(text);
+                    return;
+                }
+
                 // Some browsers end recognition on pause even in continuous mode.
                 // Restart automatically to preserve manual-stop UX.
                 try {
