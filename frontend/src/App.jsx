@@ -102,6 +102,7 @@ function EmailVerifyScreen() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [showVerifyCode, setShowVerifyCode] = useState(false);
 
     const handleVerify = async () => {
         if (code.length < 6) { setError(t('forgotPinOtpRequired') || 'Enter the 6-digit code'); return; }
@@ -153,17 +154,29 @@ function EmailVerifyScreen() {
                         <>
                             <div className="login-form-group">
                                 <label>{t('forgotPinOtpLabel') || 'Verification Code'}</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    maxLength={6}
-                                    value={code}
-                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                                    placeholder={t('forgotPinOtpPlaceholder') || 'Enter 6-digit code'}
-                                    autoFocus
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && code.length >= 6 && !loading) handleVerify(); }}
-                                    style={{ textAlign: 'center', fontSize: '20px', letterSpacing: '4px' }}
-                                />
+                                <div className="auth-code-input-wrap">
+                                    <input
+                                        type={showVerifyCode ? 'text' : 'password'}
+                                        className="form-input"
+                                        maxLength={6}
+                                        value={code}
+                                        inputMode="numeric"
+                                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                                        placeholder={t('forgotPinOtpPlaceholder') || 'Enter 6-digit code'}
+                                        autoFocus
+                                        onKeyDown={(e) => { if (e.key === 'Enter' && code.length >= 6 && !loading) handleVerify(); }}
+                                        style={{ textAlign: 'center', fontSize: '20px', letterSpacing: '4px' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="auth-visibility-btn"
+                                        onClick={() => setShowVerifyCode(prev => !prev)}
+                                        aria-label={showVerifyCode ? 'Hide code' : 'Show code'}
+                                        title={showVerifyCode ? 'Hide code' : 'Show code'}
+                                    >
+                                        {showVerifyCode ? '🙈' : '👁'}
+                                    </button>
+                                </div>
                             </div>
                             {error && <div className="login-error">{error}</div>}
                             <button
