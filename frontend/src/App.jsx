@@ -227,8 +227,11 @@ function AppContent() {
             return;
         }
 
-        const profileLanguage = farmerProfile?.language || 'en-IN';
-        setLanguage(profileLanguage, { persist: true });
+        const storedLanguage = localStorage.getItem('app_language');
+        const profileLanguage = farmerProfile?.language;
+        const effectiveLanguage = profileLanguage || storedLanguage || 'en-IN';
+        // Keep language stable across refresh/tab switches even before profile fully hydrates.
+        setLanguage(effectiveLanguage, { persist: !!(profileLanguage || storedLanguage) });
     }, [isLoggedIn, farmerProfile?.language, setLanguage]);
 
     // Navigate to home when user logs in (prevents landing on stale route like /weather)
