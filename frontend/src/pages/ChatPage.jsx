@@ -24,20 +24,14 @@ function generateId() {
 
 function formatSessionDate(ts, t) {
     const d = new Date(ts);
-    const now = new Date();
-    const diff = now - d;
-    const oneDay = 86400000;
-    const todayLabel = (t && t('chatToday')) || 'Today';
-    const yesterdayLabel = (t && t('chatYesterday')) || 'Yesterday';
-
-    if (diff < oneDay && d.getDate() === now.getDate()) {
-        return todayLabel + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    if (diff < 2 * oneDay && d.getDate() === now.getDate() - 1) {
-        return yesterdayLabel + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
-        + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString([], {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 /* ── Local cache (fast reads, same-browser fallback) ──────── */

@@ -113,7 +113,7 @@ function ChatMessage({ message, onUpdateAudioUrl }) {
                 )}
                 <div className="message-footer">
                     {message.timestamp && (
-                        <span className="message-time">{formatTimestamp(message.timestamp)}</span>
+                        <span className="message-time" style={{ opacity: 1 }}>{formatTimestamp(message.timestamp)}</span>
                     )}
                 </div>
             </div>
