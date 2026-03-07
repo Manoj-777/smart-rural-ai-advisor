@@ -10,6 +10,10 @@ const STREAMING_SUPPORTED =
     typeof window !== 'undefined' &&
     !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
+const IS_MOBILE_BROWSER =
+    typeof navigator !== 'undefined' &&
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
 export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTranscript) {
     const [isListening, setIsListening] = useState(false);
     const [partialTranscript, setPartialTranscript] = useState('');
@@ -69,7 +73,8 @@ export function useStreamingSpeech(language = config.DEFAULT_LANGUAGE, onFinalTr
             const recognition = new SR();
             recognitionRef.current = recognition;
             recognition.lang = language || config.DEFAULT_LANGUAGE;
-            recognition.continuous = true;
+            // iOS/Android can be unstable with continuous=true; restart on onend instead.
+            recognition.continuous = !IS_MOBILE_BROWSER;
             recognition.interimResults = true;    // live partial transcripts
             recognition.maxAlternatives = 1;
 
