@@ -44,7 +44,7 @@
 - Treat seeds with Carbendazim 50 WP @ 2 g/kg or Tricyclazole @ 3 g/kg before sowing
 - Avoid late planting — early Kharif planting escapes peak blast period
 
-> **Verified from:** ICAR-CRRI Cuttack Rice Disease Guide (https://icar.org.in/), TNAU Agritech Rice Crop Protection (https://agritech.tnau.ac.in/crop_protection/rice/rice_1.html), NCIPM IPM Package for Rice (https://ppqs.gov.in/)
+> **Verified from:** ICAR-CRRI Cuttack Rice Disease Guide (https://icar.org.in/), TNAU Agritech Rice Crop Protection (https://agritech.tnau.ac.in/), NCIPM IPM Package for Rice (https://ppqs.gov.in/)
 
 ---
 
@@ -83,7 +83,7 @@
 - Monitor ICAR Rust Surveillance Advisory (issued weekly Dec-Mar) for early warning
 - Destroy volunteer wheat and self-sown wheat plants that harbour rust between seasons
 
-> **Verified from:** ICAR-IIWBR Karnal Wheat Disease Guide (https://www.iiwbr.org/), TNAU Agritech Wheat Crop Protection (https://agritech.tnau.ac.in/crop_protection/wheat.html), ICAR Rust Monitoring System
+> **Verified from:** ICAR-IIWBR Karnal Wheat Disease Guide (https://www.iiwbr.org/), TNAU Agritech Wheat Crop Protection (https://agritech.tnau.ac.in/), ICAR Rust Monitoring System
 
 ---
 
@@ -128,7 +128,7 @@
 - Early sowing (before June 15 in Central India) helps crop escape peak moth flight
 - Install light traps @ 1/5 acres to monitor adult moth activity
 
-> **Verified from:** ICAR-CICR Nagpur Cotton IPM Guide (https://cicr.org.in/), NCIPM IPM Package for Cotton (https://ppqs.gov.in/), TNAU Agritech Cotton Crop Protection (https://agritech.tnau.ac.in/crop_protection/cotton.html)
+> **Verified from:** ICAR-CICR Nagpur Cotton IPM Guide (https://cicr.org.in/), NCIPM IPM Package for Cotton (https://ppqs.gov.in/), TNAU Agritech Cotton Crop Protection (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -169,7 +169,7 @@
 - Dehaulming — cut and remove foliage 10-15 days before harvest to prevent tuber infection
 - Use ICAR-CPRI late blight forecast model (www.cpri.org.in) — spray schedule based on weather prediction
 
-> **Verified from:** ICAR-CPRI Shimla Late Blight Management (https://icar.org.in/), TNAU Agritech Potato Diseases (https://agritech.tnau.ac.in/crop_protection/potato.html), NCIPM IPM Package for Potato (https://ppqs.gov.in/)
+> **Verified from:** ICAR-CPRI Shimla Late Blight Management (https://icar.org.in/), TNAU Agritech Potato Diseases (https://agritech.tnau.ac.in/), NCIPM IPM Package for Potato (https://ppqs.gov.in/)
 
 ---
 
@@ -209,7 +209,7 @@
 - Avoid flood irrigation immediately after strong winds/storms (wounds + bacteria + water = rapid spread)
 - Seed treatment with Streptocycline (0.01%) for 30 minutes before sowing
 
-> **Verified from:** ICAR-CRRI Rice BLB Management (https://icar.org.in/), TNAU Agritech Rice Bacterial Diseases (https://agritech.tnau.ac.in/crop_protection/rice/rice_1.html), IRRI Knowledge Bank (https://www.irri.org/)
+> **Verified from:** ICAR-CRRI Rice BLB Management (https://icar.org.in/), TNAU Agritech Rice Bacterial Diseases and RRI Knowledge Bank (https://www.irri.org/)
 
 ---
 
@@ -288,7 +288,7 @@
 - Avoid injuring roots during cultivation — Fusarium enters through wounds
 - **TR4 containment:** If TR4 suspected — report immediately to state agriculture department. Quarantine zone, destroy infected plants, disinfect tools with 2% formalin. Do NOT move soil/suckers from affected area.
 
-> **Verified from:** ICAR-NRCB Tiruchirappalli Panama Wilt Management (https://icar.org.in/content/icar-national-research-centre-banana), TNAU Agritech Banana Diseases (https://agritech.tnau.ac.in/crop_protection/banana.html), FAO Fusarium Wilt TR4 Global Alert (https://www.fao.org/)
+> **Verified from:** ICAR-NRCB Tiruchirappalli Panama Wilt Management (https://icar.org.in/content/icar-national-research-centre-banana), TNAU Agritech Banana Diseases (https://agritech.tnau.ac.in/), FAO Fusarium Wilt TR4 Global Alert (https://www.fao.org/)
 
 ---
 
@@ -414,7 +414,7 @@
 - Cold chain maintenance: Store mango at 12-13°C, banana at 13-14°C to slow anthracnose development
 - Pre-harvest spray schedule is essential — cannot control anthracnose only with post-harvest treatment
 
-> **Verified from:** ICAR-IIHR Mango Disease Guide (https://icar.org.in/), TNAU Agritech Chilli Diseases (https://agritech.tnau.ac.in/crop_protection/), ICAR-NRCB Post-Harvest Management (https://icar.org.in/content/icar-national-research-centre-banana)
+> **Verified from:** ICAR-IIHR Mango Disease Guide (https://icar.org.in/), TNAU Agritech Chilli Diseases (https://agritech.tnau.ac.in/), ICAR-NRCB Post-Harvest Management (https://icar.org.in/content/icar-national-research-centre-banana)
 
 ---
 
@@ -458,7 +458,7 @@
 - Light traps (mercury vapour) to monitor adult migration — install at field edges
 - Conserve natural enemies — spiders, mirid bugs, dragonflies are the best BPH controllers
 
-> **Verified from:** ICAR-CRRI BPH Management (https://icar.org.in/), IRRI Knowledge Bank — BPH (https://www.irri.org/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/crop_protection/rice/)
+> **Verified from:** ICAR-CRRI BPH Management (https://icar.org.in/), IRRI Knowledge Bank — BPH (https://www.irri.org/), TNAU Agritech Rice Pests (https://agritech.tnau.ac.in/)
 
 ---
 
@@ -1075,7 +1075,7 @@ ALWAYS:
 - **Approved chemicals (government use):** Malathion 96% ULV, Chlorpyrifos 50% EC, Lambda-cyhalothrin 5% EC — all applied as Ultra Low Volume (ULV) spray by vehicle/aircraft.
 - Traditional: Light fires, beat drums, make loud noise — can deflect small hopper bands but ineffective against large swarms.
 
-> **Verified from:** PPQS Locust Warning Organisation (https://ppqs.gov.in/), FAO Desert Locust Watch (https://www.fao.org/ag/locusts/), IMD-LWO Locust Forecast
+> **Verified from:** PPQS Locust Warning Organisation (https://ppqs.gov.in/), FAO Desert Locust Watch (https://www.fao.org), IMD-LWO Locust Forecast
 
 ---
 
