@@ -5,7 +5,7 @@
 > **Hackathon:** AWS AI for Bharat 2026  
 > **Team:** Creative Intelligence (CI)  
 > **Live Prototype:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net)  
-> **Demo Video:** [Watch on YouTube](#) <!-- TODO: replace with actual link -->  
+> **Demo Video:** [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2)  
 > **Repository:** [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor)
 
 > Note: Internal regression scripts and prompt datasets were archived from the submission-facing repository to keep evaluation focused on the live prototype and production code.
@@ -270,7 +270,7 @@ An optional Bedrock Guardrail layer provides:
 
 ## Demo Walkthrough
 
-> 🎬 **Full demo video:** [Watch on YouTube](#) <!-- TODO: replace with actual link -->
+> 🎬 **Full demo video:** [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2)
 
 The demo video walks through the full capabilities of Smart Rural AI Advisor:
 
@@ -516,7 +516,7 @@ Single region (Mumbai)    →  Multi-region DR              →  Global CDN + ed
 | **Project PPT** | 📋 Ready | *Uploaded to dashboard* |
 | **GitHub Repository** | ✅ Public | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) |
 | **Working Prototype** | ✅ Live | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) |
-| **Demo Video** | 🎬 Ready | [Watch on YouTube](#) <!-- TODO: replace with actual link --> |
+| **Demo Video** | 🎬 Ready | [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2) |
 | **Project Summary** | ✅ Complete | See [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) |
 
 ---
