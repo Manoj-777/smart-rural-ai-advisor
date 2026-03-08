@@ -1,7 +1,7 @@
 # Project Summary — Smart Rural AI Advisor
 
-> **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026
-> **Live Prototype:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net)
+> **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026  
+> **Live Prototype:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net)  
 > **Repository:** [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor)
 
 ---
@@ -149,34 +149,18 @@ Farmer (13 languages, voice/text)
 
 ```
 smart-rural-ai-advisor/
-├── frontend/                        # React 18 + Vite SPA (11 pages, 13 languages)
-│   ├── src/
-│   │   ├── components/              # Chat, Voice, Sidebar, SkeletonLoader
-│   │   ├── pages/                   # Dashboard, Chat, Weather, CropDoctor, Schemes, Profile, Login, etc.
-│   │   ├── contexts/                # Language + Farmer state
-│   │   ├── hooks/                   # Speech recognition, geolocation
-│   │   ├── services/                # Cognito auth, mock API
-│   │   ├── i18n/                    # 500+ translation keys × 13 languages
-│   │   └── utils/                   # API client, TTS, sanitisation
-│   └── package.json
+├── frontend/              # React 18 + Vite SPA — 11 pages, 13 languages
+│   └── src/               # components, pages, contexts, hooks, services, i18n, utils
 ├── backend/
-│   ├── lambdas/                     # 7 Lambda functions
-│   │   ├── agent_orchestrator/      # The brain — Bedrock + tools + TTS
-│   │   ├── crop_advisory/           # KB-backed RAG retrieval
-│   │   ├── weather_lookup/          # OpenWeatherMap integration
-│   │   ├── govt_schemes/            # Curated scheme data
-│   │   ├── farmer_profile/          # Profile CRUD + OTP
-│   │   ├── image_analysis/          # Nova Pro Vision — disease diagnosis
-│   │   └── transcribe_speech/       # Amazon Transcribe fallback
-│   └── utils/                       # guardrails, rate_limiter, translate, polly, dynamodb, cors, audit
-├── infrastructure/
-│   ├── template.yaml                # SAM/CloudFormation (source of truth)
-│   ├── samconfig.toml               # Deploy config
-│   ├── deploy.sh / deploy_cfn.ps1   # Deploy scripts
-│   └── cognito_config.example.json
-├── docs/                            # Architecture, KB overview, problem statement, submission brief
-└── buildspec.yml                    # AWS CodeBuild CI/CD
+│   ├── lambdas/           # 7 Lambda functions (orchestrator, crop advisory, weather, schemes, profile, image, transcribe)
+│   └── utils/             # 9 shared modules (guardrails, rate limiter, translate, polly, dynamodb, audit, cors, error, response)
+├── infrastructure/        # SAM template, samconfig, deploy scripts, Cognito config
+├── docs/                  # Architecture, project summary, problem statement, submission brief, KB overview, diagram
+├── buildspec.yml          # AWS CodeBuild CI/CD
+└── README.md
 ```
+
+> **Full file-level tree available in [README.md](../README.md).**
 
 ---
 

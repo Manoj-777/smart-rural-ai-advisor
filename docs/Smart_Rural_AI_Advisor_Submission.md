@@ -1,6 +1,6 @@
 # Smart Rural AI Advisor — Submission Brief
 
-> **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026
+> **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026  
 > **Region:** ap-south-1 (Mumbai) | **Runtime:** Python 3.13, React 18 | **IaC:** AWS SAM
 
 ---
@@ -282,15 +282,15 @@ Farmer (mobile/desktop, 13 languages, voice/text)
 
 ## 13. Demo Walkthrough
 
-| Scene | Duration | What Happens |
-|-------|----------|-------------|
-| **Dashboard** | 15 s | Open app → localised dashboard with daily farming tip, season indicator, quick-action cards |
-| **AI Chat (English)** | 30 s | Type "weather in Chennai for next 3 days" → AI calls weather tool → real data + farming advisory + audio |
-| **Voice (Tamil)** | 30 s | Switch to Tamil → speak "நெல் பயிரில் பழுப்பு நிற புள்ளிகள்" → Tamil pest diagnosis + Tamil audio |
-| **Crop Doctor** | 30 s | Upload diseased leaf → select rice + Tamil Nadu → AI returns disease, severity, treatment |
-| **Govt Schemes** | 20 s | Browse PM-KISAN, PMFBY → eligibility, ₹6,000/yr benefit, application steps |
-| **Profile** | 15 s | Save name, district, crops, soil → future responses auto-personalised |
-| **Multilingual** | 20 s | Switch to Telugu → entire UI + chat in Telugu with Telugu audio output |
+The demo video walks through the full capabilities of Smart Rural AI Advisor:
+
+- **Dashboard** — The localised homepage displays a daily farming tip, season indicator (Rabi/Kharif), and quick-action cards for all features.
+- **AI Chat** — Farmers can ask natural-language questions like *"What is the weather in Chennai for the next 3 days?"* — the AI autonomously calls the right backend tools, retrieves real data, and responds with a farming advisory plus audio playback.
+- **Voice Input** — Farmers can speak in their native language (e.g., Tamil: *"நெல் பயிரில் பழுப்பு நிற புள்ளிகள் தெரிகிறது"*) and receive a spoken AI response with pest diagnosis in the same language.
+- **Crop Doctor** — Upload a photo of a diseased leaf, select the crop and state, and get an instant AI diagnosis with disease name, severity, and treatment steps.
+- **Government Schemes** — Browse schemes like PM-KISAN, PMFBY, and Soil Health Card with eligibility details, benefits, and step-by-step application guidance.
+- **Farmer Profile** — Save personal details (name, district, crops, soil type) so that all future AI responses are automatically personalised to the farmer's context.
+- **Multilingual Support** — Switch between any of the 13 supported Indian languages — the entire UI, chat responses, and audio output adapt instantly.
 
 ---
 

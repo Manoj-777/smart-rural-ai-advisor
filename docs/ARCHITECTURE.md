@@ -388,39 +388,18 @@ cd frontend && npm run build    # Builds to dist/
 
 ```
 smart-rural-ai-advisor/
-├── frontend/                        # React 18 + Vite SPA
-│   ├── src/
-│   │   ├── components/              # ChatMessage, VoiceInput, Sidebar, ScrollPill, SkeletonLoader
-│   │   ├── pages/                   # 11 pages (Dashboard, Chat, Weather, CropDoctor, etc.)
-│   │   ├── contexts/                # LanguageContext, FarmerContext
-│   │   ├── hooks/                   # useSpeechRecognition, useStreamingSpeech, useGeolocation
-│   │   ├── services/                # cognitoAuth, mockApi
-│   │   ├── i18n/                    # translations (13 languages), district/scheme/price translations
-│   │   ├── utils/                   # apiFetch, asyncTts, locationUtils, sanitize
-│   │   ├── config.js                # API URL, Cognito config, language list
-│   │   └── App.jsx                  # Root component + routing
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
+├── frontend/              # React 18 + Vite SPA — 11 pages, 13 languages
+│   └── src/               # components, pages, contexts, hooks, services, i18n, utils
 ├── backend/
-│   ├── lambdas/
-│   │   ├── agent_orchestrator/      # Main AI orchestrator (Bedrock + tools + TTS)
-│   │   ├── crop_advisory/           # KB-backed RAG retrieval
-│   │   ├── weather_lookup/          # OpenWeatherMap integration
-│   │   ├── govt_schemes/            # Curated scheme data
-│   │   ├── farmer_profile/          # Profile CRUD + OTP
-│   │   ├── image_analysis/          # Nova Pro Vision — crop disease diagnosis
-│   │   └── transcribe_speech/       # Amazon Transcribe fallback
-│   └── utils/                       # Shared: guardrails, rate_limiter, translate, polly, dynamodb, cors, audit
-├── infrastructure/
-│   ├── template.yaml                # SAM/CloudFormation template (source of truth)
-│   ├── samconfig.toml               # Deployment config
-│   ├── deploy.sh                    # Bash deploy script
-│   ├── deploy_cfn.ps1               # PowerShell deploy script
-│   └── cognito_config.example.json  # Cognito config template
-├── docs/                            # Submission documentation
-└── buildspec.yml                    # AWS CodeBuild CI/CD
+│   ├── lambdas/           # 7 Lambda functions (orchestrator, crop advisory, weather, schemes, profile, image, transcribe)
+│   └── utils/             # 9 shared modules (guardrails, rate limiter, translate, polly, dynamodb, audit, cors, error, response)
+├── infrastructure/        # SAM template, samconfig, deploy scripts, Cognito config
+├── docs/                  # Architecture, project summary, problem statement, submission brief, KB overview, diagram
+├── buildspec.yml          # AWS CodeBuild CI/CD
+└── README.md
 ```
+
+> **Full file-level tree available in [README.md](../README.md).**
 
 ---
 
@@ -667,7 +646,7 @@ Keeping agricultural knowledge current is critical — MSP prices change annuall
 │     │                                                            │
 │     ▼                                                            │
 │  6. Notification                                                 │
-│     ├── SNS alert on success: "KB updated — 12 new docs"        │
+│     ├── SNS alert on success: "KB updated — 12 new docs"         │
 │     └── SNS alert on failure: "KB ingestion failed — rollback"   │
 └──────────────────────────────────────────────────────────────────┘
 ```

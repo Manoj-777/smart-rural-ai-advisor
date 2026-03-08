@@ -45,11 +45,11 @@
 
 ## Problem Statement
 
-**70 % of India's population depends on agriculture**, yet small-scale farmers face critical information gaps:
+**70% of India's population depends on agriculture**, yet small-scale farmers face critical information gaps:
 
 | Challenge | Scale |
 |---|---|
-| **No access to expert advice** | Agricultural extension officers cover 1 000+ farmers each |
+| **No access to expert advice** | Agricultural extension officers cover 1000+ farmers each |
 | **Language barriers** | Most resources are in English; farmers speak Tamil, Hindi, Telugu, Kannada, and 9 more languages |
 | **Delayed pest / disease response** | By the time a disease is identified, significant crop loss has already occurred |
 | **Unawareness of government schemes** | ₹2+ lakh crore in benefits go unclaimed every year |
@@ -114,20 +114,20 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
 
 ```
  ┌────────────────────┐
- │  Farmer (Mobile /   │
- │  Desktop Browser)   │
+ │  Farmer (Mobile /  │
+ │  Desktop Browser)  │
  └────────┬───────────┘
           │  HTTPS
           ▼
- ┌────────────────────┐        ┌──────────────────────────────────────────────────┐
- │  React 18 + Vite   │        │  Amazon CloudFront (CDN)                         │
- │  Single-Page App   │◄──────►│  S3 Static Hosting                               │
- │  13-language i18n   │        └─────────────────────────────────────────────────┘
+ ┌────────────────────┐        ┌─────────────────────────────────────────────────┐
+ │  React 18 + Vite   │        │  Amazon CloudFront (CDN)                        │
+ │  Single-Page App   │◄──────►│  S3 Static Hosting                              │
+ │  13-language i18n  │        └─────────────────────────────────────────────────┘
  └────────┬───────────┘
           │  REST API
           ▼
  ┌────────────────────┐
- │  Amazon API Gateway │  ── 11 routes, CORS-enabled, ap-south-1
+ │  Amazon API Gateway│  ── 11 routes, CORS-enabled, ap-south-1
  └────────┬───────────┘
           │
           ▼
@@ -272,28 +272,15 @@ An optional Bedrock Guardrail layer provides:
 
 > 🎬 **Full demo video:** [Watch on YouTube](#) <!-- TODO: replace with actual link -->
 
-### Scene 1 — Dashboard (15 s)
-Open the app → localised dashboard with daily farming tip, season indicator (Rabi/Kharif), quick-action cards.
+The demo video walks through the full capabilities of Smart Rural AI Advisor:
 
-### Scene 2 — AI Chat in English (30 s)
-Type: *"What is the weather in Chennai for the next 3 days?"*  
-→ AI calls `get_weather` tool → real OpenWeather data → temperature, humidity, forecast + farming advisory → audio playback.
-
-### Scene 3 — Voice Input in Tamil (30 s)
-Switch to Tamil → click 🎤 → speak: *"நெல் பயிரில் பழுப்பு நிற புள்ளிகள் தெரிகிறது"*  
-→ Transcribed → AI pest diagnosis in Tamil → Tamil audio response.
-
-### Scene 4 — Crop Doctor (30 s)
-Upload a diseased leaf photo → select crop (Rice) and state (Tamil Nadu) → AI returns disease name, severity, and treatment steps.
-
-### Scene 5 — Government Schemes (20 s)
-Browse PM-KISAN, PMFBY, Soil Health Card → eligibility, ₹6,000/year benefit, application steps.
-
-### Scene 6 — Farmer Profile (15 s)
-Save name, district, crops, soil type → future chat responses automatically personalised.
-
-### Scene 7 — Multilingual (20 s)
-Switch to Telugu → entire UI and chat switch to Telugu with Telugu audio output.
+- **Dashboard** — The localised homepage displays a daily farming tip, season indicator (Rabi/Kharif), and quick-action cards for all features.
+- **AI Chat** — Farmers can ask natural-language questions like *"What is the weather in Chennai for the next 3 days?"* — the AI autonomously calls the right backend tools, retrieves real data, and responds with a farming advisory plus audio playback.
+- **Voice Input** — Farmers can speak in their native language (e.g., Tamil: *"நெல் பயிரில் பழுப்பு நிற புள்ளிகள் தெரிகிறது"*) and receive a spoken AI response with pest diagnosis in the same language.
+- **Crop Doctor** — Upload a photo of a diseased leaf, select the crop and state, and get an instant AI diagnosis with disease name, severity, and treatment steps.
+- **Government Schemes** — Browse schemes like PM-KISAN, PMFBY, and Soil Health Card with eligibility details, benefits, and step-by-step application guidance.
+- **Farmer Profile** — Save personal details (name, district, crops, soil type) so that all future AI responses are automatically personalised to the farmer's context.
+- **Multilingual Support** — Switch between any of the 13 supported Indian languages — the entire UI, chat responses, and audio output adapt instantly.
 
 ---
 
@@ -319,28 +306,60 @@ Switch to Telugu → entire UI and chat switch to Telugu with Telugu audio outpu
 
 ```
 smart-rural-ai-advisor/
-├── frontend/                        # React 18 + Vite SPA
+├── frontend/                          # React 18 + Vite SPA
 │   ├── src/
+│   │   ├── components/                # ChatMessage, VoiceInput, Sidebar, ScrollPill, SkeletonLoader
+│   │   ├── pages/                     # 11 pages: Dashboard, Chat, Weather, CropDoctor, CropRecommend,
+│   │   │                              #   Schemes, Profile, Login, Price, SoilAnalysis, FarmCalendar
+│   │   ├── contexts/                  # FarmerContext, LanguageContext
+│   │   ├── hooks/                     # useSpeechRecognition, useStreamingSpeech, useGeolocation
+│   │   ├── services/                  # cognitoAuth, mockApi
+│   │   ├── i18n/                      # translations, districtTranslations, schemeTranslations, priceTranslations
+│   │   ├── utils/                     # apiFetch, asyncTts, locationUtils, sanitize
+│   │   ├── config.js                  # API URL, Cognito config, language list
+│   │   ├── languages.js               # Language definitions (13 Indian languages)
+│   │   ├── App.jsx                    # Root component + routing
+│   │   └── main.jsx                   # Entry point
+│   ├── index.html
 │   ├── package.json
+│   ├── vite.config.js
 │   └── .env.example
-├── backend/                         # AWS Lambda handlers and shared utils
+├── backend/
 │   ├── lambdas/
-│   ├── utils/
+│   │   ├── agent_orchestrator/        # Main AI orchestrator (Bedrock + tools + TTS)
+│   │   ├── crop_advisory/             # KB-backed RAG retrieval
+│   │   ├── weather_lookup/            # OpenWeatherMap integration
+│   │   ├── govt_schemes/              # Curated scheme data
+│   │   ├── farmer_profile/            # Profile CRUD + OTP
+│   │   ├── image_analysis/            # Nova Pro Vision — crop disease diagnosis
+│   │   └── transcribe_speech/         # Amazon Transcribe fallback
+│   ├── utils/                         # Shared modules
+│   │   ├── guardrails.py              # Input validation, injection prevention, PII masking
+│   │   ├── rate_limiter.py            # Per-farmer DynamoDB rate limiting
+│   │   ├── translate_helper.py        # 3-attempt translation strategy
+│   │   ├── polly_helper.py            # TTS (Polly + gTTS fallback)
+│   │   ├── dynamodb_helper.py         # DynamoDB operations
+│   │   ├── audit_logger.py            # Structured JSON audit trail
+│   │   ├── cors_helper.py             # CORS headers
+│   │   ├── error_handler.py           # Error formatting
+│   │   └── response_helper.py         # Response utilities
 │   └── requirements.txt
-├── infrastructure/                  # SAM/CloudFormation deployment assets
-│   ├── template.yaml
-│   ├── samconfig.toml
-│   ├── deploy.sh
-│   ├── deploy_cfn.ps1
-│   └── cognito_config.example.json
-├── docs/                            # Submission-facing documentation
-│   ├── PROJECT_SUMMARY.md
-│   ├── PROBLEM_STATEMENT.md
-│   ├── Smart_Rural_AI_Advisor_Submission.md
-│   ├── ARCHITECTURE.md
-│   ├── KB_OVERVIEW.md
-│   └── architecture-diagram.svg
-└── archive/                         # Local archival backup (ignored by git)
+├── infrastructure/                    # SAM/CloudFormation deployment assets
+│   ├── template.yaml                  # AWS SAM template (source of truth)
+│   ├── samconfig.toml                 # Deployment config
+│   ├── deploy.sh                      # Bash deploy script
+│   ├── deploy_cfn.ps1                 # PowerShell deploy script
+│   └── cognito_config.example.json    # Cognito config template
+├── docs/                              # Submission documentation
+│   ├── ARCHITECTURE.md                # Technical architecture deep dive
+│   ├── PROJECT_SUMMARY.md             # Condensed project brief
+│   ├── PROBLEM_STATEMENT.md           # Problem framing
+│   ├── Smart_Rural_AI_Advisor_Submission.md  # Evaluator-oriented submission
+│   ├── KB_OVERVIEW.md                 # Knowledge Base contents & RAG config
+│   └── architecture-diagram.svg       # Visual architecture diagram
+├── buildspec.yml                      # AWS CodeBuild CI/CD
+├── .gitignore
+└── README.md                          # This file
 ```
 
 ---
@@ -411,10 +430,10 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 
 | Metric | Target |
 |---|---|
-| Reduce crop loss from undiagnosed diseases | **30 %** — instant AI diagnosis from photo or symptom description |
-| Increase government scheme enrolment | **50 %** — AI explains eligibility and application steps in the farmer's language |
+| Reduce crop loss from undiagnosed diseases | **30%** — instant AI diagnosis from photo or symptom description |
+| Increase government scheme enrolment | **50%** — AI explains eligibility and application steps in the farmer's language |
 | 24/7 expert-level agricultural advice | **Zero cost** to the farmer — fully serverless, within AWS free-tier for moderate usage |
-| Language accessibility | **13 Indian languages** — covers 95 %+ of India's farming population |
+| Language accessibility | **13 Indian languages** — covers 95%+ of India's farming population |
 | Voice accessibility | **Full voice I/O** — usable by farmers who cannot read or type comfortably |
 
 ---
@@ -435,7 +454,7 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 ## Strengths & Best Practices
 
 ### Architectural Excellence
-- **100 % Serverless** — zero idle cost; auto-scales from 1 to 10 000 concurrent farmers with no capacity planning.
+- **100% Serverless** — zero idle cost; auto-scales from 1 to 10,000 concurrent farmers with no capacity planning.
 - **Infrastructure-as-Code** — single `template.yaml` creates the entire stack in one command. Conditional resources and startup environment validation ensure deployment correctness.
 - **Micro-Lambda pattern** — 7 single-responsibility functions; isolated deployments and blast-radius containment.
 - **29+ feature flags** — TTS engine, guardrail strictness, cache TTL, audit verbosity, model IDs — all configurable without redeployment. Demo → production is an env-var flip.
