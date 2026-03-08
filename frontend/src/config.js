@@ -4,14 +4,14 @@ import LANGUAGES from './languages';
 
 const config = {
     // API Gateway URL
-    API_URL: import.meta.env.VITE_API_URL || 'https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod',
+    API_URL: import.meta.env.VITE_API_URL || '',
     
     // Mock mode
     MOCK_AI: import.meta.env.VITE_MOCK_AI === 'true',
 
     // Cognito User Pool
-    COGNITO_USER_POOL_ID: import.meta.env.VITE_COGNITO_USER_POOL_ID || 'ap-south-1_X58lNMEcn',
-    COGNITO_CLIENT_ID: import.meta.env.VITE_COGNITO_CLIENT_ID || '4c3c6he88im15hmv5rdkv3m6h0',
+    COGNITO_USER_POOL_ID: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
+    COGNITO_CLIENT_ID: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
 
     // Reference the standalone LANGUAGES export
     LANGUAGES,

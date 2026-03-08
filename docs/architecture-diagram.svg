@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     viewBox="0 0 2400 3200" width="2400" height="3200">
+  
+  <!-- Title -->
+  <text x="1200" y="40" font-size="32" font-weight="bold" text-anchor="middle" fill="#232F3E">
+    Smart Rural AI Advisor - Complete AWS Architecture
+  </text>
+  <text x="1200" y="70" font-size="16" text-anchor="middle" fill="#545B64">
+    Serverless AI-Powered Agricultural Advisory System for Indian Farmers
+  </text>
+  
+  <!-- Definitions for AWS Icons (simplified representations) -->
+  <defs>
+    <!-- Gradient definitions -->
+    <linearGradient id="awsOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9900;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6600;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="awsBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B48CC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#232F3E;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="awsGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1B660F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0D3D0A;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="awsPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8C4FFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5A32A3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Layer 1: User Layer -->
+  <rect x="50" y="100" width="2300" height="180" fill="#E7F3FF" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="130" font-size="20" font-weight="bold" fill="#232F3E">User Layer</text>
+  
+  <!-- Web Browser -->
+  <rect x="200" y="150" width="180" height="100" fill="url(#awsOrange)" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="290" y="185" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Web Browser</text>
+  <text x="290" y="205" font-size="11" text-anchor="middle" fill="white">Desktop/Mobile</text>
+  <text x="290" y="225" font-size="11" text-anchor="middle" fill="white">React 18 + Vite</text>
+  
+  <!-- Voice Input -->
+  <rect x="450" y="150" width="180" height="100" fill="url(#awsOrange)" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="540" y="185" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Voice Input</text>
+  <text x="540" y="205" font-size="11" text-anchor="middle" fill="white">Web Speech API</text>
+  <text x="540" y="225" font-size="11" text-anchor="middle" fill="white">13 Languages</text>
+  
+  <!-- CloudFront CDN -->
+  <rect x="700" y="150" width="180" height="100" fill="#8C4FFF" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="790" y="180" font-size="14" font-weight="bold" text-anchor="middle" fill="white">CloudFront</text>
+  <text x="790" y="200" font-size="11" text-anchor="middle" fill="white">CDN</text>
+  <text x="790" y="220" font-size="11" text-anchor="middle" fill="white">Global Edge</text>
+  
+  <!-- S3 Static Hosting -->
+  <rect x="950" y="150" width="180" height="100" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1040" y="180" font-size="14" font-weight="bold" text-anchor="middle" fill="white">S3 Bucket</text>
+  <text x="1040" y="200" font-size="11" text-anchor="middle" fill="white">Static Hosting</text>
+  <text x="1040" y="220" font-size="11" text-anchor="middle" fill="white">Frontend Assets</text>
+
+  <!-- Layer 2: API Gateway & Authentication -->
+  <rect x="50" y="320" width="2300" height="180" fill="#FFF4E6" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="350" font-size="20" font-weight="bold" fill="#232F3E">API Gateway & Authentication</text>
+  
+  <!-- API Gateway -->
+  <rect x="300" y="370" width="220" height="100" fill="#FF4F8B" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="410" y="400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">API Gateway</text>
+  <text x="410" y="420" font-size="11" text-anchor="middle" fill="white">REST API</text>
+  <text x="410" y="440" font-size="11" text-anchor="middle" fill="white">9 Routes</text>
+  <text x="410" y="460" font-size="11" text-anchor="middle" fill="white">CORS Enabled</text>
+  
+  <!-- Cognito -->
+  <rect x="600" y="370" width="220" height="100" fill="#DD344C" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="710" y="400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Amazon Cognito</text>
+  <text x="710" y="420" font-size="11" text-anchor="middle" fill="white">User Pool</text>
+  <text x="710" y="440" font-size="11" text-anchor="middle" fill="white">Phone + PIN Auth</text>
+  <text x="710" y="460" font-size="11" text-anchor="middle" fill="white">OTP Verification</text>
+  
+  <!-- Secrets Manager -->
+  <rect x="900" y="370" width="220" height="100" fill="#DD344C" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1010" y="400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Secrets Manager</text>
+  <text x="1010" y="420" font-size="11" text-anchor="middle" fill="white">API Keys</text>
+  <text x="1010" y="440" font-size="11" text-anchor="middle" fill="white">OpenWeather Key</text>
+  <text x="1010" y="460" font-size="11" text-anchor="middle" fill="white">Encrypted Storage</text>
+
+  <!-- Layer 3: Core Lambda Functions -->
+  <rect x="50" y="540" width="2300" height="220" fill="#E6F7FF" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="570" font-size="20" font-weight="bold" fill="#232F3E">Core Lambda Functions (Python 3.13)</text>
+  
+  <!-- Agent Orchestrator -->
+  <rect x="150" y="590" width="280" height="140" fill="#FF9900" stroke="#232F3E" stroke-width="3" rx="5"/>
+  <text x="290" y="615" font-size="15" font-weight="bold" text-anchor="middle" fill="white">Agent Orchestrator</text>
+  <text x="290" y="635" font-size="11" text-anchor="middle" fill="white">handler.py</text>
+  <text x="290" y="655" font-size="11" text-anchor="middle" fill="white">120s timeout | 256MB</text>
+  <text x="290" y="675" font-size="10" text-anchor="middle" fill="white">• Language Detection</text>
+  <text x="290" y="690" font-size="10" text-anchor="middle" fill="white">• Tool Orchestration</text>
+  <text x="290" y="705" font-size="10" text-anchor="middle" fill="white">• Bedrock Integration</text>
+  <text x="290" y="720" font-size="10" text-anchor="middle" fill="white">• TTS Generation</text>
+  
+  <!-- Farmer Profile -->
+  <rect x="480" y="590" width="200" height="140" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="580" y="620" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Farmer Profile</text>
+  <text x="580" y="640" font-size="10" text-anchor="middle" fill="white">30s | 256MB</text>
+  <text x="580" y="660" font-size="10" text-anchor="middle" fill="white">CRUD Operations</text>
+  <text x="580" y="680" font-size="10" text-anchor="middle" fill="white">OTP Management</text>
+  <text x="580" y="700" font-size="10" text-anchor="middle" fill="white">Profile Caching</text>
+  <text x="580" y="720" font-size="10" text-anchor="middle" fill="white">DynamoDB Access</text>
+  
+  <!-- Health Check -->
+  <rect x="730" y="590" width="180" height="140" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="820" y="620" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Health Check</text>
+  <text x="820" y="640" font-size="10" text-anchor="middle" fill="white">10s | 128MB</text>
+  <text x="820" y="660" font-size="10" text-anchor="middle" fill="white">Stack Health</text>
+  <text x="820" y="680" font-size="10" text-anchor="middle" fill="white">Service Status</text>
+  <text x="820" y="700" font-size="10" text-anchor="middle" fill="white">Monitoring</text>
+
+  <!-- Layer 4: Tool Lambda Functions -->
+  <rect x="50" y="800" width="2300" height="240" fill="#FFF0F5" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="830" font-size="20" font-weight="bold" fill="#232F3E">Tool Lambda Functions</text>
+  
+  <!-- Weather Lookup -->
+  <rect x="100" y="850" width="200" height="160" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="200" y="875" font-size="13" font-weight="bold" text-anchor="middle" fill="white">Weather Lookup</text>
+  <text x="200" y="895" font-size="10" text-anchor="middle" fill="white">30s | 256MB</text>
+  <text x="200" y="915" font-size="9" text-anchor="middle" fill="white">OpenWeather API</text>
+  <text x="200" y="930" font-size="9" text-anchor="middle" fill="white">Current + 5-day</text>
+  <text x="200" y="945" font-size="9" text-anchor="middle" fill="white">Farming Advisory</text>
+  <text x="200" y="960" font-size="9" text-anchor="middle" fill="white">HTTPS Enabled</text>
+  <text x="200" y="975" font-size="9" text-anchor="middle" fill="white">Retry Logic</text>
+  <text x="200" y="990" font-size="9" text-anchor="middle" fill="white">Caching</text>
+  
+  <!-- Crop Advisory -->
+  <rect x="350" y="850" width="200" height="160" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="450" y="875" font-size="13" font-weight="bold" text-anchor="middle" fill="white">Crop Advisory</text>
+  <text x="450" y="895" font-size="10" text-anchor="middle" fill="white">30s | 256MB</text>
+  <text x="450" y="915" font-size="9" text-anchor="middle" fill="white">Bedrock KB</text>
+  <text x="450" y="930" font-size="9" text-anchor="middle" fill="white">RAG Retrieval</text>
+  <text x="450" y="945" font-size="9" text-anchor="middle" fill="white">Retry on Throttle</text>
+  <text x="450" y="960" font-size="9" text-anchor="middle" fill="white">Exponential Backoff</text>
+  <text x="450" y="975" font-size="9" text-anchor="middle" fill="white">Pest/Disease DB</text>
+  <text x="450" y="990" font-size="9" text-anchor="middle" fill="white">Irrigation Tips</text>
+  
+  <!-- Govt Schemes -->
+  <rect x="600" y="850" width="200" height="160" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="700" y="875" font-size="13" font-weight="bold" text-anchor="middle" fill="white">Govt Schemes</text>
+  <text x="700" y="895" font-size="10" text-anchor="middle" fill="white">30s | 256MB</text>
+  <text x="700" y="915" font-size="9" text-anchor="middle" fill="white">9 Central Schemes</text>
+  <text x="700" y="930" font-size="9" text-anchor="middle" fill="white">15+ State Schemes</text>
+  <text x="700" y="945" font-size="9" text-anchor="middle" fill="white">Eligibility Check</text>
+  <text x="700" y="960" font-size="9" text-anchor="middle" fill="white">Application Steps</text>
+  <text x="700" y="975" font-size="9" text-anchor="middle" fill="white">PM-KISAN, PMFBY</text>
+  <text x="700" y="990" font-size="9" text-anchor="middle" fill="white">Curated JSON DB</text>
+  
+  <!-- Image Analysis -->
+  <rect x="850" y="850" width="200" height="160" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="950" y="875" font-size="13" font-weight="bold" text-anchor="middle" fill="white">Image Analysis</text>
+  <text x="950" y="895" font-size="10" text-anchor="middle" fill="white">60s | 512MB</text>
+  <text x="950" y="915" font-size="9" text-anchor="middle" fill="white">Nova Pro Vision</text>
+  <text x="950" y="930" font-size="9" text-anchor="middle" fill="white">Crop Disease</text>
+  <text x="950" y="945" font-size="9" text-anchor="middle" fill="white">Diagnosis</text>
+  <text x="950" y="960" font-size="9" text-anchor="middle" fill="white">Base64 Upload</text>
+  <text x="950" y="975" font-size="9" text-anchor="middle" fill="white">4MB Limit</text>
+  <text x="950" y="990" font-size="9" text-anchor="middle" fill="white">PII Masking</text>
+  
+  <!-- Transcribe Speech -->
+  <rect x="1100" y="850" width="200" height="160" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1200" y="875" font-size="13" font-weight="bold" text-anchor="middle" fill="white">Transcribe Speech</text>
+  <text x="1200" y="895" font-size="10" text-anchor="middle" fill="white">60s | 256MB</text>
+  <text x="1200" y="915" font-size="9" text-anchor="middle" fill="white">Amazon Transcribe</text>
+  <text x="1200" y="930" font-size="9" text-anchor="middle" fill="white">Voice-to-Text</text>
+  <text x="1200" y="945" font-size="9" text-anchor="middle" fill="white">Firefox/Safari</text>
+  <text x="1200" y="960" font-size="9" text-anchor="middle" fill="white">Fallback</text>
+  <text x="1200" y="975" font-size="9" text-anchor="middle" fill="white">S3 Upload</text>
+  <text x="1200" y="990" font-size="9" text-anchor="middle" fill="white">Polling</text>
+
+  <!-- Layer 5: Amazon Bedrock AI Services -->
+  <rect x="50" y="1080" width="2300" height="280" fill="#F0E6FF" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="1110" font-size="20" font-weight="bold" fill="#232F3E">Amazon Bedrock - AI/ML Services</text>
+  
+  <!-- Nova Pro -->
+  <rect x="150" y="1130" width="250" height="200" fill="url(#awsPurple)" stroke="#232F3E" stroke-width="3" rx="5"/>
+  <text x="275" y="1160" font-size="15" font-weight="bold" text-anchor="middle" fill="white">Amazon Nova Pro</text>
+  <text x="275" y="1180" font-size="11" text-anchor="middle" fill="white">apac.amazon.nova-pro-v1:0</text>
+  <text x="275" y="1200" font-size="10" text-anchor="middle" fill="white">Primary Foundation Model</text>
+  <text x="275" y="1220" font-size="9" text-anchor="middle" fill="white">• Multi-turn Conversation</text>
+  <text x="275" y="1235" font-size="9" text-anchor="middle" fill="white">• Tool Calling (6 tools)</text>
+  <text x="275" y="1250" font-size="9" text-anchor="middle" fill="white">• Reasoning & Grounding</text>
+  <text x="275" y="1265" font-size="9" text-anchor="middle" fill="white">• Context: 300K tokens</text>
+  <text x="275" y="1280" font-size="9" text-anchor="middle" fill="white">• Vision Capabilities</text>
+  <text x="275" y="1295" font-size="9" text-anchor="middle" fill="white">• Multilingual Support</text>
+  <text x="275" y="1310" font-size="9" text-anchor="middle" fill="white">• Converse API</text>
+  
+  <!-- Nova 2 Lite -->
+  <rect x="450" y="1130" width="250" height="200" fill="url(#awsPurple)" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="575" y="1160" font-size="15" font-weight="bold" text-anchor="middle" fill="white">Amazon Nova 2 Lite</text>
+  <text x="575" y="1180" font-size="11" text-anchor="middle" fill="white">global.amazon.nova-2-lite-v1:0</text>
+  <text x="575" y="1200" font-size="10" text-anchor="middle" fill="white">Fallback Model</text>
+  <text x="575" y="1220" font-size="9" text-anchor="middle" fill="white">• Fast Response</text>
+  <text x="575" y="1235" font-size="9" text-anchor="middle" fill="white">• Lower Cost</text>
+  <text x="575" y="1250" font-size="9" text-anchor="middle" fill="white">• Throttle Recovery</text>
+  <text x="575" y="1265" font-size="9" text-anchor="middle" fill="white">• Simple Queries</text>
+  <text x="575" y="1280" font-size="9" text-anchor="middle" fill="white">• Greeting Responses</text>
+  <text x="575" y="1295" font-size="9" text-anchor="middle" fill="white">• Auto-Fallback</text>
+  
+  <!-- Knowledge Base -->
+  <rect x="750" y="1130" width="250" height="200" fill="url(#awsPurple)" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="875" y="1160" font-size="15" font-weight="bold" text-anchor="middle" fill="white">Knowledge Base</text>
+  <text x="875" y="1180" font-size="11" text-anchor="middle" fill="white">Bedrock KB (RAG)</text>
+  <text x="875" y="1200" font-size="10" text-anchor="middle" fill="white">Vector Search</text>
+  <text x="875" y="1220" font-size="9" text-anchor="middle" fill="white">• Crop Advisory Docs</text>
+  <text x="875" y="1235" font-size="9" text-anchor="middle" fill="white">• Pest Management</text>
+  <text x="875" y="1250" font-size="9" text-anchor="middle" fill="white">• Disease Database</text>
+  <text x="875" y="1265" font-size="9" text-anchor="middle" fill="white">• Irrigation Guidelines</text>
+  <text x="875" y="1280" font-size="9" text-anchor="middle" fill="white">• S3 Data Source</text>
+  <text x="875" y="1295" font-size="9" text-anchor="middle" fill="white">• Semantic Retrieval</text>
+  <text x="875" y="1310" font-size="9" text-anchor="middle" fill="white">• Retry Logic</text>
+  
+  <!-- Guardrails -->
+  <rect x="1050" y="1130" width="250" height="200" fill="url(#awsPurple)" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1175" y="1160" font-size="15" font-weight="bold" text-anchor="middle" fill="white">Bedrock Guardrails</text>
+  <text x="1175" y="1180" font-size="11" text-anchor="middle" fill="white">Content Safety</text>
+  <text x="1175" y="1200" font-size="10" text-anchor="middle" fill="white">Enterprise Protection</text>
+  <text x="1175" y="1220" font-size="9" text-anchor="middle" fill="white">• Topic Gating</text>
+  <text x="1175" y="1235" font-size="9" text-anchor="middle" fill="white">• PII Detection</text>
+  <text x="1175" y="1250" font-size="9" text-anchor="middle" fill="white">• Prompt Injection</text>
+  <text x="1175" y="1265" font-size="9" text-anchor="middle" fill="white">• Content Filtering</text>
+  <text x="1175" y="1280" font-size="9" text-anchor="middle" fill="white">• Hallucination Check</text>
+  <text x="1175" y="1295" font-size="9" text-anchor="middle" fill="white">• Audit Logging</text>
+  <text x="1175" y="1310" font-size="9" text-anchor="middle" fill="white">• Policy Enforcement</text>
+
+  <!-- Layer 6: Translation & TTS Services -->
+  <rect x="50" y="1400" width="2300" height="200" fill="#E6FFE6" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="1430" font-size="20" font-weight="bold" fill="#232F3E">Translation & Text-to-Speech Services</text>
+  
+  <!-- Amazon Translate -->
+  <rect x="200" y="1450" width="280" height="120" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="340" y="1480" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Amazon Translate</text>
+  <text x="340" y="1500" font-size="10" text-anchor="middle" fill="white">13 Indian Languages</text>
+  <text x="340" y="1520" font-size="9" text-anchor="middle" fill="white">• Auto Language Detection</text>
+  <text x="340" y="1535" font-size="9" text-anchor="middle" fill="white">• Bidirectional Translation</text>
+  <text x="340" y="1550" font-size="9" text-anchor="middle" fill="white">• Chunking for Large Text</text>
+  <text x="340" y="1565" font-size="9" text-anchor="middle" fill="white">• 10KB Limit Handling</text>
+  
+  <!-- Amazon Polly -->
+  <rect x="550" y="1450" width="280" height="120" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="690" y="1480" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Amazon Polly</text>
+  <text x="690" y="1500" font-size="10" text-anchor="middle" fill="white">Neural TTS</text>
+  <text x="690" y="1520" font-size="9" text-anchor="middle" fill="white">• Hindi (Kajal voice)</text>
+  <text x="690" y="1535" font-size="9" text-anchor="middle" fill="white">• English (Aditi voice)</text>
+  <text x="690" y="1550" font-size="9" text-anchor="middle" fill="white">• High Quality Audio</text>
+  <text x="690" y="1565" font-size="9" text-anchor="middle" fill="white">• S3 Upload + Presigned URL</text>
+  
+  <!-- gTTS Library -->
+  <rect x="900" y="1450" width="280" height="120" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1040" y="1480" font-size="14" font-weight="bold" text-anchor="middle" fill="white">gTTS Library</text>
+  <text x="1040" y="1500" font-size="10" text-anchor="middle" fill="white">Free TTS (11 Languages)</text>
+  <text x="1040" y="1520" font-size="9" text-anchor="middle" fill="white">• Tamil, Telugu, Kannada</text>
+  <text x="1040" y="1535" font-size="9" text-anchor="middle" fill="white">• Malayalam, Bengali, Marathi</text>
+  <text x="1040" y="1550" font-size="9" text-anchor="middle" fill="white">• Gujarati, Punjabi, Odia</text>
+  <text x="1040" y="1565" font-size="9" text-anchor="middle" fill="white">• Assamese, Urdu</text>
+  
+  <!-- Amazon Transcribe -->
+  <rect x="1250" y="1450" width="280" height="120" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1390" y="1480" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Amazon Transcribe</text>
+  <text x="1390" y="1500" font-size="10" text-anchor="middle" fill="white">Speech-to-Text</text>
+  <text x="1390" y="1520" font-size="9" text-anchor="middle" fill="white">• Voice Input Fallback</text>
+  <text x="1390" y="1535" font-size="9" text-anchor="middle" fill="white">• Firefox/Safari Support</text>
+  <text x="1390" y="1550" font-size="9" text-anchor="middle" fill="white">• Async Processing</text>
+  <text x="1390" y="1565" font-size="9" text-anchor="middle" fill="white">• S3 Integration</text>
+
+  <!-- Layer 7: DynamoDB Storage -->
+  <rect x="50" y="1640" width="2300" height="240" fill="#FFE6E6" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="1670" font-size="20" font-weight="bold" fill="#232F3E">Amazon DynamoDB - NoSQL Database</text>
+  
+  <!-- farmer_profiles -->
+  <rect x="150" y="1690" width="260" height="160" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="280" y="1720" font-size="14" font-weight="bold" text-anchor="middle" fill="white">farmer_profiles</text>
+  <text x="280" y="1740" font-size="10" text-anchor="middle" fill="white">PK: farmer_id</text>
+  <text x="280" y="1760" font-size="9" text-anchor="middle" fill="white">• Name, State, District</text>
+  <text x="280" y="1775" font-size="9" text-anchor="middle" fill="white">• Crops (list)</text>
+  <text x="280" y="1790" font-size="9" text-anchor="middle" fill="white">• Soil Type</text>
+  <text x="280" y="1805" font-size="9" text-anchor="middle" fill="white">• Land Size (acres)</text>
+  <text x="280" y="1820" font-size="9" text-anchor="middle" fill="white">• Language Preference</text>
+  <text x="280" y="1835" font-size="9" text-anchor="middle" fill="white">• Profile Caching (120s)</text>
+  
+  <!-- chat_sessions -->
+  <rect x="460" y="1690" width="260" height="160" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="590" y="1720" font-size="14" font-weight="bold" text-anchor="middle" fill="white">chat_sessions</text>
+  <text x="590" y="1740" font-size="10" text-anchor="middle" fill="white">PK: session_id | SK: timestamp</text>
+  <text x="590" y="1760" font-size="9" text-anchor="middle" fill="white">• Role (user/assistant)</text>
+  <text x="590" y="1775" font-size="9" text-anchor="middle" fill="white">• Message (localized)</text>
+  <text x="590" y="1790" font-size="9" text-anchor="middle" fill="white">• Message_en (English)</text>
+  <text x="590" y="1805" font-size="9" text-anchor="middle" fill="white">• Language Code</text>
+  <text x="590" y="1820" font-size="9" text-anchor="middle" fill="white">• TTL: 30 days</text>
+  <text x="590" y="1835" font-size="9" text-anchor="middle" fill="white">• Batch Writes</text>
+  
+  <!-- rate_limits -->
+  <rect x="770" y="1690" width="260" height="160" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="900" y="1720" font-size="14" font-weight="bold" text-anchor="middle" fill="white">rate_limits</text>
+  <text x="900" y="1740" font-size="10" text-anchor="middle" fill="white">PK: farmer_id</text>
+  <text x="900" y="1760" font-size="9" text-anchor="middle" fill="white">• Request Count</text>
+  <text x="900" y="1775" font-size="9" text-anchor="middle" fill="white">• Window Start</text>
+  <text x="900" y="1790" font-size="9" text-anchor="middle" fill="white">• TTL: Auto-expire</text>
+  <text x="900" y="1805" font-size="9" text-anchor="middle" fill="white">Limits:</text>
+  <text x="900" y="1820" font-size="9" text-anchor="middle" fill="white">15 RPM | 120 RPH</text>
+  <text x="900" y="1835" font-size="9" text-anchor="middle" fill="white">500 Daily</text>
+  
+  <!-- otp_codes -->
+  <rect x="1080" y="1690" width="260" height="160" fill="#3B48CC" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1210" y="1720" font-size="14" font-weight="bold" text-anchor="middle" fill="white">otp_codes</text>
+  <text x="1210" y="1740" font-size="10" text-anchor="middle" fill="white">PK: phone</text>
+  <text x="1210" y="1760" font-size="9" text-anchor="middle" fill="white">• OTP Code (6 digits)</text>
+  <text x="1210" y="1775" font-size="9" text-anchor="middle" fill="white">• Expiry TTL: 5 minutes</text>
+  <text x="1210" y="1790" font-size="9" text-anchor="middle" fill="white">• Verified Flag</text>
+  <text x="1210" y="1805" font-size="9" text-anchor="middle" fill="white">• Created At</text>
+  <text x="1210" y="1820" font-size="9" text-anchor="middle" fill="white">• Phone Validation</text>
+  <text x="1210" y="1835" font-size="9" text-anchor="middle" fill="white">• Auto-cleanup</text>
+
+  <!-- Layer 8: S3 Storage -->
+  <rect x="50" y="1920" width="2300" height="180" fill="#E6F7E6" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="1950" font-size="20" font-weight="bold" fill="#232F3E">Amazon S3 - Object Storage</text>
+  
+  <!-- Audio Files Bucket -->
+  <rect x="300" y="1970" width="350" height="100" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="475" y="2000" font-size="14" font-weight="bold" text-anchor="middle" fill="white">S3 Bucket: Audio Files</text>
+  <text x="475" y="2020" font-size="10" text-anchor="middle" fill="white">smart-rural-ai-{account-id}</text>
+  <text x="475" y="2040" font-size="9" text-anchor="middle" fill="white">• TTS Audio (MP3)</text>
+  <text x="475" y="2055" font-size="9" text-anchor="middle" fill="white">• Presigned URLs (1-2 hour expiry)</text>
+  <text x="475" y="2070" font-size="9" text-anchor="middle" fill="white">• Lifecycle Policies (auto-cleanup)</text>
+  
+  <!-- Knowledge Base Bucket -->
+  <rect x="700" y="1970" width="350" height="100" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="875" y="2000" font-size="14" font-weight="bold" text-anchor="middle" fill="white">S3 Bucket: Knowledge Base</text>
+  <text x="875" y="2020" font-size="10" text-anchor="middle" fill="white">Crop Advisory Documents</text>
+  <text x="875" y="2040" font-size="9" text-anchor="middle" fill="white">• PDF/CSV Documents</text>
+  <text x="875" y="2055" font-size="9" text-anchor="middle" fill="white">• Pest Management Guides</text>
+  <text x="875" y="2070" font-size="9" text-anchor="middle" fill="white">• Bedrock KB Data Source</text>
+  
+  <!-- Static Website Bucket -->
+  <rect x="1100" y="1970" width="350" height="100" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1275" y="2000" font-size="14" font-weight="bold" text-anchor="middle" fill="white">S3 Bucket: Frontend</text>
+  <text x="1275" y="2020" font-size="10" text-anchor="middle" fill="white">Static Website Hosting</text>
+  <text x="1275" y="2040" font-size="9" text-anchor="middle" fill="white">• React Build Artifacts</text>
+  <text x="1275" y="2055" font-size="9" text-anchor="middle" fill="white">• CloudFront Origin</text>
+  <text x="1275" y="2070" font-size="9" text-anchor="middle" fill="white">• Encryption at Rest</text>
+
+  <!-- Layer 9: External APIs -->
+  <rect x="50" y="2140" width="2300" height="140" fill="#FFF9E6" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="2170" font-size="20" font-weight="bold" fill="#232F3E">External APIs & Integrations</text>
+  
+  <!-- OpenWeather API -->
+  <rect x="300" y="2190" width="350" height="70" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="475" y="2215" font-size="14" font-weight="bold" text-anchor="middle" fill="white">OpenWeather API</text>
+  <text x="475" y="2235" font-size="10" text-anchor="middle" fill="white">Current Weather + 5-day Forecast</text>
+  <text x="475" y="2250" font-size="9" text-anchor="middle" fill="white">HTTPS | API Key in Secrets Manager</text>
+  
+  <!-- Twilio (Prepared) -->
+  <rect x="700" y="2190" width="350" height="70" fill="#DD344C" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="875" y="2215" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Twilio (Prepared)</text>
+  <text x="875" y="2235" font-size="10" text-anchor="middle" fill="white">SMS/WhatsApp Notifications</text>
+  <text x="875" y="2250" font-size="9" text-anchor="middle" fill="white">Infrastructure Ready | Not Yet Active</text>
+  
+  <!-- Web Speech API -->
+  <rect x="1100" y="2190" width="350" height="70" fill="#1B660F" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1275" y="2215" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Web Speech API</text>
+  <text x="1275" y="2235" font-size="10" text-anchor="middle" fill="white">Client-side Voice Recognition</text>
+  <text x="1275" y="2250" font-size="9" text-anchor="middle" fill="white">Chrome/Edge | 13 Languages</text>
+
+  <!-- Layer 10: Monitoring & Logging -->
+  <rect x="50" y="2320" width="2300" height="180" fill="#E6F0FF" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="2350" font-size="20" font-weight="bold" fill="#232F3E">Monitoring, Logging & Security</text>
+  
+  <!-- CloudWatch Logs -->
+  <rect x="200" y="2370" width="280" height="100" fill="#FF4F8B" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="340" y="2400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">CloudWatch Logs</text>
+  <text x="340" y="2420" font-size="10" text-anchor="middle" fill="white">Structured JSON Logging</text>
+  <text x="340" y="2440" font-size="9" text-anchor="middle" fill="white">• Lambda Execution Logs</text>
+  <text x="340" y="2455" font-size="9" text-anchor="middle" fill="white">• PII Masking</text>
+  
+  <!-- CloudWatch Metrics -->
+  <rect x="530" y="2370" width="280" height="100" fill="#FF4F8B" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="670" y="2400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">CloudWatch Metrics</text>
+  <text x="670" y="2420" font-size="10" text-anchor="middle" fill="white">Custom Metrics</text>
+  <text x="670" y="2440" font-size="9" text-anchor="middle" fill="white">• Tool Invocation Counts</text>
+  <text x="670" y="2455" font-size="9" text-anchor="middle" fill="white">• Performance Tracking</text>
+  
+  <!-- IAM -->
+  <rect x="860" y="2370" width="280" height="100" fill="#DD344C" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1000" y="2400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">AWS IAM</text>
+  <text x="1000" y="2420" font-size="10" text-anchor="middle" fill="white">Identity & Access Management</text>
+  <text x="1000" y="2440" font-size="9" text-anchor="middle" fill="white">• Least-Privilege Policies</text>
+  <text x="1000" y="2455" font-size="9" text-anchor="middle" fill="white">• Lambda Execution Roles</text>
+  
+  <!-- SAM -->
+  <rect x="1190" y="2370" width="280" height="100" fill="#FF9900" stroke="#232F3E" stroke-width="2" rx="5"/>
+  <text x="1330" y="2400" font-size="14" font-weight="bold" text-anchor="middle" fill="white">AWS SAM</text>
+  <text x="1330" y="2420" font-size="10" text-anchor="middle" fill="white">Infrastructure as Code</text>
+  <text x="1330" y="2440" font-size="9" text-anchor="middle" fill="white">• One-command Deploy</text>
+  <text x="1330" y="2455" font-size="9" text-anchor="middle" fill="white">• CloudFormation Templates</text>
+
+  <!-- Data Flow Arrows -->
+  <!-- User to CloudFront -->
+  <line x1="290" y1="250" x2="790" y2="150" stroke="#232F3E" stroke-width="3" marker-end="url(#arrowhead)"/>
+  <line x1="540" y1="250" x2="790" y2="150" stroke="#232F3E" stroke-width="3" marker-end="url(#arrowhead)"/>
+  
+  <!-- CloudFront to API Gateway -->
+  <line x1="790" y1="250" x2="410" y2="370" stroke="#232F3E" stroke-width="3" marker-end="url(#arrowhead)"/>
+  
+  <!-- API Gateway to Cognito -->
+  <line x1="520" y1="420" x2="600" y2="420" stroke="#232F3E" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- API Gateway to Agent Orchestrator -->
+  <line x1="410" y1="470" x2="290" y2="590" stroke="#232F3E" stroke-width="4" marker-end="url(#arrowhead)"/>
+  
+  <!-- Agent Orchestrator to Tool Lambdas -->
+  <line x1="290" y1="730" x2="200" y2="850" stroke="#FF9900" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="290" y1="730" x2="450" y2="850" stroke="#FF9900" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="290" y1="730" x2="700" y2="850" stroke="#FF9900" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="350" y1="730" x2="950" y2="850" stroke="#FF9900" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Agent Orchestrator to Bedrock -->
+  <line x1="290" y1="730" x2="275" y2="1130" stroke="#8C4FFF" stroke-width="4" marker-end="url(#arrowhead)"/>
+  <line x1="320" y1="730" x2="575" y2="1130" stroke="#8C4FFF" stroke-width="2" marker-end="url(#arrowhead)" stroke-dasharray="5,5"/>
+  
+  <!-- Crop Advisory to KB -->
+  <line x1="450" y1="1010" x2="875" y2="1130" stroke="#8C4FFF" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Agent Orchestrator to Translation -->
+  <line x1="290" y1="730" x2="340" y2="1450" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="320" y1="730" x2="690" y2="1450" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="350" y1="730" x2="1040" y2="1450" stroke="#1B660F" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Lambdas to DynamoDB -->
+  <line x1="290" y1="730" x2="280" y2="1690" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="320" y1="730" x2="590" y2="1690" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="580" y1="730" x2="900" y2="1690" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="580" y1="730" x2="1210" y2="1690" stroke="#3B48CC" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Lambdas to S3 -->
+  <line x1="290" y1="730" x2="475" y2="1970" stroke="#1B660F" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="450" y1="1010" x2="875" y2="1970" stroke="#1B660F" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Weather Lambda to OpenWeather -->
+  <line x1="200" y1="1010" x2="475" y2="2190" stroke="#FF9900" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#232F3E" />
+    </marker>
+  </defs>
+
+  <!-- Key Features Box -->
+  <rect x="50" y="2540" width="1100" height="320" fill="#F5F5F5" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="70" y="2570" font-size="18" font-weight="bold" fill="#232F3E">Key Features & Capabilities</text>
+  
+  <text x="80" y="2600" font-size="12" font-weight="bold" fill="#232F3E">🌐 Multilingual Support (13 Languages)</text>
+  <text x="90" y="2620" font-size="10" fill="#545B64">English, Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi,</text>
+  <text x="90" y="2635" font-size="10" fill="#545B64">Gujarati, Punjabi, Odia, Assamese, Urdu</text>
+  
+  <text x="80" y="2665" font-size="12" font-weight="bold" fill="#232F3E">🎤 Voice Input/Output</text>
+  <text x="90" y="2685" font-size="10" fill="#545B64">• Web Speech API (Chrome/Edge) + Amazon Transcribe (Firefox/Safari)</text>
+  <text x="90" y="2700" font-size="10" fill="#545B64">• Amazon Polly (Hindi/English) + gTTS (11 languages)</text>
+  
+  <text x="80" y="2730" font-size="12" font-weight="bold" fill="#232F3E">🤖 AI-Powered Tools</text>
+  <text x="90" y="2750" font-size="10" fill="#545B64">• Weather Lookup (Current + 5-day forecast with farming advisory)</text>
+  <text x="90" y="2765" font-size="10" fill="#545B64">• Crop Advisory (Season, soil, region-aware recommendations)</text>
+  <text x="90" y="2780" font-size="10" fill="#545B64">• Pest & Disease Management (Symptom-based diagnosis)</text>
+  <text x="90" y="2795" font-size="10" fill="#545B64">• Government Schemes (9 central + 15 state schemes)</text>
+  <text x="90" y="2810" font-size="10" fill="#545B64">• Crop Doctor (Image-based disease diagnosis with Nova Pro Vision)</text>
+  <text x="90" y="2825" font-size="10" fill="#545B64">• Farmer Profile (Persistent farm details for personalization)</text>
+  
+  <text x="80" y="2850" font-size="12" font-weight="bold" fill="#232F3E">🔒 Enterprise Security</text>
+  <text x="90" y="2870" font-size="10" fill="#545B64">• Bedrock Guardrails (Content filtering, PII detection, topic gating)</text>
+  
+  <!-- Technical Specifications Box -->
+  <rect x="1200" y="2540" width="1150" height="320" fill="#F5F5F5" stroke="#232F3E" stroke-width="2" rx="10"/>
+  <text x="1220" y="2570" font-size="18" font-weight="bold" fill="#232F3E">Technical Specifications</text>
+  
+  <text x="1230" y="2600" font-size="12" font-weight="bold" fill="#232F3E">⚡ Performance</text>
+  <text x="1240" y="2620" font-size="10" fill="#545B64">• Fast-path (greeting): <500ms</text>
+  <text x="1240" y="2635" font-size="10" fill="#545B64">• Text chat (no tools): 2-4s</text>
+  <text x="1240" y="2650" font-size="10" fill="#545B64">• Text chat (with tools): 4-8s</text>
+  <text x="1240" y="2665" font-size="10" fill="#545B64">• Image analysis: 5-10s</text>
+  
+  <text x="1230" y="2695" font-size="12" font-weight="bold" fill="#232F3E">📊 Scalability</text>
+  <text x="1240" y="2715" font-size="10" fill="#545B64">• Lambda: Auto-scales to 1,000 concurrent executions</text>
+  <text x="1240" y="2730" font-size="10" fill="#545B64">• DynamoDB: On-demand capacity (auto-scaling)</text>
+  <text x="1240" y="2745" font-size="10" fill="#545B64">• API Gateway: 10,000 RPS</text>
+  <text x="1240" y="2760" font-size="10" fill="#545B64">• S3: Unlimited storage</text>
+  
+  <text x="1230" y="2790" font-size="12" font-weight="bold" fill="#232F3E">🛡️ Reliability Features</text>
+  <text x="1240" y="2810" font-size="10" fill="#545B64">• Model Fallback (Nova Pro ↔ Nova 2 Lite)</text>
+  <text x="1240" y="2825" font-size="10" fill="#545B64">• Timeout Protection (29s API Gateway limit)</text>
+  <text x="1240" y="2840" font-size="10" fill="#545B64">• Retry Logic (Exponential backoff with jitter)</text>
+  <text x="1240" y="2855" font-size="10" fill="#545B64">• Connection Pooling (25 connections)</text>
+  
+  <!-- Footer -->
+  <text x="1200" y="2920" font-size="14" font-weight="bold" text-anchor="middle" fill="#232F3E">AWS AI for Bharat 2026 Hackathon</text>
+  <text x="1200" y="2945" font-size="12" text-anchor="middle" fill="#545B64">Team: Creative Intelligence (CI)</text>
+  <text x="1200" y="2970" font-size="11" text-anchor="middle" fill="#545B64">Live: https://d80ytlzsrax1n.cloudfront.net</text>
+  <text x="1200" y="2995" font-size="10" text-anchor="middle" fill="#545B64">Fully Serverless | Production-Ready | 40+ Feature Flags</text>
+  
+</svg>

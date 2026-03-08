@@ -1,8 +1,8 @@
 {
   "region": "ap-south-1",
-  "userPoolId": "ap-south-1_X58lNMEcn",
-  "userPoolClientId": "4c3c6he88im15hmv5rdkv3m6h0",
-  "domain": "smart-rural-ai-auth.auth.ap-south-1.amazoncognito.com",
-  "authorizerId": "eoegxr",
-  "apiGatewayId": "zuadk9l1nc"
+  "userPoolId": "YOUR_COGNITO_USER_POOL_ID",
+  "userPoolClientId": "YOUR_COGNITO_CLIENT_ID",
+  "domain": "YOUR_COGNITO_DOMAIN",
+  "authorizerId": "YOUR_API_AUTHORIZER_ID",
+  "apiGatewayId": "YOUR_API_GATEWAY_ID"
 }

@@ -84,7 +84,7 @@ Parameters:
   CognitoUserPoolId:
     Type: String
     Description: Cognito User Pool ID for authentication
-    Default: 'ap-south-1_X58lNMEcn'
+    Default: ''
   EnableRateLimitTTL:
     Type: String
     AllowedValues: ['true', 'false']

@@ -13,10 +13,10 @@ An AI-powered agricultural advisor that helps Indian farmers with crop guidance,
 ### Key Features
 
 | Feature | How It Works |
-|---------|-------------|
-| **AI Chat** | Claude Sonnet 4.5 via Bedrock AgentCore with RAG knowledge base |
+| --- | --- |
+| **AI Chat** | Amazon Nova Pro via Bedrock with tool-calling + RAG knowledge base |
 | **Voice I/O** | Web Speech API + Amazon Polly (TTS) + Transcribe fallback |
-| **Crop Doctor** | Upload photo → Claude Sonnet 4.5 Vision → disease diagnosis + treatment |
+| **Crop Doctor** | Upload photo → Amazon Nova Pro Vision → disease diagnosis + treatment |
 | **Weather** | OpenWeatherMap API → farming-specific advisories |
 | **Govt Schemes** | Knowledge base of 9+ schemes with eligibility matching |
 | **Farmer Profile** | DynamoDB storage for personalized recommendations |
@@ -24,7 +24,7 @@ An AI-powered agricultural advisor that helps Indian farmers with crop guidance,
 
 ### Tech Stack
 
-- **AI**: Amazon Bedrock AgentCore + Claude Sonnet 4.5 + Knowledge Bases
+- **AI**: Amazon Bedrock (Nova Pro + Nova Lite) + Knowledge Bases
 - **Backend**: 7 AWS Lambda functions + API Gateway (REST)
 - **Frontend**: React 18 + Vite (S3 + CloudFront)
 - **Database**: DynamoDB (profiles + chat sessions)
@@ -34,7 +34,7 @@ An AI-powered agricultural advisor that helps Indian farmers with crop guidance,
 ### Team
 
 | Name | Role | Track |
-|------|------|-------|
+| --- | --- | --- |
 | Sanjay M | Team Lead + Frontend | React UI, components, pages |
 | Manoj RS | Backend + Infrastructure | Lambdas, SAM, Bedrock, API Gateway |
 | Abhishek Reddy | Data + Knowledge Base | Crop data, scheme data, KB documents |
@@ -42,14 +42,12 @@ An AI-powered agricultural advisor that helps Indian farmers with crop guidance,
 
 ### Repository Structure
 
-```
+```text
 smart-rural-ai-advisor/
-├── architecture/          # System design docs
 ├── infrastructure/        # SAM template + deploy scripts
 ├── backend/lambdas/       # 7 Lambda functions
 ├── backend/utils/         # Shared helpers
 ├── frontend/src/          # React app (5 pages, 3 components)
-├── data/                  # Knowledge base docs + crop data
-├── demo/                  # Screenshots + demo video link
-└── docs/                  # Problem statement + additional docs
+├── docs/                  # Submission docs + architecture diagram
+└── archive/               # Local archival backup (gitignored)
 ```

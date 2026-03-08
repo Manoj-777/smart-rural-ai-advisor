@@ -8,6 +8,8 @@
 > **Demo Video:** [Watch on YouTube](#) <!-- TODO: replace with actual link -->  
 > **Repository:** [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor)
 
+> Note: Internal regression scripts and prompt datasets were archived from the submission-facing repository to keep evaluation focused on the live prototype and production code.
+
 ---
 
 ## Table of Contents
@@ -250,8 +252,8 @@ An optional Bedrock Guardrail layer provides:
 | Resource | URL |
 |---|---|
 | **Frontend (CloudFront)** | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) |
-| **API Gateway** | `https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/` |
-| **Health Check** | [/health](https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod/health) |
+| **API Gateway** | `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod/` |
+| **Health Check** | `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod/health` |
 
 > Evaluators can open the CloudFront URL on any modern browser (Chrome recommended for voice input). No installation required.
 
@@ -310,50 +312,25 @@ Switch to Telugu → entire UI and chat switch to Telugu with Telugu audio outpu
 smart-rural-ai-advisor/
 ├── frontend/                        # React 18 + Vite SPA
 │   ├── src/
-│   │   ├── pages/                   # ChatPage, WeatherPage, CropDoctorPage,
-│   │   │                            #   SchemesPage, ProfilePage, DashboardPage
-│   │   ├── components/              # Sidebar, VoiceInput, ChatMessage, SkeletonLoader
-│   │   ├── hooks/                   # useSpeechRecognition (Web Speech + Transcribe)
-│   │   ├── contexts/                # LanguageContext (13 languages)
-│   │   ├── i18n/                    # translations.js (13 language packs)
-│   │   └── services/                # API helpers
-│   └── index.html
-│
-├── backend/
+│   ├── package.json
+│   └── .env.example
+├── backend/                         # AWS Lambda handlers and shared utils
 │   ├── lambdas/
-│   │   ├── agent_orchestrator/      # Main AI orchestrator — tool-calling, translation, TTS
-│   │   ├── weather_lookup/          # OpenWeather API integration
-│   │   ├── crop_advisory/           # Crop recommendation engine (Bedrock KB / RAG)
-│   │   ├── govt_schemes/            # Government scheme search
-│   │   ├── farmer_profile/          # DynamoDB profile CRUD + OTP auth
-│   │   ├── image_analysis/          # Crop disease diagnosis (Nova Pro Vision)
-│   │   └── transcribe_speech/       # Amazon Transcribe STT
-│   └── utils/                       # Shared helpers (response, translate, polly, dynamo, error)
-│
-├── infrastructure/
-│   ├── template.yaml                # AWS SAM template (all resources)
-│   ├── samconfig.toml               # SAM deployment config
-│   └── deploy.sh                    # One-click deployment script
-│
-├── data/
-│   ├── crop_data.csv                # Indian crop database (seasons, soil, regions)
-│   ├── govt_schemes.json            # 10+ government schemes with eligibility
-│   └── knowledge_base/              # RAG documents for Bedrock KB
-│
-├── agentcore/
-│   └── agent.py                     # Bedrock AgentCore runtime definitions
-│
-├── architecture/
-│   └── architecture.md              # Detailed architecture documentation
-│
-├── docs/
-│   ├── COMPLETE_SYSTEM_GUIDE.md     # Full technical deep-dive
-│   ├── PROBLEM_STATEMENT.md         # Problem statement
-│   ├── PROJECT_SUMMARY.md           # Project summary
-│   └── Detailed_Implementation_Guide.md
-│
-└── demo/
-    └── demo_video_link.md           # Demo video URL and walkthrough script
+│   ├── utils/
+│   └── requirements.txt
+├── infrastructure/                  # SAM/CloudFormation deployment assets
+│   ├── template.yaml
+│   ├── samconfig.toml
+│   ├── deploy.sh
+│   ├── deploy_cfn.ps1
+│   └── cognito_config.json
+├── docs/                            # Submission-facing documentation
+│   ├── PROJECT_SUMMARY.md
+│   ├── PROBLEM_STATEMENT.md
+│   ├── Smart_Rural_AI_Advisor_Submission.md
+│   ├── ARCHITECTURE.md
+│   └── architecture-diagram.svg
+└── archive/                         # Local archival backup (ignored by git)
 ```
 
 ---
@@ -375,7 +352,7 @@ npm install
 npm run dev          # Opens http://localhost:5173
 ```
 
-The frontend is pre-configured to call the live API Gateway endpoint. No `.env` changes needed for testing.
+Configure `frontend/.env` from `frontend/.env.example` before local run.
 
 ### Deploy Full Stack (SAM)
 
@@ -398,13 +375,7 @@ $env:OPENWEATHER_API_KEY_SECRET_ARN = "arn:aws:secretsmanager:ap-south-1:<accoun
 ./infrastructure/deploy_cfn.ps1
 ```
 
-### Deploy Individual Lambda
-
-```bash
-python _deploy_fixes.py --only orchestrator   # Deploy orchestrator only
-```
-
----
+Optional CI helper: `buildspec.yml` is included for teams that want to run SAM build/deploy through AWS CodeBuild.
 
 ## API Reference
 
@@ -421,7 +392,7 @@ python _deploy_fixes.py --only orchestrator   # Deploy orchestrator only
 | `POST` | `/otp/verify` | FarmerProfile | Verify OTP |
 | `GET` | `/health` | HealthCheck (inline) | Stack health check |
 
-Base URL: `https://zuadk9l1nc.execute-api.ap-south-1.amazonaws.com/Prod`
+Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 
 ---
 

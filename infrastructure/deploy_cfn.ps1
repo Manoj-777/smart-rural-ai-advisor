@@ -1,10 +1,10 @@
 Param(
     [string]$StackName = "smart-rural-ai",
     [string]$Region = "ap-south-1",
-    [string]$S3Bucket = "smart-rural-ai-948809294205",
-    [string]$BedrockKBId = "9X1YUTXNOQ",
+    [string]$S3Bucket = "CHANGE_ME_S3_BUCKET",
+    [string]$BedrockKBId = "",
     [string]$EnforceCodePolicy = "true",
-    [string]$CognitoUserPoolId = "ap-south-1_X58lNMEcn",
+    [string]$CognitoUserPoolId = "",
     [string]$EnableRateLimitTTL = "false"
 )
 
@@ -36,6 +36,10 @@ $openWeatherApiKey = $env:OPENWEATHER_API_KEY
 
 if ([string]::IsNullOrWhiteSpace($openWeatherSecretArn) -and ([string]::IsNullOrWhiteSpace($openWeatherApiKey) -or $openWeatherApiKey -eq "CHANGE_ME")) {
     throw "Provide OPENWEATHER_API_KEY_SECRET_ARN (preferred) or OPENWEATHER_API_KEY in your shell environment before deploy."
+}
+
+if ([string]::IsNullOrWhiteSpace($S3Bucket) -or $S3Bucket -eq "CHANGE_ME_S3_BUCKET") {
+    throw "Provide -S3Bucket with your deployment bucket name before deploy."
 }
 
 Write-Host "========================================="

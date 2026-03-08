@@ -58,6 +58,28 @@ def _validate_phone(phone):
     return clean, None
 
 
+def _mask_phone(phone_value):
+    """Mask phone for API responses: 9876543210 -> 987***10."""
+    if phone_value is None:
+        return None
+    digits = re.sub(r'\D', '', str(phone_value))
+    if len(digits) < 5:
+        return '***'
+    return f"{digits[:3]}***{digits[-2:]}"
+
+
+def _mask_profile_phone_fields(profile):
+    """Return a copy of profile with sensitive phone fields masked."""
+    if not isinstance(profile, dict):
+        return profile
+
+    masked = dict(profile)
+    for field in ('phone', 'phone_number', 'mobile', 'phone_normalized'):
+        if field in masked and masked[field] is not None:
+            masked[field] = _mask_phone(masked[field])
+    return masked
+
+
 def _extract_phone_from_farmer_id(farmer_id):
     value = str(farmer_id or '').strip()
     if not CANONICAL_FARMER_ID_PATTERN.match(value):
@@ -285,6 +307,7 @@ def get_profile(farmer_id):
 
     if 'Item' in result:
         profile_data = convert_decimals(result['Item'])
+        profile_data = _mask_profile_phone_fields(profile_data)
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
@@ -466,7 +489,7 @@ def put_profile(farmer_id, body):
         'body': json.dumps({
             'status': 'success',
             'message': 'Profile saved',
-            'data': convert_decimals(item)
+            'data': _mask_profile_phone_fields(convert_decimals(item))
         })
     }
 
