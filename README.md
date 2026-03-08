@@ -306,60 +306,15 @@ The demo video walks through the full capabilities of Smart Rural AI Advisor:
 
 ```
 smart-rural-ai-advisor/
-├── frontend/                          # React 18 + Vite SPA
-│   ├── src/
-│   │   ├── components/                # ChatMessage, VoiceInput, Sidebar, ScrollPill, SkeletonLoader
-│   │   ├── pages/                     # 11 pages: Dashboard, Chat, Weather, CropDoctor, CropRecommend,
-│   │   │                              #   Schemes, Profile, Login, Price, SoilAnalysis, FarmCalendar
-│   │   ├── contexts/                  # FarmerContext, LanguageContext
-│   │   ├── hooks/                     # useSpeechRecognition, useStreamingSpeech, useGeolocation
-│   │   ├── services/                  # cognitoAuth, mockApi
-│   │   ├── i18n/                      # translations, districtTranslations, schemeTranslations, priceTranslations
-│   │   ├── utils/                     # apiFetch, asyncTts, locationUtils, sanitize
-│   │   ├── config.js                  # API URL, Cognito config, language list
-│   │   ├── languages.js               # Language definitions (13 Indian languages)
-│   │   ├── App.jsx                    # Root component + routing
-│   │   └── main.jsx                   # Entry point
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .env.example
+├── frontend/              # React 18 + Vite SPA — 11 pages, 13 languages
+│   └── src/               # components, pages, contexts, hooks, services, i18n, utils
 ├── backend/
-│   ├── lambdas/
-│   │   ├── agent_orchestrator/        # Main AI orchestrator (Bedrock + tools + TTS)
-│   │   ├── crop_advisory/             # KB-backed RAG retrieval
-│   │   ├── weather_lookup/            # OpenWeatherMap integration
-│   │   ├── govt_schemes/              # Curated scheme data
-│   │   ├── farmer_profile/            # Profile CRUD + OTP
-│   │   ├── image_analysis/            # Nova Pro Vision — crop disease diagnosis
-│   │   └── transcribe_speech/         # Amazon Transcribe fallback
-│   ├── utils/                         # Shared modules
-│   │   ├── guardrails.py              # Input validation, injection prevention, PII masking
-│   │   ├── rate_limiter.py            # Per-farmer DynamoDB rate limiting
-│   │   ├── translate_helper.py        # 3-attempt translation strategy
-│   │   ├── polly_helper.py            # TTS (Polly + gTTS fallback)
-│   │   ├── dynamodb_helper.py         # DynamoDB operations
-│   │   ├── audit_logger.py            # Structured JSON audit trail
-│   │   ├── cors_helper.py             # CORS headers
-│   │   ├── error_handler.py           # Error formatting
-│   │   └── response_helper.py         # Response utilities
-│   └── requirements.txt
-├── infrastructure/                    # SAM/CloudFormation deployment assets
-│   ├── template.yaml                  # AWS SAM template (source of truth)
-│   ├── samconfig.toml                 # Deployment config
-│   ├── deploy.sh                      # Bash deploy script
-│   ├── deploy_cfn.ps1                 # PowerShell deploy script
-│   └── cognito_config.example.json    # Cognito config template
-├── docs/                              # Submission documentation
-│   ├── ARCHITECTURE.md                # Technical architecture deep dive
-│   ├── PROJECT_SUMMARY.md             # Condensed project brief
-│   ├── PROBLEM_STATEMENT.md           # Problem framing
-│   ├── Smart_Rural_AI_Advisor_Submission.md  # Evaluator-oriented submission
-│   ├── KB_OVERVIEW.md                 # Knowledge Base contents & RAG config
-│   └── architecture-diagram.svg       # Visual architecture diagram
-├── buildspec.yml                      # AWS CodeBuild CI/CD
-├── .gitignore
-└── README.md                          # This file
+│   ├── lambdas/           # 7 Lambda functions (orchestrator, crop advisory, weather, schemes, profile, image, transcribe)
+│   └── utils/             # 9 shared modules (guardrails, rate limiter, translate, polly, dynamodb, audit, cors, error, response)
+├── infrastructure/        # SAM template, samconfig, deploy scripts, Cognito config
+├── docs/                  # Architecture, project summary, problem statement, submission brief, KB overview, diagram
+├── buildspec.yml          # AWS CodeBuild CI/CD
+└── README.md
 ```
 
 ---
