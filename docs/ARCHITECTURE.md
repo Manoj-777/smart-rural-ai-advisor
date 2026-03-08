@@ -479,50 +479,108 @@ Every production system involves tradeoffs. We document ours transparently to sh
 
 ## 16. Best Practices & Strengths
 
-### Architectural Best Practices
+### Architectural Excellence
 
 | Practice | Implementation |
 |----------|---------------|
 | **Serverless-first** | Every component is serverless (Lambda, API Gateway, DynamoDB, S3, CloudFront). Zero server management, auto-scaling, pay-per-use. Scales to zero when not in use — critical for a prototype that may see bursty traffic. |
 | **Single-responsibility Lambdas** | Each Lambda has one job: orchestration, weather, crop advisory, schemes, profile, image analysis, transcription. Easy to test, deploy, and debug independently. |
-| **Orchestrator pattern with tool-calling** | The Agent Orchestrator doesn't hard-code routing logic. It passes tool schemas to Bedrock, and the model decides which tools to invoke based on farmer intent. This means adding a new capability (e.g., market prices) requires only adding a new tool schema — no orchestrator code changes. |
-| **Infrastructure as Code** | 100% of AWS resources defined in `infrastructure/template.yaml` (SAM/CloudFormation). Reproducible deployments, version-controlled infrastructure, no manual console changes. |
-| **Environment-driven configuration** | All feature flags, thresholds, model IDs, and table names are environment variables — not hardcoded. Switch from demo to production by changing env vars, not code. |
+| **Orchestrator pattern with tool-calling** | The Agent Orchestrator doesn't hard-code routing logic. It passes tool schemas to Bedrock, and the model decides which tools to invoke based on farmer intent. Adding a new capability = adding a tool schema — no code changes. |
+| **Infrastructure as Code** | 100% of AWS resources defined in `infrastructure/template.yaml` (SAM/CloudFormation). Conditional resources and custom outputs ensure correct deployments. No manual console changes. |
+| **29+ feature flags** | TTS engine, guardrail strictness, cache TTL, audit verbosity, model IDs — all environment variables. Demo → production = env var flip, not code change. |
+| **Single-table DynamoDB design** | Sessions, messages, and cache entries share optimised table layouts with composite partition/sort keys and TTL-based auto-expiry. Minimises table count and provisioning overhead. |
+| **Cascade session delete** | Deleting a chat session atomically removes all child messages, cache entries, and audit records. Zero orphaned data. |
+| **Startup environment validation** | Lambda cold starts validate all required environment variables are present before processing any request. Missing config fails fast with a descriptive error. |
 
-### Security Best Practices
+### Security & Safety (7-Layer Defence in Depth)
 
 | Practice | Implementation |
 |----------|---------------|
-| **Defence in depth (7 layers)** | Input validation → PII masking → injection prevention → toxicity detection → rate limiting → output guardrails → Bedrock Guardrails. No single point of failure for security. |
+| **Layered security pipeline** | Input validation → PII masking → injection prevention → toxicity detection → rate limiting → output guardrails → Bedrock Guardrails. No single point of failure for security. |
 | **Least-privilege IAM** | Each Lambda has a dedicated IAM role scoped to only the resources it needs. The Weather Lambda can only read from Secrets Manager; it cannot access DynamoDB or Bedrock. |
+| **ReDoS protection** | Regex input lengths are capped to prevent denial-of-service via pathological regex patterns. Guards against crafted inputs that could cause exponential backtracking. |
+| **Crisis helpline redirect** | Self-harm and distress detection triggers immediate display of 3 Indian helpline numbers (iCall, Vandrevala Foundation, AASRA) instead of any AI-generated response. |
+| **Banned pesticide detection** | 8 specific hazardous chemicals (endosulfan, monocrotophos, etc.) are detected in queries and responses, with safer alternatives suggested automatically. |
+| **System prompt leak prevention** | 15 marker patterns in AI output are checked to prevent the model from exposing internal system instructions to the user. |
 | **PII never reaches logs** | All PII (Aadhaar, phone, PAN, email, bank account, IFSC) is detected and masked before CloudWatch logging. Even if logs are compromised, no farmer data is exposed. |
 | **Injection prevention at every entry point** | 20+ regex patterns block prompt injection, SQL injection, and command injection — applied at the orchestrator, crop advisory, and image analysis layers independently. |
 | **CORS strict origin** | API Gateway only accepts requests from the production CloudFront domain. No wildcard origins, no localhost in production. |
 | **Secrets in Secrets Manager** | API keys (OpenWeather) stored in AWS Secrets Manager — never in environment variables, code, or config files. |
 | **Output sanitisation** | AI responses are sanitised for HTML/script tags, PII leakage, and prompt leak patterns before delivery to the farmer. |
-| **DOMPurify on frontend** | All markdown/HTML rendering uses DOMPurify to prevent XSS — even if the AI model generates unexpected HTML. |
+| **Custom DOMPurify allowlist** | All markdown/HTML rendering uses DOMPurify with a curated tag/attribute whitelist to prevent XSS — even if the AI model generates unexpected HTML. |
+| **Chat title sanitisation** | User-provided session titles are sanitised to prevent stored XSS attacks. |
+| **Chat idempotency** | Duplicate message submissions within a short window are detected and deduplicated to prevent double-processing. |
 
-### System Design Best Practices
-
-| Practice | Implementation |
-|----------|---------------|
-| **Graceful degradation** | Model fallback (Nova Pro → Nova 2 Lite), TTS fallback (Polly → gTTS → text-only), voice fallback (Web Speech → Transcribe). The system always returns something useful, even when a service is degraded. |
-| **Timeout budgeting** | API Gateway hard limit: 29s. The orchestrator allocates time budgets: 25s for tools, 18s TTS cutoff, 5s buffer. If time runs out, TTS is skipped but text response is still delivered. |
-| **Idempotent operations** | DynamoDB atomic updates for rate limiting (`SET hit_count = if_not_exists(hit_count, 0) + 1`) prevent race conditions under concurrent requests. |
-| **TTL-based cleanup** | Chat sessions (30 days), OTP codes (5 minutes), rate-limit counters (minutes/hours/days) all use DynamoDB TTL for automatic expiry. No cron jobs, no manual cleanup. |
-| **Connection pooling** | The orchestrator reuses HTTP connections (max 25) for child Lambda invocations, reducing cold-start overhead on concurrent tool calls. |
-| **Observability** | CloudWatch logs for all Lambdas + custom metrics for tool execution times + audit trail for security events (guardrail blocks, PII detection, policy decisions). |
-
-### AI/ML Best Practices
+### AI/ML Intelligence
 
 | Practice | Implementation |
 |----------|---------------|
 | **RAG over fine-tuning** | Bedrock Knowledge Base provides grounded responses from verified agricultural data. No training data curation, no compute cost, instantly updatable by adding documents to S3. |
-| **Hallucination prevention** | Three-layer approach: (1) RAG grounds responses in real data, (2) code-level fact-checking validates AI output against tool results, (3) Bedrock Guardrails provide grounding checks. |
-| **Cautious pest diagnosis** | The system never hard-asserts a single disease from symptoms alone. It lists probable causes with confidence levels and always recommends visiting a KVK (Krishi Vigyan Kendra) for confirmation. |
-| **Tool-use over prompt stuffing** | Instead of cramming weather/crop/scheme data into the prompt, the model calls tools to retrieve live data. This keeps context windows clean and responses grounded in current information. |
+| **3-layer hallucination prevention** | (1) RAG grounds responses in real data, (2) code-level fact-checking validates AI output against tool results, (3) Bedrock Guardrails provide grounding checks. |
+| **21-rule system prompt** | Inline MSP/NPK reference data, tool-first routing policy, cautious diagnosis mandate, and multilingual output rules — all in one structured prompt. |
+| **200-term AgriPolicy keyword set** | Domain gating ensures only agriculture-relevant queries reach Bedrock tools; off-topic queries are politely deflected without wasting model invocations. |
+| **Greeting shortcut** | Simple greetings ("hi", "vanakkam", "namaste") skip Bedrock entirely, saving cost and latency. |
+| **Multilingual intent classification** | Tamil, Hindi, and Telugu agricultural keywords detected natively without a translation round-trip, reducing latency for non-English users. |
+| **Tool-first routing** | System prompt instructs the model to prefer tool invocations over generating answers from memory, ensuring all responses are grounded in live data. |
+| **Tool result enrichment** | Raw tool data is post-processed with state filtering, cross-state scheme detection, and advisory augmentation before being passed to the model for synthesis. |
+| **Strict soil evidence guard** | Soil recommendations require actual soil data from the farmer's profile or tool results; the model cannot fabricate soil parameters. |
+| **Cautious pest diagnosis** | The system never hard-asserts a single disease from symptoms alone. It lists probable causes with confidence levels and always recommends visiting a KVK for confirmation. |
 | **Quality gates on retrieval** | KB retrieval requires minimum score (0.35) and minimum good chunks (2). Low-quality retrievals trigger automatic query rewrite, not hallucinated responses. |
-| **Freshness detection** | Time-sensitive queries (MSP prices, scheme deadlines) are flagged if retrieved KB content is older than 1 year. The response includes a caveat rather than presenting stale data as current. |
+| **Freshness detection** | Time-sensitive queries (MSP prices, scheme deadlines) are flagged if retrieved KB content is older than 1 year. An explicit caveat is included. |
+
+### Translation & Localization Intelligence
+
+| Practice | Implementation |
+|----------|---------------|
+| **3-attempt translation strategy** | Bedrock Lite → Amazon Translate → graceful English fallback, with garbled output detection between each attempt. Maximises quality; minimises cost. |
+| **Token-based markdown protection** | Markdown syntax (headers, bold, links) is replaced with placeholder tokens before translation and restored after — prevents Amazon Translate from corrupting formatting. |
+| **700+ district name translations** | Pre-computed translations in 7 Indian scripts (Devanagari, Tamil, Telugu, Kannada, Malayalam, Bengali, Gujarati) for instant, accurate location rendering without API calls. |
+| **Per-language Latin-script thresholds** | Detects when a translation returned too much Latin script (e.g., Tamil output still containing English words) and auto-retries with a different engine. |
+| **Tamil-specific post-processing** | Handles unique Tamil Unicode rendering quirks and agricultural term translation artifacts that other languages don't encounter. |
+| **Indic output normalisation** | Corrects numbered list renumbering, agricultural term translation artifacts, and script-specific rendering issues across all 13 languages. |
+| **Chunked translation** | Long responses are split into chunks respecting sentence boundaries to stay within Translate API limits without breaking context. |
+
+### System Design & Resilience
+
+| Practice | Implementation |
+|----------|---------------|
+| **Graceful degradation** | Model fallback (Nova Pro → Nova 2 Lite), TTS fallback (Polly → gTTS → text-only), voice fallback (Web Speech → Transcribe). The system always returns something useful, even when a service is degraded. |
+| **Category-aware response caching** | SHA-256 hashed cache keys with domain-specific TTLs (weather = 1 h, schemes = 12 h) eliminate redundant Bedrock calls and significantly reduce cost. |
+| **Parallel tool execution** | `ThreadPoolExecutor` runs up to 5 tool invocations concurrently per chat turn, reducing multi-tool query latency. |
+| **Context window management** | Sliding window (500 chars × 40 messages) keeps conversations efficient without token overflow. Older messages are transparently truncated. |
+| **Timeout budgeting** | API Gateway hard limit: 29s. The orchestrator allocates time budgets: 25s for tools, 18s TTS cutoff, 5s buffer. If time runs out, TTS is skipped but text response is still delivered. |
+| **Dual chat persistence** | localStorage provides instant page loads; DynamoDB provides cross-device sync and durability. Both sources are reconciled on load. |
+| **Session eviction** | Max 20 sessions per user; oldest auto-archived to prevent unbounded storage growth. |
+| **Early user message save** | User messages are persisted to DynamoDB *before* Bedrock processing — data is never lost even if the AI call fails or times out. |
+| **In-memory profile cache** | 120-second TTL cache avoids redundant DynamoDB reads for profile data within an active session. |
+| **Idempotent operations** | DynamoDB atomic updates for rate limiting (`SET hit_count = if_not_exists(hit_count, 0) + 1`) prevent race conditions under concurrent requests. |
+| **TTL-based cleanup** | Chat sessions (30 days), OTP codes (5 minutes), rate-limit counters (minutes/hours/days) all use DynamoDB TTL for automatic expiry. No cron jobs, no manual cleanup. |
+| **Connection pooling** | The orchestrator reuses HTTP connections (max 25) for child Lambda invocations, reducing cold-start overhead on concurrent tool calls. |
+| **gTTS exponential backoff + jitter** | TTS failures retry with exponential delay and random jitter to avoid thundering herd on rate-limited gTTS endpoints. |
+
+### Frontend Engineering
+
+| Practice | Implementation |
+|----------|---------------|
+| **`requestIdleCallback` prefetching** | Preloads chat history and profile data during browser idle time; zero perceived latency on page transitions. |
+| **PageErrorBoundary** | Each route wrapped in an error boundary; a single component crash doesn't take down the app. Users see a friendly error message with retry. |
+| **Cognito session restore** | 3-second timeout race: if Cognito token refresh hangs, the app loads anyway with cached state. Prevents auth issues from blocking the entire app. |
+| **Orphan Cognito user cleanup** | Detects users who signed up but never completed profile creation and offers cleanup — prevents abandoned accounts. |
+| **15+ responsive breakpoints** | Mobile-first CSS optimised for budget Android phones and small Indian-market screens (320px–1440px+). |
+| **Staggered skeleton loaders** | Shimmer animations prevent layout shift while data loads. Different components animate with staggered delays for a polished feel. |
+| **Auto-refresh presigned URLs** | Expired S3 audio presigned URLs are silently refreshed in the background — past audio playback never fails with 403 errors. |
+| **6-field timestamp normalisation** | Handles multiple timestamp formats from DynamoDB and API to ensure consistent chronological display in chat and session lists. |
+| **ResizeObserver scroll pill** | Auto-shows "scroll to bottom" indicator when new messages arrive below the viewport. No missed messages. |
+| **ARIA attributes** | Chat messages, voice buttons, and navigation elements include accessibility roles and labels for screen reader support. |
+
+### Observability & Audit
+
+| Practice | Implementation |
+|----------|---------------|
+| **Structured JSON audit trail** | 7 event categories and 13 action types; every guardrail block, PII detection, tool invocation, and policy decision is logged with structured metadata for querying. |
+| **PII-safe logging** | Audit logs capture event metadata (action type, category, timestamp) without exposing farmer personal data. Safe to ship to any log aggregator. |
+| **CloudWatch custom metrics** | Tool execution latency, cache hit rates, and guardrail trigger counts tracked as custom metrics for operational dashboards. |
+| **Bedrock guardrail audit** | Every guardrail intervention (topic gate, toxicity block, grounding failure) logged with the triggering input pattern for continuous improvement. |
 
 ---
 

@@ -427,27 +427,67 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 
 ## Strengths & Best Practices
 
-### Architectural
-- **100 % Serverless** — zero idle cost; auto-scales from 1 to 10 000 concurrent farmers.
-- **Infrastructure-as-Code** — single `template.yaml` creates the entire stack in one command.
+### Architectural Excellence
+- **100 % Serverless** — zero idle cost; auto-scales from 1 to 10 000 concurrent farmers with no capacity planning.
+- **Infrastructure-as-Code** — single `template.yaml` creates the entire stack in one command. Conditional resources and startup environment validation ensure deployment correctness.
 - **Micro-Lambda pattern** — 7 single-responsibility functions; isolated deployments and blast-radius containment.
-- **Feature flags** — `ENABLE_DEMO_OTP` lets the same code run in demo vs. production mode with no redeployment.
+- **29+ feature flags** — TTS engine, guardrail strictness, cache TTL, audit verbosity, model IDs — all configurable without redeployment. Demo → production is an env-var flip.
+- **Single-table DynamoDB design** — sessions, messages, and cache entries share optimised table layouts with composite keys and TTL-based auto-expiry. No cron jobs.
+- **Cascade session delete** — deleting a chat session atomically removes all child messages, cache entries, and audit records — zero orphaned data.
 
-### Security
-- **Least-privilege IAM** — every Lambda has a dedicated role scoped only to the resources it accesses.
-- **JWT authentication** — Cognito-issued tokens validated on every protected API route.
-- **Input sanitisation** — DOMPurify on the frontend; Bedrock Guardrails filter harmful/off-topic AI inputs.
+### Security & Safety (7-Layer Defence in Depth)
+- **Layered security pipeline** — input validation → PII masking → injection prevention → toxicity detection → rate limiting → output guardrails → Bedrock Guardrails. No single point of failure.
+- **Least-privilege IAM** — every Lambda has a dedicated role scoped only to the resources it accesses. Weather Lambda cannot touch DynamoDB.
+- **ReDoS protection** — regex input lengths capped to prevent denial-of-service via pathological patterns.
+- **Crisis helpline redirect** — self-harm / distress detection triggers immediate display of 3 Indian helpline numbers (iCall, Vandrevala, AASRA) instead of an AI response.
+- **Banned pesticide detection** — 8 hazardous chemicals (endosulfan, monocrotophos, etc.) detected with safer alternatives suggested automatically.
+- **System prompt leak prevention** — 15 marker patterns in AI output are checked to prevent the model from exposing internal system instructions.
+- **PII never in logs** — Aadhaar, phone, PAN, email, bank account, IFSC masked before CloudWatch logging.
+- **Custom DOMPurify allowlist** — frontend sanitises AI-generated markdown with a curated tag/attribute whitelist preventing XSS.
 - **No hardcoded secrets** — API keys in Secrets Manager; config injected via CloudFormation environment variables.
 
-### System Design
-- **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro → Nova Lite → error card; Web Speech → Transcribe.
-- **Multi-layer caching** — DynamoDB TTL caches for weather/schemes reduce redundant API calls by ~60 %.
+### System Design & Resilience
+- **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro → Nova 2 Lite → error card; Web Speech → Transcribe. Always returns something useful.
+- **Category-aware response caching** — SHA-256 hashed keys with domain-specific TTLs (weather = 1 h, schemes = 12 h) eliminate redundant Bedrock calls and save cost.
+- **Parallel tool execution** — `ThreadPoolExecutor` runs up to 5 tool invocations concurrently per chat turn, reducing multi-tool latency.
+- **Context window management** — sliding window (500 chars × 40 messages) keeps conversations efficient without token overflow.
+- **Timeout budgeting** — 25 s tools, 18 s TTS cutoff, 29 s API GW hard limit. Slow services are skipped, text always delivered.
+- **Dual chat persistence** — localStorage for instant page loads + DynamoDB for cross-device sync and durability.
+- **Session eviction** — max 20 sessions per user; oldest auto-archived to prevent unbounded growth.
+- **Connection pooling** — 25 max concurrent HTTP connections reused across child Lambda invocations.
 - **Idempotent APIs** — OTP verify, profile PUT, and chat are safe to retry without side-effects.
 
-### AI / ML
+### AI / ML Intelligence
 - **RAG over hallucination** — Bedrock Knowledge Base grounds every crop advisory in verified government/ICAR data.
-- **Guardrails-first** — Bedrock Guardrails enforce topic gating, grounding thresholds, and content safety before any response reaches the farmer.
-- **Agentic tool-use** — the model autonomously chooses which backend tools to invoke per query, removing brittle intent-classification logic.
+- **21-rule system prompt** — inline MSP/NPK reference data, tool-first routing policy, cautious diagnosis mandate, and multilingual output rules — all in one structured prompt.
+- **200-term AgriPolicy keyword set** — domain gating ensures only agriculture-relevant queries reach Bedrock tools; off-topic queries are politely deflected.
+- **Greeting shortcut** — simple greetings ("hi", "vanakkam", "namaste") skip Bedrock entirely, saving cost and latency.
+- **Tool result enrichment** — raw tool data is post-processed with state filtering, cross-state scheme detection, and advisory augmentation before being passed to the model.
+- **Quality gates** — KB retrieval requires min score (0.35) and min 2 good chunks; auto-rewrites query on low quality.
+- **Freshness detection** — flags stale data for time-sensitive queries (MSP prices, scheme deadlines) with a caveat.
+- **Cautious pest diagnosis** — never hard-asserts a disease; lists probabilities and always recommends KVK confirmation.
+
+### Translation & Localization Intelligence
+- **3-attempt translation strategy** — Bedrock Lite → Amazon Translate → graceful English fallback, with garbled output detection between each attempt.
+- **Token-based markdown protection** — replaces markdown syntax with placeholder tokens before translation, restores after — prevents Translate from corrupting formatting.
+- **700+ district name translations** — pre-computed translations in 7 Indian scripts for instant, accurate location rendering.
+- **Per-language Latin-script thresholds** — detects when a translation returned too much Latin script (e.g., Tamil output with English words) and auto-retries.
+- **Tamil-specific post-processing** — handles unique Tamil Unicode rendering quirks and agri-term translation artifacts.
+
+### Frontend Engineering
+- **`requestIdleCallback` prefetching** — preloads chat history and profile data during browser idle time; zero perceived latency on page transitions.
+- **PageErrorBoundary** — each route wrapped in an error boundary; a single component crash doesn't take down the app.
+- **Cognito session restore** — 3-second timeout race: if token refresh hangs, the app loads anyway with cached state.
+- **Orphan Cognito user cleanup** — detects users who signed up but never completed profile creation and offers cleanup.
+- **15+ responsive breakpoints** — mobile-first CSS optimised for budget Android phones and small Indian-market screens.
+- **Staggered skeleton loaders** — shimmer animations prevent layout shift while data loads.
+- **Auto-refresh presigned URLs** — expired S3 audio URLs are silently refreshed in the background.
+
+### Observability & Audit
+- **Structured JSON audit trail** — 7 event categories and 13 action types; every guardrail block, PII detection, and policy decision is logged.
+- **PII-safe logging** — audit logs capture event metadata without exposing farmer personal data.
+- **CloudWatch custom metrics** — tool execution latency, cache hit rates, and guardrail trigger counts tracked as custom metrics.
+- **Bedrock guardrail audit** — every guardrail intervention (topic gate, toxicity block, grounding failure) logged with the triggering input.
 
 ---
 
