@@ -2,7 +2,7 @@
 
 > **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026  
 > **Live Prototype:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net)  
-> **Repository:** [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor)
+> **Repository:** [github.com/Sanjay060901/smart-rural-ai-advisor](https://github.com/Sanjay060901/smart-rural-ai-advisor)
 
 ---
 

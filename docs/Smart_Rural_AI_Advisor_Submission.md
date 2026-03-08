@@ -10,7 +10,7 @@
 | Artifact | Link |
 |----------|------|
 | **Live Prototype** | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) |
-| **GitHub Repository** | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) |
+| **GitHub Repository** | [github.com/Sanjay060901/smart-rural-ai-advisor](https://github.com/Sanjay060901/smart-rural-ai-advisor) |
 | **Demo Video** | [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2) |
 | **Project PPT** | *Uploaded to dashboard* |
 
@@ -458,7 +458,7 @@ Single region           →  Multi-region DR            →  Global CDN + edge
 | Deliverable | Status |
 |-------------|--------|
 | **Project PPT** | Uploaded to dashboard |
-| **GitHub Repository** | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) (public) |
+| **GitHub Repository** | [github.com/Sanjay060901/smart-rural-ai-advisor](https://github.com/Sanjay060901/smart-rural-ai-advisor) (public) |
 | **Working Prototype** | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) (live) |
 | **Demo Video** | [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2) |
 | **Project Summary** | `docs/PROJECT_SUMMARY.md` |

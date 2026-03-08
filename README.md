@@ -6,7 +6,7 @@
 > **Team:** Creative Intelligence (CI)  
 > **Live Prototype:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net)  
 > **Demo Video:** [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2)  
-> **Repository:** [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor)
+> **Repository:** [github.com/Sanjay060901/smart-rural-ai-advisor](https://github.com/Sanjay060901/smart-rural-ai-advisor)
 
 > Note: Internal regression scripts and prompt datasets were archived from the submission-facing repository to keep evaluation focused on the live prototype and production code.
 
@@ -514,7 +514,7 @@ Single region (Mumbai)    →  Multi-region DR              →  Global CDN + ed
 | Deliverable | Status | Link |
 |---|---|---|
 | **Project PPT** | 📋 Ready | *Uploaded to dashboard* |
-| **GitHub Repository** | ✅ Public | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) |
+| **GitHub Repository** | ✅ Public | [github.com/Sanjay060901/smart-rural-ai-advisor](https://github.com/Sanjay060901/smart-rural-ai-advisor) |
 | **Working Prototype** | ✅ Live | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) |
 | **Demo Video** | 🎬 Ready | [Watch on YouTube](https://youtu.be/PYYTB6gH1rI?si=38Iub-dKBXA8XEz2) |
 | **Project Summary** | ✅ Complete | See [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) |
