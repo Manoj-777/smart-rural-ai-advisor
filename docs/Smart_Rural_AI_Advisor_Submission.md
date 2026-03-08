@@ -1,290 +1,419 @@
-# Smart Rural AI Advisor
-### AWS AI for Bharat Hackathon — Idea Submission
+# Smart Rural AI Advisor — Submission Brief
 
-**Team Name:** Creative Intelligence (CI)  
-**Team Leader:** Sanjay M  
-
----
-
-## Problem Statement
-
-> Indian farmers lack an accessible, decision-oriented system that integrates traditional farming practices, real-time data, and government support into clear, voice-based, and predictive guidance for sustainable farming.
+> **Team:** Creative Intelligence (CI) | **Hackathon:** AWS AI for Bharat 2026
+> **Region:** ap-south-1 (Mumbai) | **Runtime:** Python 3.13, React 18 | **IaC:** AWS SAM
 
 ---
 
-## Idea Brief
+## Quick Links
 
-Our solution is a **voice-enabled, multilingual AI advisor** for Indian farmers that combines:
-
-- Traditional farming knowledge
-- Real-time weather and crop intelligence
-- Government schemes and financial support
-
-Using **agent-based AI**, it provides predictive, explainable, and actionable guidance on crop planning, irrigation, pest management, and loans — helping farmers make timely, sustainable decisions while working seamlessly with existing rural and government ecosystems.
-
----
-
-## How Is This Different From Existing Solutions?
-
-Existing platforms mainly provide **static information, dashboards, or alerts**, requiring farmers to interpret and decide on their own.
-
-Our solution uses a **voice-based, agentic AI system** that:
-- Reasons across traditional knowledge, real-time data, and government schemes
-- Delivers clear, actionable decisions — not just raw information
-- Is multilingual, voice-first, and designed for low digital literacy
-- Ensures wider adoption among rural farmers who may not be tech-savvy
+| Artifact | Link |
+|----------|------|
+| **Live Prototype** | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) |
+| **GitHub Repository** | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) |
+| **Demo Video** | [Watch on YouTube](#) |
+| **Project PPT** | *Uploaded to dashboard* |
 
 ---
 
-## How Does This Solution Solve the Problem?
+## 1. Problem We Solve
 
-- Integrates weather, soil, crop data, traditional practices, and government support into a **single AI advisor**
-- Predicts risks such as water stress, pest outbreaks, and climate impact — providing **preventive guidance before losses occur**
-- Farmers receive step-by-step, explainable recommendations on farming practices, loans, and insurance — reducing uncertainty and financial stress
+**86% of Indian farming households are small/marginal** (< 5 acres) and face five critical information gaps:
+
+| Gap | Scale of Impact |
+|-----|----------------|
+| **No expert access** | 1 extension officer per 1,000+ farmers — most never receive personalised advice |
+| **Language barriers** | Resources are English-only; farmers speak 13+ languages — eligible benefits go unclaimed |
+| **Delayed disease response** | Lab diagnosis takes days; a 48-hour delay can mean 30–50% crop damage |
+| **Unclaimed govt benefits** | ₹2+ lakh crore in schemes (PM-KISAN, PMFBY, KCC) go unenrolled annually |
+| **Weather unpredictability** | Climate change disrupts traditional farming calendars — no farming-specific weather advice exists |
+
+**Bottom line:** India's farmers who produce the nation's food are the least served by information technology.
 
 ---
 
-## USP (Unique Selling Proposition)
+## 2. Our Solution
 
-- A **single trusted AI advisor** that combines tradition, technology, and policy
-- **Voice-first, explainable, and predictive** decision support — not just information
-- Seamlessly works with existing government systems, **empowering farmers without disrupting** current practices
+**Smart Rural AI Advisor** is a fully serverless, voice-first, multilingual AI agricultural assistant built on AWS. It provides Indian farmers with instant, personalised farming guidance — in their own language — through a simple web interface accessible on any smartphone.
+
+### What Makes It Different
+
+| Differentiator | How |
+|---------------|-----|
+| **Voice-first, not text-first** | Full voice I/O in 13 Indian languages — usable by farmers who can't read/type |
+| **AI reasons, not just searches** | Amazon Bedrock Nova Pro performs multi-step reasoning: correlate symptoms + weather + season + soil → deliver diagnosis + treatment |
+| **Grounded in verified data** | RAG (Bedrock Knowledge Base) ensures crop advice, MSP values, and pesticide dosages are factual |
+| **Photo-based diagnosis** | Upload a leaf photo → Nova Pro Vision returns disease, severity, treatment in seconds |
+| **Personalised** | Farmer profile (crops, soil, district, language) makes every interaction contextually relevant |
+| **Zero cost to farmer** | Serverless on AWS — scales to zero, free-tier friendly, no app installation required |
 
 ---
 
-## Features
+## 3. Why AI Is Required
 
-| Feature | Description |
+Traditional software (static FAQs, IVR hotlines, portals) cannot solve these gaps:
+
+| Challenge | Why Only Generative AI Can Solve It |
+|-----------|-------------------------------------|
+| **Multi-step reasoning** | "My rice has brown spots and it rained yesterday" → correlate symptoms + weather + season + location → diagnose blast disease → recommend treatment. This is LLM reasoning, not keyword matching. |
+| **13-language support** | Building separate content for each language × crop × region is infeasible. GenAI + Amazon Translate covers all 13 from a single knowledge base. |
+| **Photo diagnosis** | Identifying crop diseases from leaf images requires vision AI (Nova Pro Vision). No rule-based system can achieve this. |
+| **Personalisation at scale** | Dynamically combining farmer profile + live weather + scheme eligibility requires reasoning — not static lookup. |
+| **Voice accessibility** | The full pipeline (speech → intent → tools → advisory → speech) is inherently an AI problem. |
+| **Hallucination prevention** | RAG with verified agricultural data ensures the AI doesn't fabricate pesticide dosages or MSP values. |
+
+**In one line:** Without Generative AI, building a system that reasons across weather + crop science + pest databases + government policy — in 13 languages, with voice — would be infeasible for any team.
+
+---
+
+## 4. How AWS Services Are Used
+
+### 4a. Generative AI (Amazon Bedrock)
+
+| Bedrock Capability | How We Use It |
+|-------------------|---------------|
+| **Nova Pro (Converse API)** | Primary foundation model — chat reasoning, intent detection, and tool-calling (5 tools: weather, crop, pest, schemes, profile) |
+| **Nova Pro Vision** | Crop disease diagnosis from farmer-uploaded photos — returns disease name, severity, treatment |
+| **Nova 2 Lite** | Lightweight tasks (text localization, advisory formatting) + automatic fallback on Nova Pro throttle/timeout — ensures availability and reduces cost |
+| **Bedrock Knowledge Base** | RAG retrieval over curated Indian agricultural documents — grounds crop/pest advisories in verified data |
+| **Bedrock Guardrails** | Optional topic gating (agriculture only), content filtering, and grounding checks |
+
+**Tool-Use Flow:** Nova Pro receives 5 tool schemas. Based on farmer intent, it autonomously decides which tools to call. The orchestrator executes tools (child Lambdas), feeds results back, and the model synthesises a natural-language advisory — all within a single API call cycle.
+
+### 4b. Full AWS Service Map
+
+| AWS Service | Purpose | Why This Service |
+|-------------|---------|-----------------|
+| **Amazon Bedrock** | Chat reasoning, tool-calling, image diagnosis | Managed GenAI — no hosting, native tool-use |
+| **Bedrock Knowledge Base** | RAG for crop advisories | Grounded answers from verified data |
+| **Bedrock Guardrails** | Content safety | Enterprise-grade filtering |
+| **AWS Lambda** (7 functions) | All backend compute | Serverless — zero idle cost |
+| **Amazon API Gateway** | REST API (11 routes, CORS) | Managed API with throttling |
+| **Amazon DynamoDB** (4 tables) | Profiles, sessions, rate limits, OTP | Millisecond latency, free-tier friendly |
+| **Amazon S3** | Frontend assets, audio, KB docs | Durable storage |
+| **Amazon CloudFront** | CDN for React SPA | Edge delivery across India |
+| **Amazon Translate** | 13 Indian languages, auto-detect | Native Indian language support |
+| **Amazon Polly** | Neural TTS (Hindi + English) | High-quality speech |
+| **gTTS** | TTS for all 13 languages | Covers languages Polly doesn't |
+| **Amazon Transcribe** | Speech-to-text fallback (12 languages) | Firefox/Safari voice support |
+| **Amazon Cognito** | Phone + PIN authentication → JWT tokens | Managed user pool; on-screen OTP for prototype (see Tradeoffs) |
+| **AWS IAM** | Least-privilege per Lambda | Security best practice |
+| **AWS Secrets Manager** | Secure API key storage | No secrets in code |
+| **Amazon CloudWatch** | Logs, metrics, alarms | Observability |
+
+---
+
+## 5. What Value the AI Layer Adds
+
+| Without AI | With Smart Rural AI Advisor |
 |---|---|
-| 🌾 AI Crop Planning | Best crop to grow based on soil & season |
-| 💧 Smart Irrigation | When to irrigate and how much |
-| 🐛 Pest & Disease Alerts | Early warning predictions for pest outbreaks |
-| 🗣️ Voice & Multilingual Support | Natural voice queries in local Indian languages |
-| 🧠 Explainable AI Guidance | AI explains *why* each recommendation is made |
-| 🏛️ Govt Schemes & Financial Advice | PM-KISAN, crop insurance, and loan guidance |
-| 🌦️ Weather & Climate Alerts | Real-time and forecasted weather risk alerts |
-| 📚 Traditional Farming Knowledge | Integrates indigenous farming wisdom |
-| 📵 Offline & Low Connectivity | Works in areas with poor or no internet |
+| Farmer searches multiple English websites for crop advice | Ask one question in Tamil/Hindi/Telugu → get a complete, personalised answer with audio |
+| Generic advice — same for everyone regardless of soil, location, season | Every response is tailored to the farmer's specific crops, soil type, district, and current season |
+| No disease diagnosis without travelling to a lab (days of delay) | Upload a photo → instant AI diagnosis with treatment plan + nearby KVK recommendation |
+| Government scheme PDFs are 50-page documents in English | AI explains eligibility, ₹6,000/year benefits, and step-by-step application in farmer's language |
+| IVR helplines have long wait times and limited language support | 24/7 instant responses in 13 languages with full voice I/O — zero wait time |
+| No connection between weather data and farming decisions | "It will rain tomorrow — delay pesticide spraying, irrigate after 2 days" with crop-specific context |
 
 ---
 
-## Process Flow / Use Case
+## 6. Core Features — Detail
+
+### AI Chat (Primary Feature)
+- Farmer speaks or types in any of 13 Indian languages
+- Agent Orchestrator Lambda: language detection → Bedrock Nova Pro reasoning → tool invocation → post-processing → translation → TTS
+- 5 tools called autonomously by the model: weather, crop advisory (RAG), pest diagnosis, govt schemes, farmer profile
+- Fact-checking: every AI response is validated against real tool data before delivery
+- Chat history persisted in DynamoDB (30-day retention)
+
+### Crop Doctor (Image Diagnosis)
+- Farmer uploads leaf/crop photo (JPEG, PNG, WebP, GIF — max 4 MB)
+- Nova Pro Vision analyses the image (temperature: 0.3 for diagnostic precision)
+- Returns: confidence level, disease name, severity, organic treatment, chemical treatment, prevention steps, urgency, recommendation to visit KVK
+- PII sanitisation on output — no personal data in AI responses
+- Result translated to farmer's language
+
+### Weather Advisory
+- Real-time weather + 5-day forecast via OpenWeatherMap
+- 100+ Indian district name aliases for robust location matching
+- Farming-specific advisories: irrigation timing, pesticide spray windows, frost/heat warnings
+- Interactive Leaflet map with city quick-select
+
+### Government Schemes
+- 10+ curated schemes: PM-KISAN (₹6,000/yr), PMFBY (crop insurance), KCC (credit card), Soil Health Card, PMKSY (irrigation), eNAM (online market), PKVY (organic farming), NFSM (food security)
+- Each scheme: name, benefits, eligibility criteria, application steps, helpline, website URL
+- AI explains eligibility based on farmer's profile
+
+### Farmer Profile
+- Persistent storage: name, state, district, crops, soil type, land size (acres), preferred language
+- Auto-personalises all future interactions
+- Phone + PIN authentication via Amazon Cognito (JWT tokens); OTP verification displayed on-screen for the prototype (see Tradeoffs section below)
+- Profile data used by AI to fill missing context in queries
+
+### Multilingual Voice I/O
+- **Voice input:** Web Speech API (Chrome/Edge — streaming, zero latency) + Amazon Transcribe (Firefox/Safari — batch fallback, 12 languages)
+- **Voice output:** Amazon Polly (Hindi — Kajal neural voice, English — Joanna neural voice) + gTTS (all 13 languages)
+- **Translation:** Amazon Translate with auto-detection, chunking for long responses (9000-byte chunks), retry on excessive Latin script
+
+---
+
+## 7. Security & Reliability
+
+### Security — 7-Layer Defence
+
+| Layer | Detail |
+|-------|--------|
+| **Input Validation** | Max 2,000 chars, control char removal, image ≤ 4 MB |
+| **PII Masking** | Aadhaar, phone, PAN, bank account, email, IFSC — masked in logs + responses |
+| **Injection Prevention** | 20+ regex patterns: prompt injection, SQL injection, command injection |
+| **Toxicity Detection** | Harm, sabotage, banned pesticides, self-harm (→ crisis helpline) |
+| **Rate Limiting** | DynamoDB sliding-window: 15/min, 120/hr, 500/day per farmer |
+| **Output Guardrails** | Fact-check vs tool data, PII removal, HTML stripping, max 8,000 chars |
+| **Bedrock Guardrails** | Topic gating, content filtering, grounding checks |
+
+### Reliability
+
+| Feature | Implementation |
+|---------|---------------|
+| **Model Fallback** | Nova Pro → Nova 2 Lite (automatic on throttle/timeout) |
+| **Tool Timeouts** | 25s per tool, 29s API Gateway limit, 5s buffer |
+| **KB Retry** | Exponential backoff: 1s → 2s → 4s, max 3 attempts |
+| **TTS Failover** | Polly → gTTS with exponential backoff |
+| **Fast Path** | Pre-structured queries bypass full Bedrock converse for lower latency |
+| **Session Persistence** | DynamoDB + localStorage, 30-day TTL |
+
+---
+
+## 8. Architecture
 
 ```
-Farmer (Mobile, Voice, Text, Multilingual)
-         |
-         | 1. Request (Voice/Text)
-         ▼
-  Amazon API Gateway  ──── 2. Auth/AuthN ──► IAM
-         |                  3. Encryption ──► KMS
-         |
-         | 4. Forward to Orchestration
-         ▼
-  ┌─────────────────────┐
-  │   KIRO ORCHESTRATION │
-  │  Lambda | Bedrock   │
-  │         Agent Core  │
-  └─────────────────────┘
-         |
-         | 5. Query Foundation Model
-         ▼
-  Amazon Bedrock (Claude / Titan)
-         |
-         | 6. Access Data & Knowledge
-         ▼
-  ┌─────────────────────────────────────────┐
-  │          DATA & KNOWLEDGE LAYER          │
-  │  DynamoDB | OpenSearch | Amazon S3       │
-  │  Govt Agri API | Weather API             │
-  │  Glue Data Catalog | IoT/Sensor Data     │
-  └─────────────────────────────────────────┘
-         |
-         | 7. Prediction Request
-         ▼
-  ┌─────────────────────────────────────────┐
-  │         AI & PREDICTION LAYER            │
-  │     SageMaker Ground Truth | SageMaker   │
-  └─────────────────────────────────────────┘
-         |
-         | 8. Pass Prediction
-         ▼
-  Business Logic (Advisory, Loans, Insurance)
-         |
-         | 9. Apply Business Logic
-         ▼
-  ┌─────────────────────────────────────────┐
-  │           ANALYTICS LAYER                │
-  │       QuickSight | Athena                │
-  └─────────────────────────────────────────┘
-         |
-         | 10. Analytics/Reporting
-         | 11. Generate Response
-         ▼
-  ┌─────────────────────────────────────────┐
-  │           RESPONSE LAYER                 │
-  │     Amazon Polly (Voice) | Amazon SNS    │
-  └─────────────────────────────────────────┘
-         |
-         | 12. Voice/Text Output
-         ▼
-  Farmer receives clear, actionable answer
+Farmer (mobile/desktop, 13 languages, voice/text)
+  → Amazon CloudFront (React 18 SPA, S3 origin)
+    → Amazon API Gateway (11 REST routes, CORS)
+      → Agent Orchestrator Lambda (the brain)
+        ├── Amazon Translate (detect language, translate to English)
+        ├── Amazon Bedrock Nova Pro (reason + decide tools)
+        ├── Child Lambdas (parallel, 25s timeout each):
+        │   ├── Weather → OpenWeatherMap API
+        │   ├── Crop Advisory → Bedrock KB (RAG, 8 candidates, score ≥ 0.35)
+        │   ├── Govt Schemes → curated data
+        │   ├── Farmer Profile → DynamoDB
+        │   └── Image Analysis → Nova Pro Vision
+        ├── Post-process: fact-check, validate, translate back
+        ├── TTS: Polly (Hindi/English) or gTTS (11 other languages)
+        └── Persist: DynamoDB (chat_sessions)
+      → Response: { reply, audio_url, tools_used, session_id }
 
-  ┌─────────────────────────────────────────┐
-  │       MONITORING & SECURITY              │
-  │   Security Hub | CloudWatch             │
-  │   (Security Events monitored throughout) │
-  └─────────────────────────────────────────┘
+  + Transcribe Speech Lambda (Firefox/Safari voice fallback)
+  + Health Check Lambda (stack health)
 ```
 
+### DynamoDB Tables
+
+| Table | Key | Purpose |
+|-------|-----|---------|
+| `farmer_profiles` | farmer_id | Name, state, district, crops, soil, land size, language |
+| `chat_sessions` | session_id + farmer_id | Chat messages, session context (30-day TTL) |
+| `otp_codes` | phone_number | OTP verification (short-lived TTL) |
+| `rate_limits` | rate_key + window | Hit count per time window (auto-cleanup TTL) |
+
 ---
 
-## Architecture (Text Representation)
+## 9. Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18, Vite, React Router v6, React-Leaflet, DOMPurify, Marked, amazon-cognito-identity-js |
+| **Backend** | Python 3.13, AWS Lambda (7 functions), boto3 |
+| **AI/GenAI** | Amazon Bedrock (Nova Pro + Nova 2 Lite), Bedrock Knowledge Base, Bedrock Guardrails |
+| **API** | Amazon API Gateway (REST, 11 routes) |
+| **Database** | Amazon DynamoDB (4 tables) |
+| **Storage/CDN** | Amazon S3 + CloudFront |
+| **Translation** | Amazon Translate (13 Indian languages) |
+| **Voice** | Amazon Polly, gTTS, Web Speech API, Amazon Transcribe |
+| **Auth** | Amazon Cognito (phone + PIN → JWT), on-screen OTP for prototype |
+| **IaC** | AWS SAM (CloudFormation) |
+| **CI/CD** | AWS CodeBuild (buildspec.yml) |
+
+---
+
+## 10. Supported Languages (13)
+
+| # | Language | Voice In | Voice Out |
+|---|----------|----------|-----------|
+| 1 | English | Web Speech API | Amazon Polly (Joanna) |
+| 2 | Hindi | Web Speech API | Amazon Polly (Kajal) |
+| 3 | Tamil | Web Speech / Transcribe | gTTS |
+| 4 | Telugu | Web Speech / Transcribe | gTTS |
+| 5 | Kannada | Web Speech / Transcribe | gTTS |
+| 6 | Malayalam | Web Speech / Transcribe | gTTS |
+| 7 | Bengali | Web Speech / Transcribe | gTTS |
+| 8 | Marathi | Web Speech / Transcribe | gTTS |
+| 9 | Gujarati | Web Speech / Transcribe | gTTS |
+| 10 | Punjabi | Web Speech / Transcribe | gTTS |
+| 11 | Odia | Web Speech / Transcribe | gTTS |
+| 12 | Assamese | Web Speech / Transcribe | gTTS |
+| 13 | Urdu | Web Speech / Transcribe | gTTS |
+
+---
+
+## 11. Team
+
+| Name | Role | Contribution |
+|------|------|-------------|
+| **Sanjay M** | Team Lead + Frontend | React UI, all 11 pages, voice components, i18n, CSS, CloudFront |
+| **Manoj RS** | Backend + Infrastructure | 7 Lambdas, SAM template, Bedrock integration, API Gateway, security |
+| **Abhishek Reddy** | Data + Knowledge Base | Crop data, scheme data, KB documents, S3 |
+| **Jeevidha R** | QA + Documentation | Testing, docs, demo video, submission |
+
+---
+
+## 12. Impact Targets
+
+| Metric | Target | How |
+|--------|--------|-----|
+| Reduce crop loss | **30%** | Instant AI photo + symptom diagnosis |
+| Increase scheme enrolment | **50%** | AI explains eligibility in native language |
+| 24/7 expert advice | **Zero cost** | Serverless, free-tier friendly |
+| Language coverage | **13 languages** | 95%+ of India's farming population |
+| Voice accessibility | **Full I/O** | For farmers who can't read/type |
+| Response time | **< 10s** | Query → reasoning → tools → translated voice response |
+
+---
+
+## 13. Demo Walkthrough
+
+| Scene | Duration | What Happens |
+|-------|----------|-------------|
+| **Dashboard** | 15 s | Open app → localised dashboard with daily farming tip, season indicator, quick-action cards |
+| **AI Chat (English)** | 30 s | Type "weather in Chennai for next 3 days" → AI calls weather tool → real data + farming advisory + audio |
+| **Voice (Tamil)** | 30 s | Switch to Tamil → speak "நெல் பயிரில் பழுப்பு நிற புள்ளிகள்" → Tamil pest diagnosis + Tamil audio |
+| **Crop Doctor** | 30 s | Upload diseased leaf → select rice + Tamil Nadu → AI returns disease, severity, treatment |
+| **Govt Schemes** | 20 s | Browse PM-KISAN, PMFBY → eligibility, ₹6,000/yr benefit, application steps |
+| **Profile** | 15 s | Save name, district, crops, soil → future responses auto-personalised |
+| **Multilingual** | 20 s | Switch to Telugu → entire UI + chat in Telugu with Telugu audio output |
+
+---
+
+## 14. Evaluator Notes
+
+- **Live URL:** [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) — works on any modern browser; Chrome recommended for best voice experience
+- **No installation required** — fully web-based, mobile-responsive
+- **Repository is trimmed** for submission clarity — legacy experiments and debug scripts archived
+- **Knowledge Base source docs** summarised in `docs/KB_OVERVIEW.md`; live KB is deployed in ap-south-1
+- **All infrastructure defined** in `infrastructure/template.yaml` (SAM/CloudFormation)
+- **Security:** PII masking, injection prevention, rate limiting, Bedrock Guardrails — all production-grade
+- **Authentication:** Cognito handles real auth (phone + PIN → JWT). OTP is generated server-side and displayed on-screen for the prototype — see Tradeoffs section for rationale.
+
+---
+
+## 15. Design Tradeoffs & Rationale
+
+We document our tradeoffs transparently to show deliberate engineering decisions:
+
+| Tradeoff | Decision | Rationale | Production Path |
+|----------|----------|-----------|----------------|
+| **OTP Delivery** | On-screen display (not SMS/WhatsApp) | SMS via SNS requires **TRAI DLT Sender ID registration** (India regulation) — a 2–4 week process requiring a registered business entity. WhatsApp Business API needs **Meta business verification** + BSP onboarding. Both infeasible in hackathon timeline. | Flip `ENABLE_DEMO_OTP=false` → OTP via SNS SMS. Backend code path already exists behind feature flag. |
+| **TTS for 11 languages** | gTTS instead of Polly | Amazon Polly supports only Hindi + English neural voices for India. gTTS covers all 13 languages for free. | Replace with Polly as AWS adds Indic voices, or integrate dedicated Indic TTS service. |
+| **Voice input dual-path** | Web Speech API + Transcribe fallback | Web Speech unavailable on Firefox/Safari. Transcribe adds 3–5s latency but ensures universal support. | Chrome/Edge (80%+ Indian mobile users) get zero-latency streaming; others get reliable fallback. |
+| **General model + RAG** | Nova Pro + Knowledge Base, not fine-tuned | Fine-tuning needs curated datasets, compute budget, and iteration cycles. RAG achieves grounded domain-specific responses without training overhead. | Fine-tuning is a future optimisation once training data is established. |
+| **Web app vs native** | React SPA, not Android/iOS | No installation, works on any browser, no app store delays. Farmers have limited storage. | PWA conversion for offline + push notifications is a clear next step. |
+| **Per-farmer rate limiting** | DynamoDB counters, not just API GW throttling | Farmers may share devices or use same IP (carrier NAT). Per-`farmer_id` counters ensure individual fairness. | Both used: API GW for global protection, DynamoDB for per-farmer limits. |
+
+---
+
+## 16. Strengths & Best Practices
+
+### Architectural Strengths
+- **100% serverless** — Lambda + API Gateway + DynamoDB + S3 + CloudFront. Zero servers, auto-scaling, pay-per-use. Scales to zero.
+- **Single-responsibility Lambdas** — 7 functions, each with one job. Independently deployable, testable, debuggable.
+- **Orchestrator + tool-calling** — Bedrock decides which tools to invoke. Adding a capability = adding a tool schema, zero routing code changes.
+- **Infrastructure as Code** — 100% SAM/CloudFormation. Reproducible, version-controlled, no manual console changes.
+- **Feature-flag driven** — Demo → production = env var changes, not code changes. 20+ configurable feature flags.
+
+### Security Strengths
+- **7-layer defence in depth** — input validation → PII masking → injection prevention → toxicity detection → rate limiting → output guardrails → Bedrock Guardrails.
+- **Least-privilege IAM** — each Lambda has a scoped role. Weather Lambda cannot touch DynamoDB; Crop Advisory cannot invoke Polly.
+- **PII never in logs** — Aadhaar, phone, PAN, email, bank account, IFSC masked before CloudWatch.
+- **20+ injection patterns** — prompt injection, SQL injection, command injection blocked at every entry point.
+- **No secrets in code** — API keys in Secrets Manager; Cognito config via env vars.
+- **XSS prevention** — DOMPurify sanitises all AI-generated markdown on the frontend.
+
+### AI/ML Strengths
+- **RAG grounding** — crop advice comes from verified Knowledge Base documents, not model priors.
+- **3-layer hallucination prevention** — RAG + code-level fact-checking + Bedrock Guardrails.
+- **Cautious diagnosis** — never hard-asserts a disease; lists probabilities, recommends KVK confirmation.
+- **Quality gates** — KB retrieval min score 0.35, min 2 good chunks; auto-rewrite on low quality.
+- **Freshness detection** — flags stale data for time-sensitive queries (MSP, scheme deadlines).
+
+### System Design Strengths
+- **Graceful degradation everywhere** — model fallback, TTS fallback, voice fallback. Always returns something useful.
+- **Timeout budgeting** — 25s tools, 18s TTS cutoff, 29s API GW limit. Never blocks on a slow service.
+- **TTL-based cleanup** — sessions, OTP, rate limits auto-expire via DynamoDB TTL. Zero cron jobs.
+- **Atomic operations** — DynamoDB `if_not_exists` for rate limiting prevents race conditions.
+- **Connection pooling** — 25 max concurrent connections, reused across tool invocations.
+- **Full observability** — CloudWatch logs + custom tool metrics + security audit trail.
+
+---
+
+## 17. Production Roadmap — Future Plans
+
+Our prototype is **production-upgradeable by configuration, not rewrite**. Given the modular architecture, feature flags, and IaC foundation, we can deliver all production features within **~1–2 months**:
+
+### Phase 1 — Week 1: Core Production Hardening
+- **SMS OTP:** Complete TRAI DLT registration, flip `ENABLE_DEMO_OTP=false` — zero code changes
+- **Custom domain:** Route 53 + ACM → branded URL (e.g., `kisanai.in`)
+- **CI/CD:** CodePipeline + CodeBuild → auto-deploy on push
+- **Alerting:** CloudWatch Alarms + SNS for error spikes, latency, 5xx
+
+### Phase 2 — Week 2: Channels, TTS & Offline
+- **WhatsApp channel** via Business API → 500M+ Indian users
+- **Full Indic TTS** — Polly (as voices release) or AI4Bharat/IISc TTS
+- **Offline-first PWA** — Service Worker + IndexedDB for low-connectivity areas
+- **Push notifications** — weather alerts, pest warnings, scheme deadlines
+- **Multi-region DR** — ap-southeast-1 failover with DynamoDB Global Tables
+
+### Phase 3 — Weeks 3–4: KB Auto-Update, Mobile App, Analytics & Personalisation
+- **KB Auto-Update Pipeline** — EventBridge cron → Lambda scrapes ICAR/KVK/state portals → validates & deduplicates → uploads to S3 → triggers Bedrock KB re-sync. Version-tagged, rollback-capable.
+- **KB Expansion** — 500+ verified ICAR/KVK/state agriculture documents
+- **Native Mobile App (Android + iOS)** — React Native / Capacitor → Play Store + App Store listing with native push, camera (Crop Doctor), GPS (auto-location)
+- **Fine-tuned Nova Pro** on 10K+ Indian agriculture Q&A pairs
+- **Per-farmer personalisation** from query history, crop patterns, location
+- **Redis rate limiting** (ElastiCache) + WAF for abuse prevention
+- **QuickSight analytics** — usage patterns, regional demand, scheme engagement
+
+### Future Enhancements (Post-Launch)
+- **IoT sensors** (AWS IoT Core) → real-time soil moisture, pH, temperature
+- **Marketplace** — mandi prices, buyer-seller connections, input purchasing
+- **Govt API integration** — Aadhaar e-KYC, DigiLocker, PM-KISAN → one-click scheme enrolment
+- **IVR/USSD via Amazon Connect** → voice-first for feature phone farmers
+- **Multilingual fine-tuning** — native Hindi/Tamil/Telugu models, no translation round-trip
+- **Scale to 10M+ farmers** — multi-AZ, Lambda concurrency reserves, DynamoDB on-demand
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                  AWS CLOUD                                       │
-│                                                                                  │
-│  [Farmer]                                                                        │
-│  Mobile / Voice /    ──► Amazon API Gateway ──► IAM (Auth)                      │
-│  Text / Multilingual                     └────► KMS (Encryption)                │
-│                                                                                  │
-│                          │                                                       │
-│                          ▼                                                       │
-│              ┌───────────────────────┐                                           │
-│              │   KIRO ORCHESTRATION   │                                           │
-│              │  ┌────────┬──────────┐ │                                           │
-│              │  │ Lambda │ Bedrock  │ │                                           │
-│              │  │        │ Agent    │ │                                           │
-│              │  │        │ Core     │ │                                           │
-│              │  └────────┴──────────┘ │                                           │
-│              └───────────┬───────────┘                                           │
-│                          │                                                       │
-│                          ▼                                                       │
-│              Amazon Bedrock (Claude / Titan)                                     │
-│              [NLU + Explainable AI + Reasoning]                                  │
-│                          │                                                       │
-│          ┌───────────────┼────────────────┐                                      │
-│          ▼               ▼                ▼                                      │
-│  ┌──────────────────────────────────────────────┐                               │
-│  │           DATA & KNOWLEDGE LAYER              │                               │
-│  │                                               │                               │
-│  │  ┌──────────┐ ┌────────────┐ ┌─────────────┐ │                               │
-│  │  │ DynamoDB │ │ OpenSearch │ │  Amazon S3  │ │                               │
-│  │  │(Profiles)│ │(Knowledge) │ │  (Crop/Wthr)│ │                               │
-│  │  └──────────┘ └────────────┘ └─────────────┘ │                               │
-│  │  ┌──────────┐ ┌────────────┐ ┌─────────────┐ │                               │
-│  │  │ Govt     │ │  Weather   │ │ Glue Data   │ │                               │
-│  │  │ Agri API │ │    API     │ │   Catalog   │ │                               │
-│  │  └──────────┘ └────────────┘ └─────────────┘ │                               │
-│  │              ┌──────────────┐                  │                               │
-│  │              │  IoT/Sensor  │                  │                               │
-│  │              │     Data     │                  │                               │
-│  │              └──────────────┘                  │                               │
-│  └──────────────────────────────────────────────┘                               │
-│                          │                                                       │
-│                          ▼                                                       │
-│  ┌──────────────────────────────────────────────┐                               │
-│  │          AI & PREDICTION LAYER                │                               │
-│  │  ┌──────────────────┐  ┌───────────────────┐  │                               │
-│  │  │  SageMaker       │  │ SageMaker Ground  │  │                               │
-│  │  │  - Crop Yield    │  │       Truth       │  │                               │
-│  │  │  - Pest Risk     │  │  (Data Labeling)  │  │                               │
-│  │  │  - Irrigation    │  └───────────────────┘  │                               │
-│  │  └──────────────────┘                         │                               │
-│  └──────────────────────────────────────────────┘                               │
-│                          │                                                       │
-│                          ▼                                                       │
-│         Business Logic (Advisory / Loans / Insurance)                            │
-│              [AWS Lambda executes business rules]                                │
-│                          │                                                       │
-│          ┌───────────────┴──────────────┐                                        │
-│          ▼                              ▼                                        │
-│  ┌────────────────────┐    ┌────────────────────────┐                            │
-│  │   ANALYTICS LAYER  │    │     RESPONSE LAYER      │                            │
-│  │  ┌────────────────┐│    │  ┌──────┐  ┌─────────┐ │                            │
-│  │  │  QuickSight    ││    │  │Polly │  │   SNS   │ │                            │
-│  │  │  (Dashboards)  ││    │  │Voice │  │ Alerts  │ │                            │
-│  │  └────────────────┘│    │  └──────┘  └─────────┘ │                            │
-│  │  ┌────────────────┐│    │  ┌──────────────────┐   │                            │
-│  │  │    Athena      ││    │  │  Offline Cache   │   │                            │
-│  │  │   (Queries)    ││    │  │   & Sync Mech.   │   │                            │
-│  │  └────────────────┘│    │  └──────────────────┘   │                            │
-│  └────────────────────┘    └────────────────────────┘                            │
-│                                        │                                         │
-│                                        ▼                                         │
-│                    Farmer receives Voice / Text Output                           │
-│                                                                                  │
-│  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │                   MONITORING & SECURITY (Cross-cutting)                   │   │
-│  │   AWS IAM | AWS KMS | Amazon CloudWatch | AWS Security Hub               │   │
-│  └──────────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────────┘
+PROTOTYPE               →  PRODUCTION (Weeks 1–2)      →  SCALE (Weeks 3–4 + Post-Launch)
+On-screen OTP           →  SNS SMS OTP                →  Aadhaar e-KYC
+gTTS (13 langs)         →  Polly + Indic TTS          →  Regional fine-tuned TTS
+React SPA               →  PWA (offline)              →  Native Android + iOS App
+Nova Pro + RAG          →  Fine-tuned Nova Pro        →  Multilingual fine-tuned
+Manual KB updates       →  Automated KB pipeline      →  Auto-ingest from govt APIs
+Browser-only            →  + WhatsApp channel         →  + IVR + USSD + mobile apps
+Single region           →  Multi-region DR            →  Global CDN + edge
 ```
 
----
-
-## Technology Stack
-
-### 🔹 User Interaction & Accessibility
-- **Mobile App / Web App** — Farmer-facing interface
-- **Voice Interaction** — Natural voice-based queries in local languages
-- **Multilingual Support** — Hindi, Tamil, Telugu, Kannada, and other Indian languages
-- **Offline-first Design** — Cached responses for low/no connectivity areas
-
-### 🔹 API & Application Layer
-- **Amazon API Gateway** — Secure, scalable entry point for all requests
-- **AWS Lambda** — Serverless business logic and integrations
-
-### 🔹 AI & Agent Intelligence
-- **Kiro** — Agent orchestration and workflow management
-- **Amazon Bedrock Agent Core** — Reasoning, decision-making, and tool execution
-- **Amazon Bedrock (Claude / Titan)** — Natural language understanding and explainable AI
-
-### 🔹 Machine Learning & Prediction
-- **Amazon SageMaker** — Predictive models for:
-  - Crop yield prediction
-  - Pest & disease risk forecasting
-  - Irrigation advisory models
-- **Amazon SageMaker Ground Truth** — Data labeling and continuous model improvement
-
-### 🔹 Data & Knowledge Management
-- **Amazon S3** — Storage for crop data, weather data, and traditional knowledge base
-- **Amazon DynamoDB** — Farmer profiles and session data
-- **Amazon OpenSearch** — Fast semantic search over advisory and knowledge base
-- **AWS Glue Data Catalog** — Metadata management across data sources
-
-### 🔹 Analytics & Visualization
-- **Amazon Athena** — SQL querying over stored agricultural data
-- **Amazon QuickSight** — Dashboards for insights (for government/NGO use)
-
-### 🔹 Voice, Notifications & Feedback
-- **Amazon Polly** — Text-to-speech for voice responses
-- **Amazon SNS** — Push notifications and alerts to farmers
-- **Offline Cache & Sync Mechanism** — Store-and-forward support for rural areas
-
-### 🔹 Security, Compliance & Monitoring
-- **AWS IAM** — Role-based access control
-- **AWS KMS** — End-to-end data encryption
-- **Amazon CloudWatch** — Logs, monitoring, and alerting
-- **AWS Security Hub** — Security posture management and compliance
+> **For evaluators:** Our architecture is *designed* for this evolution. Feature flags, env-driven config, micro-Lambdas, and IaC mean each phase is an incremental addition — never a rewrite.
 
 ---
 
-## Innovation & Feasibility
+## Submission Checklist
 
-> *"Our solution combines cutting-edge agentic AI with practical cloud technologies to deliver inclusive, scalable, and real-world impact for Indian farmers."*
-
-The stack is designed to be modern, scalable, and **immediately deployable** in real-world conditions. Key innovation highlights:
-
-- **Agentic AI** (Bedrock Agent Core + Kiro) enables multi-step reasoning and decision orchestration — not just Q&A
-- **Claude / Titan on Bedrock** powers natural language understanding with explainability built in
-- **SageMaker** enables custom, India-specific predictive models for crops, pests, and water
-- **Serverless architecture** (Lambda + API Gateway) ensures low operational cost and easy scaling
-- **Offline-first design** directly addresses the rural connectivity challenge unique to Bharat
-- **Voice + multilingual** lowers the barrier for adoption by farmers with low digital literacy
+| Deliverable | Status |
+|-------------|--------|
+| **Project PPT** | Uploaded to dashboard |
+| **GitHub Repository** | [github.com/Manoj-777/smart-rural-ai-advisor](https://github.com/Manoj-777/smart-rural-ai-advisor) (public) |
+| **Working Prototype** | [https://d80ytlzsrax1n.cloudfront.net](https://d80ytlzsrax1n.cloudfront.net) (live) |
+| **Demo Video** | [Watch on YouTube](#) |
+| **Project Summary** | `docs/PROJECT_SUMMARY.md` |
 
 ---
 
-## Summary
-
-The Smart Rural AI Advisor is a comprehensive, farmer-first AI platform that brings together the best of agentic AI, cloud infrastructure, and domain knowledge to solve a real and pressing problem for millions of Indian farmers. By integrating traditional wisdom with modern predictive technology and government schemes into a single voice-first interface, it delivers inclusive, scalable, and impactful AI for Bharat.
+<p align="center"><strong>Built with ❤️ for Bharat's farmers — AWS AI for Bharat Hackathon 2026</strong></p>

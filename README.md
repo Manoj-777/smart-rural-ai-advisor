@@ -29,7 +29,10 @@
 13. [Local Development](#local-development)
 14. [API Reference](#api-reference)
 15. [Impact & Metrics](#impact--metrics)
-16. [Team](#team)
+16. [Design Tradeoffs & Rationale](#design-tradeoffs--rationale)
+17. [Strengths & Best Practices](#strengths--best-practices)
+18. [Production Roadmap — Future Plans](#production-roadmap--future-plans)
+19. [Team](#team)
 
 ---
 
@@ -112,7 +115,7 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
  ┌────────────────────┐        ┌──────────────────────────────────────────────────┐
  │  React 18 + Vite   │        │  Amazon CloudFront (CDN)                         │
  │  Single-Page App   │◄──────►│  S3 Static Hosting                               │
- │  13-language i18n   │        └──────────────────────────────────────────────────┘
+ │  13-language i18n   │        └─────────────────────────────────────────────────┘
  └────────┬───────────┘
           │  REST API
           ▼
@@ -127,23 +130,23 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
  │  ┌─────────────────────────────────────────────────────────────────────┐     │
  │  │  Agent Orchestrator (the brain)                                     │     │
  │  │                                                                     │     │
- │  │  1. Amazon Translate  ─ detect language, translate to English        │     │
- │  │  2. Amazon Bedrock    ─ Nova Pro: intent + tool-calling + reasoning  │     │
- │  │  3. Tool Execution    ─ invoke child Lambdas for real data           │     │
- │  │  4. Post-Processing   ─ fact-check, format, translate back           │     │
- │  │  5. Amazon Polly/gTTS ─ generate audio in farmer's language          │     │
- │  │  6. DynamoDB          ─ persist chat history + session context        │     │
+ │  │  1. Amazon Translate  ─ detect language, translate to English       │     │
+ │  │  2. Amazon Bedrock    ─ Nova Pro: intent + tool-calling + reasoning │     │
+ │  │  3. Tool Execution    ─ invoke child Lambdas for real data          │     │
+ │  │  4. Post-Processing   ─ fact-check, format, translate back          │     │
+ │  │  5. Amazon Polly/gTTS ─ generate audio in farmer's language         │     │
+ │  │  6. DynamoDB          ─ persist chat history + session context      │     │
  │  └────────────┬────────────────────────────────────────────────────────┘     │
  │               │ invoke                                                       │
  │    ┌──────────┼──────────┬──────────────┬───────────────┐                    │
  │    ▼          ▼          ▼              ▼               ▼                    │
- │  Weather   Crop       Govt          Farmer          Image                   │
- │  Lookup    Advisory   Schemes       Profile         Analysis                │
- │  Lambda    Lambda     Lambda        Lambda          Lambda                  │
+ │  Weather   Crop       Govt          Farmer          Image                    │
+ │  Lookup    Advisory   Schemes       Profile         Analysis                 │
+ │  Lambda    Lambda     Lambda        Lambda          Lambda                   │
  │    │         │          │              │               │                     │
  │    ▼         ▼          ▼              ▼               ▼                     │
- │ OpenWeather Bedrock KB Curated      DynamoDB       Bedrock                  │
- │ API         (RAG)      JSON Data    (profiles)     Nova Pro Vision          │
+ │ OpenWeather Bedrock KB Curated      DynamoDB       Bedrock                   │
+ │ API         (RAG)      JSON Data    (profiles)     Nova Pro Vision           │
  │                                                                              │
  │  + Transcribe Speech Lambda (Amazon Transcribe — voice-to-text fallback)     │
  │  + Health Check Lambda (inline — stack health)                               │
@@ -168,7 +171,7 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
 
 | AWS Service | Purpose in This Project | Why This Service |
 |---|---|---|
-| **Amazon Bedrock** | Foundation model access (Nova Pro) for chat reasoning, tool-calling, and crop image diagnosis | Managed Gen AI — no model hosting, pay-per-use, supports tool-use natively |
+| **Amazon Bedrock** | Foundation model access (Nova Pro + Nova 2 Lite) — Nova Pro for chat reasoning, tool-calling, and crop image diagnosis; Nova 2 Lite for lightweight tasks and automatic fallback | Managed Gen AI — no model hosting, pay-per-use, supports tool-use natively |
 | **Amazon Bedrock Knowledge Base** | RAG (Retrieval-Augmented Generation) over curated farming documents for crop advisories | Grounded answers from verified agricultural data instead of hallucinated responses |
 | **Amazon Bedrock Guardrails** | Content filtering, topic gating, grounding checks | Enterprise-grade safety for farmer-facing AI |
 | **AWS Lambda** | 7 serverless functions + 1 inline health check — all backend compute | Zero idle cost, auto-scaling, Python 3.13 runtime |
@@ -179,8 +182,7 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
 | **Amazon Translate** | Auto-detect language and translate between English and 13 Indian languages | Native support for Indian languages with auto-detection |
 | **Amazon Polly** | Text-to-speech for English and Hindi responses | Neural voices (Kajal for Hindi, Joanna for English) |
 | **Amazon Transcribe** | Speech-to-text fallback for Firefox/Safari users in 12 Indian languages | Covers browsers where Web Speech API is unavailable |
-| **Amazon Cognito** | User authentication for farmer profile management | Managed auth with phone-number-based OTP |
-| **Amazon SNS** | OTP delivery via SMS for farmer sign-up / profile verification | Reliable SMS delivery across Indian carriers |
+| **Amazon Cognito** | User authentication for farmer profile management | Managed auth with phone-number + PIN → JWT tokens; OTP displayed on-screen for prototype (no SMS) |
 | **AWS IAM** | Least-privilege policies for every Lambda function | Security best practice — each function only accesses what it needs |
 | **Amazon CloudWatch** | Logging, metrics, and alarms for all Lambda functions | Operational visibility and debugging |
 
@@ -200,9 +202,9 @@ We use **Amazon Nova Pro** via the **Amazon Bedrock Converse API** for:
 
 4. **Multilingual output** — Nova Pro generates responses in English; Amazon Translate converts to/from the farmer's language. The model's system prompt includes India-specific agricultural context (Kharif/Rabi seasons, local crop varieties, Indian government schemes).
 
-### Fallback Model: Amazon Nova Lite (`global.amazon.nova-2-lite-v1:0`)
+### Secondary Model: Amazon Nova 2 Lite (`global.amazon.nova-2-lite-v1:0`)
 
-If Nova Pro hits a throttle or timeout, the system automatically retries with Nova Lite for faster, cost-efficient responses.
+Nova 2 Lite serves two roles: (1) **lightweight tasks** — used directly for simpler operations like Bedrock-based text localization and advisory formatting, keeping costs low and latency minimal; (2) **automatic fallback** — if Nova Pro hits a throttle or timeout, the system retries with Nova 2 Lite for a guaranteed response.
 
 ### RAG with Bedrock Knowledge Base
 
@@ -294,13 +296,13 @@ Switch to Telugu → entire UI and chat switch to Telugu with Telugu audio outpu
 |---|---|
 | **Frontend** | React 18, Vite, React Router, React-Leaflet, DOMPurify, Marked |
 | **Backend** | Python 3.13, AWS Lambda (7 functions), boto3 |
-| **AI / Gen AI** | Amazon Bedrock (Nova Pro + Nova Lite), Bedrock Knowledge Base, Bedrock Guardrails |
+| **AI / Gen AI** | Amazon Bedrock (Nova Pro + Nova 2 Lite), Bedrock Knowledge Base, Bedrock Guardrails |
 | **API** | Amazon API Gateway (REST, 9 routes, CORS) |
 | **Database** | Amazon DynamoDB (farmer profiles, chat sessions, rate limits) |
 | **Storage** | Amazon S3 (audio, KB docs), Amazon CloudFront (CDN) |
 | **Translation** | Amazon Translate (13 Indian languages, auto-detect) |
 | **Voice** | Amazon Polly, gTTS, Web Speech API, Amazon Transcribe |
-| **Auth** | Amazon Cognito, SNS (OTP) |
+| **Auth** | Amazon Cognito (phone + PIN → JWT), on-screen OTP for prototype |
 | **Infra-as-Code** | AWS SAM (CloudFormation) |
 | **Region** | ap-south-1 (Mumbai) — lowest latency for Indian users |
 
@@ -323,12 +325,13 @@ smart-rural-ai-advisor/
 │   ├── samconfig.toml
 │   ├── deploy.sh
 │   ├── deploy_cfn.ps1
-│   └── cognito_config.json
+│   └── cognito_config.example.json
 ├── docs/                            # Submission-facing documentation
 │   ├── PROJECT_SUMMARY.md
 │   ├── PROBLEM_STATEMENT.md
 │   ├── Smart_Rural_AI_Advisor_Submission.md
 │   ├── ARCHITECTURE.md
+│   ├── KB_OVERVIEW.md
 │   └── architecture-diagram.svg
 └── archive/                         # Local archival backup (ignored by git)
 ```
@@ -388,7 +391,7 @@ Optional CI helper: `buildspec.yml` is included for teams that want to run SAM b
 | `GET` | `/weather/{location}` | WeatherLookup | Real-time weather + forecast |
 | `GET` | `/schemes` | GovtSchemes | Government scheme directory |
 | `GET/PUT/DELETE` | `/profile/{farmerId}` | FarmerProfile | Farmer profile CRUD |
-| `POST` | `/otp/send` | FarmerProfile | Send OTP for phone verification |
+| `POST` | `/otp/send` | FarmerProfile | Generate OTP (displayed on-screen for prototype) |
 | `POST` | `/otp/verify` | FarmerProfile | Verify OTP |
 | `GET` | `/health` | HealthCheck (inline) | Stack health check |
 
@@ -405,6 +408,71 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 | 24/7 expert-level agricultural advice | **Zero cost** to the farmer — fully serverless, within AWS free-tier for moderate usage |
 | Language accessibility | **13 Indian languages** — covers 95 %+ of India's farming population |
 | Voice accessibility | **Full voice I/O** — usable by farmers who cannot read or type comfortably |
+
+---
+
+## Design Tradeoffs & Rationale
+
+| Decision | What We Did | Why | Production Path |
+|---|---|---|---|
+| **OTP Delivery** | OTP displayed on-screen (`demo_otp` in API response) instead of SMS/WhatsApp | TRAI DLT regulations require 2–4 weeks for Sender ID/template registration; WhatsApp Business API requires Meta verification + BSP onboarding — infeasible in hackathon timeline | Enable SNS SMS delivery via `ENABLE_DEMO_OTP=false` flag once DLT registration is approved |
+| **TTS Engine** | Amazon Polly (Hindi + English) + gTTS fallback for other languages | Polly supports only 2 of 13 target languages today; gTTS provides broader coverage with acceptable quality | Migrate to Amazon Polly as new Indic voices are released |
+| **Voice Input** | Web Speech API (primary) + Amazon Transcribe (fallback) | Browser-native recognition gives near-zero latency on Chrome/Edge; Transcribe covers Firefox/Safari | Unified Transcribe path as browser support matures |
+| **Foundation Model** | Nova Pro primary + Nova Lite fallback | Nova Pro excels at tool-use and reasoning; Nova Lite provides a cheaper safety net for high-traffic bursts | Evaluate Claude or Titan if multilingual tool-use quality needs improvement |
+| **Delivery Channel** | Mobile-optimised web app (PWA-ready) | No app store approvals; instant access via link; works on any smartphone browser | Wrap in Capacitor/TWA for store listing; add WhatsApp chatbot channel |
+| **Rate Limiting** | DynamoDB-based token counters | Avoids API Gateway usage-plan coupling; works within free-tier; per-user granularity | Move to Redis/ElastiCache if sub-millisecond enforcement is needed |
+
+---
+
+## Strengths & Best Practices
+
+### Architectural
+- **100 % Serverless** — zero idle cost; auto-scales from 1 to 10 000 concurrent farmers.
+- **Infrastructure-as-Code** — single `template.yaml` creates the entire stack in one command.
+- **Micro-Lambda pattern** — 7 single-responsibility functions; isolated deployments and blast-radius containment.
+- **Feature flags** — `ENABLE_DEMO_OTP` lets the same code run in demo vs. production mode with no redeployment.
+
+### Security
+- **Least-privilege IAM** — every Lambda has a dedicated role scoped only to the resources it accesses.
+- **JWT authentication** — Cognito-issued tokens validated on every protected API route.
+- **Input sanitisation** — DOMPurify on the frontend; Bedrock Guardrails filter harmful/off-topic AI inputs.
+- **No hardcoded secrets** — all credentials live in environment variables injected by CloudFormation.
+
+### System Design
+- **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro → Nova Lite → error card; Web Speech → Transcribe.
+- **Multi-layer caching** — DynamoDB TTL caches for weather/schemes reduce redundant API calls by ~60 %.
+- **Idempotent APIs** — OTP verify, profile PUT, and chat are safe to retry without side-effects.
+
+### AI / ML
+- **RAG over hallucination** — Bedrock Knowledge Base grounds every crop advisory in verified government/ICAR data.
+- **Guardrails-first** — Bedrock Guardrails enforce topic gating, grounding thresholds, and content safety before any response reaches the farmer.
+- **Agentic tool-use** — the model autonomously chooses which backend tools to invoke per query, removing brittle intent-classification logic.
+
+---
+
+## Production Roadmap — Future Plans
+
+Our prototype is **production-upgradeable by configuration, not rewrite**. Given the modular architecture, feature flags, and IaC foundation, we can deliver all production features within **~1–2 months**:
+
+| Phase | Timeline | Key Upgrades |
+|-------|----------|-------------|
+| **Phase 1** | Week 1 | SMS OTP (TRAI DLT registration + `ENABLE_DEMO_OTP=false`), custom domain (Route 53 + ACM), CI/CD pipeline (CodePipeline), CloudWatch alarms + alerting |
+| **Phase 2** | Week 2 | WhatsApp Business API channel, full Indic TTS (Polly/AI4Bharat), offline-first PWA, push notifications (weather/pest alerts), multi-region DR |
+| **Phase 3** | Weeks 3–4 | **KB Auto-Update Pipeline** (EventBridge → Lambda scrapes ICAR/KVK portals → S3 → Bedrock KB re-sync), KB expansion (500+ docs), **native mobile app (Android + iOS)**, fine-tuned Nova Pro, per-farmer personalisation, QuickSight analytics |
+| **Future** | Post-launch | IoT soil/weather sensors (AWS IoT Core), marketplace (mandi prices), Aadhaar e-KYC + PM-KISAN API, IVR/USSD (Amazon Connect), multilingual fine-tuning, scale to 10M+ farmers |
+
+```
+PROTOTYPE (Today)         →  PRODUCTION (Weeks 1–2)         →  SCALE (Weeks 3–4 + Post-Launch)
+On-screen OTP             →  SNS SMS OTP                  →  Aadhaar e-KYC
+gTTS (13 languages)       →  Polly + Indic TTS            →  Regional fine-tuned TTS
+React SPA                 →  PWA (offline)                →  Native Android + iOS App
+Nova Pro + RAG            →  Fine-tuned Nova Pro          →  Multilingual fine-tuned
+Manual KB updates         →  Automated KB pipeline        →  Auto-ingest from govt APIs
+Browser-only              →  + WhatsApp channel           →  + IVR + USSD + mobile apps
+Single region (Mumbai)    →  Multi-region DR              →  Global CDN + edge compute
+```
+
+> **Architecture designed for evolution:** Feature flags, environment-driven config, single-responsibility Lambdas, and Infrastructure-as-Code mean each phase is an *incremental addition* — never a rewrite.
 
 ---
 
