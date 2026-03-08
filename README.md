@@ -12,27 +12,34 @@
 
 ---
 
+## Project Summary
+
+**Smart Rural AI Advisor** is a fully serverless, voice-first, multilingual AI agricultural assistant built on AWS. It gives Indian farmers instant, personalised guidance — in their own language — for crop management, pest/disease diagnosis, weather advisories, and government scheme navigation. A farmer can speak in Tamil, Hindi, or any of 13 Indian languages and receive a spoken response with actionable advice within seconds. The system uses **Amazon Bedrock (Nova Pro + Nova 2 Lite)** with agentic tool-calling, **RAG via Bedrock Knowledge Base**, 7-layer security, and bidirectional model fallback — all deployed as Infrastructure-as-Code with zero servers to manage.
+
+---
+
 ## Table of Contents
 
-1. [Problem Statement](#problem-statement)
-2. [Our Solution](#our-solution)
-3. [Why AI Is Required](#why-ai-is-required)
-4. [Key Features](#key-features)
-5. [Architecture](#architecture)
-6. [AWS Services & How They're Used](#aws-services--how-theyre-used)
-7. [Generative AI on AWS — Deep Dive](#generative-ai-on-aws--deep-dive)
-8. [Supported Languages](#supported-languages)
-9. [Live Prototype](#live-prototype)
-10. [Demo Walkthrough](#demo-walkthrough)
-11. [Tech Stack](#tech-stack)
-12. [Project Structure](#project-structure)
-13. [Local Development](#local-development)
-14. [API Reference](#api-reference)
-15. [Impact & Metrics](#impact--metrics)
-16. [Design Tradeoffs & Rationale](#design-tradeoffs--rationale)
-17. [Strengths & Best Practices](#strengths--best-practices)
-18. [Production Roadmap — Future Plans](#production-roadmap--future-plans)
-19. [Team](#team)
+1. [Project Summary](#project-summary)
+2. [Problem Statement](#problem-statement)
+3. [Our Solution](#our-solution)
+4. [Why AI Is Required](#why-ai-is-required)
+5. [Key Features](#key-features)
+6. [Architecture](#architecture)
+7. [AWS Services & How They're Used](#aws-services--how-theyre-used)
+8. [Generative AI on AWS — Deep Dive](#generative-ai-on-aws--deep-dive)
+9. [Supported Languages](#supported-languages)
+10. [Live Prototype](#live-prototype)
+11. [Demo Walkthrough](#demo-walkthrough)
+12. [Tech Stack](#tech-stack)
+13. [Project Structure](#project-structure)
+14. [Local Development](#local-development)
+15. [API Reference](#api-reference)
+16. [Impact & Metrics](#impact--metrics)
+17. [Design Tradeoffs & Rationale](#design-tradeoffs--rationale)
+18. [Strengths & Best Practices](#strengths--best-practices)
+19. [Production Roadmap — Future Plans](#production-roadmap--future-plans)
+20. [Team](#team)
 
 ---
 
