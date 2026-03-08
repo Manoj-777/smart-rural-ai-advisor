@@ -63,7 +63,7 @@ India's farmers face a five-fold information crisis:
 
 | AWS Service | Role | Why |
 |-------------|------|-----|
-| **Amazon Bedrock (Nova Pro + Nova 2 Lite)** | Nova Pro: chat reasoning, tool-calling, image diagnosis. Nova 2 Lite: lightweight tasks + auto-fallback | Managed GenAI — no hosting, pay-per-use, native tool-use |
+| **Amazon Bedrock (Nova Pro + Nova 2 Lite)** | Nova Pro: chat reasoning, tool-calling, image diagnosis. Nova 2 Lite: lightweight tasks. Bidirectional fallback — each model falls back to the other on throttle/timeout | Managed GenAI — no hosting, pay-per-use, native tool-use |
 | **Bedrock Knowledge Base** | RAG retrieval for crop/pest advisories | Grounded answers from verified agricultural data |
 | **Bedrock Guardrails** | Topic gating, content filtering, grounding checks | Enterprise safety for farmer-facing AI |
 | **AWS Lambda (7 functions)** | All backend compute — orchestration, weather, crop, schemes, profile, image, transcribe | Serverless — zero idle cost, auto-scales |
@@ -110,7 +110,7 @@ Farmer (13 languages, voice/text)
 **Key design choices:**
 - **Single orchestrator with Bedrock tool-calling** — the model decides which tools to invoke, not hard-coded routing
 - **Fact-checking** — every AI response is validated against real tool data before delivery
-- **Model fallback** — Nova Pro → Nova 2 Lite on throttle/timeout (automatic, bidirectional)
+- **Model fallback** — Nova Pro ↔ Nova 2 Lite (bidirectional — each model automatically falls back to the other on throttle/timeout, ensuring 100% availability)
 - **Dual-path voice** — Web Speech API (Chrome, zero latency) + Amazon Transcribe (Firefox/Safari fallback)
 - **Fully serverless** — Lambda + API Gateway + DynamoDB + S3 + CloudFront — scales to zero
 
@@ -247,7 +247,7 @@ We made deliberate engineering tradeoffs for the prototype, each with a clear pr
 - **Per-language Latin-script thresholds** — detects untranslated Latin text and auto-retries with different engine.
 
 ### System Design & Resilience
-- **Graceful degradation at every layer** — model fallback, TTS fallback, voice fallback. Always returns something useful.
+- **Graceful degradation at every layer** — model fallback (Nova Pro ↔ Nova 2 Lite, bidirectional), TTS fallback, voice fallback. Always returns something useful.
 - **Category-aware response caching** — SHA-256 keys with domain-specific TTLs (weather = 1h, schemes = 12h).
 - **Parallel tool execution** — ThreadPoolExecutor runs up to 5 tools concurrently per chat turn.
 - **Timeout budgeting** — 25s tools, 18s TTS cutoff, 29s API GW limit. Slow services skipped; text always delivered.

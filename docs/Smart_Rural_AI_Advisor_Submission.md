@@ -74,7 +74,7 @@ Traditional software (static FAQs, IVR hotlines, portals) cannot solve these gap
 |-------------------|---------------|
 | **Nova Pro (Converse API)** | Primary foundation model — chat reasoning, intent detection, and tool-calling (5 tools: weather, crop, pest, schemes, profile) |
 | **Nova Pro Vision** | Crop disease diagnosis from farmer-uploaded photos — returns disease name, severity, treatment |
-| **Nova 2 Lite** | Lightweight tasks (text localization, advisory formatting) + automatic fallback on Nova Pro throttle/timeout — ensures availability and reduces cost |
+| **Nova 2 Lite** | Lightweight tasks (text localization, advisory formatting) + bidirectional fallback with Nova Pro — each model falls back to the other on throttle/timeout, ensuring 100% model availability and reducing cost |
 | **Bedrock Knowledge Base** | RAG retrieval over curated Indian agricultural documents — grounds crop/pest advisories in verified data |
 | **Bedrock Guardrails** | Optional topic gating (agriculture only), content filtering, and grounding checks |
 
@@ -174,7 +174,7 @@ Traditional software (static FAQs, IVR hotlines, portals) cannot solve these gap
 
 | Feature | Implementation |
 |---------|---------------|
-| **Model Fallback** | Nova Pro → Nova 2 Lite (automatic on throttle/timeout) |
+| **Model Fallback** | Nova Pro ↔ Nova 2 Lite — bidirectional: each model automatically falls back to the other on throttle/timeout |
 | **Tool Timeouts** | 25s per tool, 29s API Gateway limit, 5s buffer |
 | **KB Retry** | Exponential backoff: 1s → 2s → 4s, max 3 attempts |
 | **TTS Failover** | Polly → gTTS with exponential backoff |
@@ -370,7 +370,7 @@ We document our tradeoffs transparently to show deliberate engineering decisions
 - **Chunked translation** — long responses are split into chunks to stay within Translate API limits while preserving sentence boundaries.
 
 ### System Design & Resilience
-- **Graceful degradation at every layer** — model fallback (Nova Pro → Nova 2 Lite), TTS fallback (Polly → gTTS → silent), voice fallback (Web Speech → Transcribe). Always returns something useful.
+- **Graceful degradation at every layer** — model fallback (Nova Pro ↔ Nova 2 Lite — bidirectional, each falls back to the other), TTS fallback (Polly → gTTS → silent), voice fallback (Web Speech → Transcribe). Always returns something useful.
 - **Category-aware response caching** — SHA-256 hashed keys with domain-specific TTLs (weather = 1 h, schemes = 12 h) eliminate redundant Bedrock calls and reduce cost.
 - **Parallel tool execution** — `ThreadPoolExecutor` runs up to 5 tool invocations concurrently per chat turn, reducing multi-tool latency.
 - **Context window management** — sliding window (500 chars × 40 messages) keeps conversations efficient without token overflow.

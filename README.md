@@ -171,7 +171,7 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
 
 | AWS Service | Purpose in This Project | Why This Service |
 |---|---|---|
-| **Amazon Bedrock** | Foundation model access (Nova Pro + Nova 2 Lite) — Nova Pro for chat reasoning, tool-calling, and crop image diagnosis; Nova 2 Lite for lightweight tasks and automatic fallback | Managed Gen AI — no model hosting, pay-per-use, supports tool-use natively |
+| **Amazon Bedrock** | Foundation model access (Nova Pro + Nova 2 Lite) — Nova Pro for chat reasoning, tool-calling, and crop image diagnosis; Nova 2 Lite for lightweight tasks + bidirectional fallback (each model falls back to the other on throttle/timeout) | Managed Gen AI — no model hosting, pay-per-use, supports tool-use natively |
 | **Amazon Bedrock Knowledge Base** | RAG (Retrieval-Augmented Generation) over curated farming documents for crop advisories | Grounded answers from verified agricultural data instead of hallucinated responses |
 | **Amazon Bedrock Guardrails** | Content filtering, topic gating, grounding checks | Enterprise-grade safety for farmer-facing AI |
 | **AWS Lambda** | 7 serverless functions + 1 inline health check — all backend compute | Zero idle cost, auto-scaling, Python 3.13 runtime |
@@ -204,7 +204,7 @@ We use **Amazon Nova Pro** via the **Amazon Bedrock Converse API** for:
 
 ### Secondary Model: Amazon Nova 2 Lite (`global.amazon.nova-2-lite-v1:0`)
 
-Nova 2 Lite serves two roles: (1) **lightweight tasks** — used directly for simpler operations like Bedrock-based text localization and advisory formatting, keeping costs low and latency minimal; (2) **automatic fallback** — if Nova Pro hits a throttle or timeout, the system retries with Nova 2 Lite for a guaranteed response.
+Nova 2 Lite serves two roles: (1) **lightweight tasks** — used directly for simpler operations like Bedrock-based text localization and advisory formatting, keeping costs low and latency minimal; (2) **bidirectional fallback** — if Nova Pro hits a throttle or timeout, the system retries with Nova 2 Lite; conversely, if Nova 2 Lite fails, the system retries with Nova Pro. Either model can cover for the other, ensuring the farmer always gets a response.
 
 ### RAG with Bedrock Knowledge Base
 
@@ -419,7 +419,7 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 | **OTP Delivery** | OTP displayed on-screen (`demo_otp` in API response) instead of SMS/WhatsApp | TRAI DLT regulations require 2–4 weeks for Sender ID/template registration; WhatsApp Business API requires Meta verification + BSP onboarding — infeasible in hackathon timeline | Enable SNS SMS delivery via `ENABLE_DEMO_OTP=false` flag once DLT registration is approved |
 | **TTS Engine** | Amazon Polly (Hindi + English) + gTTS fallback for other languages | Polly supports only 2 of 13 target languages today; gTTS provides broader coverage with acceptable quality | Migrate to Amazon Polly as new Indic voices are released |
 | **Voice Input** | Web Speech API (primary) + Amazon Transcribe (fallback) | Browser-native recognition gives near-zero latency on Chrome/Edge; Transcribe covers Firefox/Safari | Unified Transcribe path as browser support matures |
-| **Foundation Model** | Nova Pro primary + Nova Lite fallback | Nova Pro excels at tool-use and reasoning; Nova Lite provides a cheaper safety net for high-traffic bursts | Evaluate Claude or Titan if multilingual tool-use quality needs improvement |
+| **Foundation Model** | Nova Pro primary + Nova 2 Lite secondary (bidirectional fallback) | Nova Pro excels at tool-use and reasoning; Nova 2 Lite handles lightweight tasks and provides a cheaper safety net. Each model falls back to the other on throttle/timeout — ensuring 100% availability | Evaluate Claude or Titan if multilingual tool-use quality needs improvement |
 | **Delivery Channel** | Mobile-optimised web app (PWA-ready) | No app store approvals; instant access via link; works on any smartphone browser | Wrap in Capacitor/TWA for store listing; add WhatsApp chatbot channel |
 | **Rate Limiting** | DynamoDB-based token counters | Avoids API Gateway usage-plan coupling; works within free-tier; per-user granularity | Move to Redis/ElastiCache if sub-millisecond enforcement is needed |
 
@@ -447,7 +447,7 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 - **No hardcoded secrets** — API keys in Secrets Manager; config injected via CloudFormation environment variables.
 
 ### System Design & Resilience
-- **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro → Nova 2 Lite → error card; Web Speech → Transcribe. Always returns something useful.
+- **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro ↔ Nova 2 Lite (bidirectional — each falls back to the other) → error card; Web Speech → Transcribe. Always returns something useful.
 - **Category-aware response caching** — SHA-256 hashed keys with domain-specific TTLs (weather = 1 h, schemes = 12 h) eliminate redundant Bedrock calls and save cost.
 - **Parallel tool execution** — `ThreadPoolExecutor` runs up to 5 tool invocations concurrently per chat turn, reducing multi-tool latency.
 - **Context window management** — sliding window (500 chars × 40 messages) keeps conversations efficient without token overflow.

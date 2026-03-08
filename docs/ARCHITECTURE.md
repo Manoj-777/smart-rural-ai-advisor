@@ -72,7 +72,7 @@
 
 | AWS Service | Role in System | Why This Service |
 |---|---|---|
-| **Amazon Bedrock (Nova Pro + Nova 2 Lite)** | Nova Pro: chat reasoning, tool-calling, crop image diagnosis. Nova 2 Lite: lightweight tasks (text localization, simple queries) + automatic fallback on Pro throttle/timeout | Managed GenAI — no model hosting, pay-per-use, native tool-use support |
+| **Amazon Bedrock (Nova Pro + Nova 2 Lite)** | Nova Pro: chat reasoning, tool-calling, crop image diagnosis. Nova 2 Lite: lightweight tasks (text localization, simple queries). Bidirectional fallback — each model falls back to the other on throttle/timeout | Managed GenAI — no model hosting, pay-per-use, native tool-use support |
 | **Bedrock Knowledge Base** | RAG retrieval over curated crop/farming documents | Grounded answers from verified data, reduces hallucination |
 | **Bedrock Guardrails** | Content filtering, topic gating, grounding checks | Enterprise-grade safety for farmer-facing AI |
 | **AWS Lambda** | 7 serverless functions + 1 inline health check | Zero idle cost, auto-scaling, Python 3.13 |
@@ -264,7 +264,7 @@ User clicks 🎤 → MediaRecorder API records audio
 | Model | ID | Role | When Used |
 |-------|-----|------|-----------|
 | **Amazon Nova Pro** | `apac.amazon.nova-pro-v1:0` | Primary reasoning, tool-calling, image diagnosis | Default for all requests |
-| **Amazon Nova 2 Lite** | `global.amazon.nova-2-lite-v1:0` | Lightweight tasks + fallback | Used directly for simpler operations (text localization, advisory formatting); also auto-fallback on Nova Pro throttle/timeout |
+| **Amazon Nova 2 Lite** | `global.amazon.nova-2-lite-v1:0` | Lightweight tasks + bidirectional fallback | Used directly for simpler operations (text localization, advisory formatting). Bidirectional fallback — Nova Pro falls back to Nova 2 Lite and vice versa on throttle/timeout, ensuring the farmer always gets a response |
 
 ### Tool-Use (Function Calling)
 
@@ -322,7 +322,7 @@ All API Gateway responses restrict `Access-Control-Allow-Origin` to the producti
 
 | Feature | Implementation |
 |---------|---------------|
-| **Model Fallback** | Nova Pro → Nova 2 Lite on throttle or timeout (automatic, bidirectional) |
+| **Model Fallback** | Nova Pro ↔ Nova 2 Lite — bidirectional: each model automatically falls back to the other on throttle or timeout, ensuring 100% model availability |
 | **Tool Timeouts** | 25s per tool execution, 29s API Gateway hard limit, 5s buffer |
 | **KB Retry** | Exponential backoff on throttle — 1s → 2s → 4s, max 3 attempts |
 | **TTS Failover** | Amazon Polly → gTTS fallback; exponential backoff on gTTS errors |
@@ -459,7 +459,7 @@ Every production system involves tradeoffs. We document ours transparently to sh
 | Decision | Rationale |
 |----------|----------|
 | **Nova Pro (general-purpose) + RAG** | Fine-tuning requires curated training datasets, compute budget, and iteration cycles. RAG with Bedrock Knowledge Base achieves grounded, domain-specific responses without fine-tuning overhead. |
-| **Nova 2 Lite for lightweight tasks + fallback** | Nova 2 Lite is used directly for simpler operations (text localization, advisory formatting) to save cost. It also serves as automatic fallback when Nova Pro is throttled/timed out — response quality may be slightly lower, but the farmer always gets an answer. |
+| **Nova 2 Lite for lightweight tasks + bidirectional fallback** | Nova 2 Lite is used directly for simpler operations (text localization, advisory formatting) to save cost. The two models serve as bidirectional fallbacks — Nova Pro falls back to Nova 2 Lite on throttle/timeout, and Nova 2 Lite falls back to Nova Pro. Either model can cover for the other, so the farmer always gets an answer. |
 
 ### Frontend: SPA vs Native App
 
@@ -544,7 +544,7 @@ Every production system involves tradeoffs. We document ours transparently to sh
 
 | Practice | Implementation |
 |----------|---------------|
-| **Graceful degradation** | Model fallback (Nova Pro → Nova 2 Lite), TTS fallback (Polly → gTTS → text-only), voice fallback (Web Speech → Transcribe). The system always returns something useful, even when a service is degraded. |
+| **Graceful degradation** | Model fallback (Nova Pro ↔ Nova 2 Lite — bidirectional, each falls back to the other), TTS fallback (Polly → gTTS → text-only), voice fallback (Web Speech → Transcribe). The system always returns something useful, even when a service is degraded. |
 | **Category-aware response caching** | SHA-256 hashed cache keys with domain-specific TTLs (weather = 1 h, schemes = 12 h) eliminate redundant Bedrock calls and significantly reduce cost. |
 | **Parallel tool execution** | `ThreadPoolExecutor` runs up to 5 tool invocations concurrently per chat turn, reducing multi-tool query latency. |
 | **Context window management** | Sliding window (500 chars × 40 messages) keeps conversations efficient without token overflow. Older messages are transparently truncated. |
