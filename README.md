@@ -120,7 +120,7 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
           │  REST API
           ▼
  ┌────────────────────┐
- │  Amazon API Gateway │  ── 9 routes, CORS-enabled, ap-south-1
+ │  Amazon API Gateway │  ── 11 routes, CORS-enabled, ap-south-1
  └────────┬───────────┘
           │
           ▼
@@ -175,12 +175,12 @@ Traditional information systems (static FAQs, IVR hotlines, PDFs) fail rural far
 | **Amazon Bedrock Knowledge Base** | RAG (Retrieval-Augmented Generation) over curated farming documents for crop advisories | Grounded answers from verified agricultural data instead of hallucinated responses |
 | **Amazon Bedrock Guardrails** | Content filtering, topic gating, grounding checks | Enterprise-grade safety for farmer-facing AI |
 | **AWS Lambda** | 7 serverless functions + 1 inline health check — all backend compute | Zero idle cost, auto-scaling, Python 3.13 runtime |
-| **Amazon API Gateway** | REST API with 9 routes, CORS, regional deployment | Managed API layer with throttling and monitoring |
+| **Amazon API Gateway** | REST API with 11 routes, CORS, regional deployment | Managed API layer with throttling and monitoring |
 | **Amazon DynamoDB** | Farmer profiles, chat session history, rate-limit counters, OTP codes | Serverless NoSQL — millisecond latency, free-tier friendly |
 | **Amazon S3** | Static frontend hosting, audio file storage, knowledge-base documents | Durable object storage integrated with CloudFront |
 | **Amazon CloudFront** | CDN for the React frontend — low-latency delivery across India | Edge locations in Mumbai, Chennai, Bangalore, Delhi |
 | **Amazon Translate** | Auto-detect language and translate between English and 13 Indian languages | Native support for Indian languages with auto-detection |
-| **Amazon Polly** | Text-to-speech for English and Hindi responses | Neural voices (Kajal for Hindi, Joanna for English) |
+| **Amazon Polly** | Text-to-speech for English and Hindi responses | Neural voice — Kajal (bilingual: Hindi + Indian English) |
 | **Amazon Transcribe** | Speech-to-text fallback for Firefox/Safari users in 12 Indian languages | Covers browsers where Web Speech API is unavailable |
 | **Amazon Cognito** | User authentication for farmer profile management | Managed auth with phone-number + PIN → JWT tokens; OTP displayed on-screen for prototype (no SMS) |
 | **AWS IAM** | Least-privilege policies for every Lambda function | Security best practice — each function only accesses what it needs |
@@ -196,7 +196,7 @@ We use **Amazon Nova Pro** via the **Amazon Bedrock Converse API** for:
 
 1. **Conversational reasoning** — The orchestrator sends the farmer's query along with tool definitions; Nova Pro decides which tools to call, interprets the results, and composes a natural-language advisory.
 
-2. **Tool-use (function calling)** — Nova Pro receives 6 tool schemas (weather, crop, pest, schemes, irrigation, profile) and autonomously decides which to invoke based on intent. The orchestrator executes the tool, feeds results back, and the model synthesises a final answer.
+2. **Tool-use (function calling)** — Nova Pro receives 5 tool schemas (weather, crop, pest, schemes, profile) and autonomously decides which to invoke based on intent. The orchestrator executes the tool, feeds results back, and the model synthesises a final answer.
 
 3. **Crop disease vision** — When a farmer uploads a photo, Nova Pro Vision analyses the image and returns a structured diagnosis (disease name, confidence, severity, treatment steps).
 
@@ -233,7 +233,7 @@ An optional Bedrock Guardrail layer provides:
 
 | # | Language | Script | Voice In | Voice Out |
 |---|---|---|---|---|
-| 1 | English | Latin | ✅ Web Speech | ✅ Amazon Polly |
+| 1 | English | Latin | ✅ Web Speech | ✅ Amazon Polly (Kajal) |
 | 2 | Hindi | Devanagari | ✅ Web Speech | ✅ Amazon Polly (Kajal) |
 | 3 | Tamil | Tamil | ✅ Web Speech / Transcribe | ✅ gTTS |
 | 4 | Telugu | Telugu | ✅ Web Speech / Transcribe | ✅ gTTS |
@@ -297,8 +297,8 @@ Switch to Telugu → entire UI and chat switch to Telugu with Telugu audio outpu
 | **Frontend** | React 18, Vite, React Router, React-Leaflet, DOMPurify, Marked |
 | **Backend** | Python 3.13, AWS Lambda (7 functions), boto3 |
 | **AI / Gen AI** | Amazon Bedrock (Nova Pro + Nova 2 Lite), Bedrock Knowledge Base, Bedrock Guardrails |
-| **API** | Amazon API Gateway (REST, 9 routes, CORS) |
-| **Database** | Amazon DynamoDB (farmer profiles, chat sessions, rate limits) |
+| **API** | Amazon API Gateway (REST, 11 routes, CORS) |
+| **Database** | Amazon DynamoDB (4 tables: farmer profiles, chat sessions, OTP codes, rate limits) |
 | **Storage** | Amazon S3 (audio, KB docs), Amazon CloudFront (CDN) |
 | **Translation** | Amazon Translate (13 Indian languages, auto-detect) |
 | **Voice** | Amazon Polly, gTTS, Web Speech API, Amazon Transcribe |
@@ -393,6 +393,7 @@ Optional CI helper: `buildspec.yml` is included for teams that want to run SAM b
 | `GET/PUT/DELETE` | `/profile/{farmerId}` | FarmerProfile | Farmer profile CRUD |
 | `POST` | `/otp/send` | FarmerProfile | Generate OTP (displayed on-screen for prototype) |
 | `POST` | `/otp/verify` | FarmerProfile | Verify OTP |
+| `POST` | `/pin/reset` | FarmerProfile | Reset farmer PIN |
 | `GET` | `/health` | HealthCheck (inline) | Stack health check |
 
 Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
@@ -436,7 +437,7 @@ Base URL: `https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/Prod`
 - **Least-privilege IAM** — every Lambda has a dedicated role scoped only to the resources it accesses.
 - **JWT authentication** — Cognito-issued tokens validated on every protected API route.
 - **Input sanitisation** — DOMPurify on the frontend; Bedrock Guardrails filter harmful/off-topic AI inputs.
-- **No hardcoded secrets** — all credentials live in environment variables injected by CloudFormation.
+- **No hardcoded secrets** — API keys in Secrets Manager; config injected via CloudFormation environment variables.
 
 ### System Design
 - **Graceful fallback chain** — Polly → gTTS → silent; Nova Pro → Nova Lite → error card; Web Speech → Transcribe.

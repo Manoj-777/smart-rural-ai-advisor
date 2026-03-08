@@ -71,7 +71,7 @@ India's farmers face a five-fold information crisis:
 | **Amazon DynamoDB** | Profiles, chat sessions, rate limits, OTP codes | Serverless NoSQL, millisecond latency |
 | **Amazon S3 + CloudFront** | Frontend hosting + CDN + audio storage | Low-latency delivery across India |
 | **Amazon Translate** | Auto-detect + translate across 13 Indian languages | Native Indian language support |
-| **Amazon Polly** | Neural TTS (English — Joanna, Hindi — Kajal) | High-quality speech output |
+| **Amazon Polly** | Neural TTS — Kajal (bilingual: Hindi + Indian English) | High-quality speech output |
 | **Amazon Transcribe** | Speech-to-text fallback (12 Indian languages) | Firefox/Safari voice support |
 | **Amazon Cognito** | Phone + PIN authentication → JWT tokens | Managed user pool; OTP displayed on-screen for prototype (see Tradeoffs below) |
 | **AWS IAM** | Least-privilege policies per Lambda | Security best practice |

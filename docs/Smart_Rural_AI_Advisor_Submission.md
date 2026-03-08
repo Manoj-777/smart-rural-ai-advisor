@@ -151,7 +151,7 @@ Traditional software (static FAQs, IVR hotlines, portals) cannot solve these gap
 
 ### Multilingual Voice I/O
 - **Voice input:** Web Speech API (Chrome/Edge — streaming, zero latency) + Amazon Transcribe (Firefox/Safari — batch fallback, 12 languages)
-- **Voice output:** Amazon Polly (Hindi — Kajal neural voice, English — Joanna neural voice) + gTTS (all 13 languages)
+- **Voice output:** Amazon Polly (Kajal neural voice — bilingual: Hindi + Indian English) + gTTS (all 13 languages)
 - **Translation:** Amazon Translate with auto-detection, chunking for long responses (9000-byte chunks), retry on excessive Latin script
 
 ---
@@ -212,7 +212,7 @@ Farmer (mobile/desktop, 13 languages, voice/text)
 | Table | Key | Purpose |
 |-------|-----|---------|
 | `farmer_profiles` | farmer_id | Name, state, district, crops, soil, land size, language |
-| `chat_sessions` | session_id + farmer_id | Chat messages, session context (30-day TTL) |
+| `chat_sessions` | session_id + timestamp | Chat messages, session context, farmer_id as attribute (30-day TTL) |
 | `otp_codes` | phone_number | OTP verification (short-lived TTL) |
 | `rate_limits` | rate_key + window | Hit count per time window (auto-cleanup TTL) |
 
@@ -240,7 +240,7 @@ Farmer (mobile/desktop, 13 languages, voice/text)
 
 | # | Language | Voice In | Voice Out |
 |---|----------|----------|-----------|
-| 1 | English | Web Speech API | Amazon Polly (Joanna) |
+| 1 | English | Web Speech API | Amazon Polly (Kajal) |
 | 2 | Hindi | Web Speech API | Amazon Polly (Kajal) |
 | 3 | Tamil | Web Speech / Transcribe | gTTS |
 | 4 | Telugu | Web Speech / Transcribe | gTTS |

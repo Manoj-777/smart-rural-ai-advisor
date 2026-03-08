@@ -81,7 +81,7 @@
 | **Amazon S3** | Frontend hosting, TTS audio files, KB documents | Durable object storage integrated with CloudFront |
 | **Amazon CloudFront** | CDN for React SPA — low-latency delivery across India | Edge locations in Mumbai, Chennai, Bangalore, Delhi |
 | **Amazon Translate** | Auto-detect + translate between English and 13 Indian languages | Native Indian language support with auto-detection |
-| **Amazon Polly** | Neural TTS for English (Joanna) and Hindi (Kajal) | High-quality neural voices |
+| **Amazon Polly** | Neural TTS for Hindi + Indian English (Kajal — bilingual neural voice) | High-quality neural voices |
 | **gTTS** | TTS for all 13 languages (Polly fallback) | Free, covers all Indian languages Polly doesn't |
 | **Amazon Transcribe** | Speech-to-text fallback for Firefox/Safari (12 Indian languages) | Covers browsers where Web Speech API is unavailable |
 | **Amazon Cognito** | Farmer authentication via phone + PIN | Managed user pool with JWT token issuance; OTP displayed on-screen in prototype (see [Tradeoffs](#15-design-tradeoffs--rationale)) |
@@ -122,7 +122,7 @@
 | Table | Partition Key | Sort Key | Purpose | TTL |
 |-------|--------------|----------|---------|-----|
 | `farmer_profiles` | `farmer_id` | — | Farmer name, state, district, crops, soil type, land size, language | — |
-| `chat_sessions` | `session_id` | `farmer_id` | Chat messages, session context, preview text | 30 days (`ttl`) |
+| `chat_sessions` | `session_id` | `timestamp` | Chat messages, session context, farmer_id as attribute | 30 days (`ttl`) |
 | `otp_codes` | `phone_number` | — | OTP code, creation/expiry timestamps | Short-lived (`ttl`) |
 | `rate_limits` | `rate_key` | `window` | Hit count per time window | Auto-cleanup (`ttl_epoch`) |
 
@@ -442,7 +442,7 @@ Every production system involves tradeoffs. We document ours transparently to sh
 
 | Decision | Rationale |
 |----------|----------|
-| **Polly for Hindi + English only** | Amazon Polly supports only 2 Indian languages with neural voices (Hindi — Kajal, English — Joanna). |
+| **Polly for Hindi + English only** | Amazon Polly supports only 2 Indian languages with neural voices. We use Kajal — a bilingual neural voice covering both Hindi and Indian English. |
 | **gTTS for all 13 languages** | Google Translate TTS covers all 13 Indian languages for free. In production, this would be replaced by Amazon Polly as it adds more Indian language support, or by a dedicated Indic TTS service. |
 | **Dual fallback** | If gTTS fails (rate limit, network), the system falls back to Polly (Hindi/English) or returns text-only — never blocks the response. |
 
